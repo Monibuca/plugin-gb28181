@@ -28,6 +28,7 @@ var config = struct {
 
 type DeviceInfo struct {
 	sip.User
+	Self sip.User
 	Status     string
 	LastUpdate time.Time
 }
@@ -36,13 +37,21 @@ type DevicePublisher struct {
 	pluginrtp.RTP
 	*fsm.FSM
 	conn *net.UDPConn
+	addr *net.UDPAddr
 	DeviceInfo
 }
 
 func NewDevicePublisher(conn *net.UDPConn, header sip.Header) {
 	var result DevicePublisher
+	result.addr,_=net.ResolveUDPAddr("udp",header.From.URI.Domain)
 	result.conn = conn
 	result.User = header.From
+	uri,_:=sip.NewURI(conn.LocalAddr().String())
+	result.Self = sip.User{
+		config.SipID,
+		uri,
+		sip.Args{},
+	}
 	Devices.Store(result.User.URI.String(), &result)
 	result.FSM = fsm.NewFSM(sip.MethodRegister, []fsm.EventDesc{
 		{"invite", []string{sip.MethodRegister}, sip.MethodInvite},
@@ -52,7 +61,7 @@ func NewDevicePublisher(conn *net.UDPConn, header sip.Header) {
 		"ok":     result.onOK,
 	})
 	if config.AutoInvite {
-		result.Event("invite", &header)
+		result.Event("invite")
 	}
 }
 var  r = rand.New(rand.NewSource(time.Now().Unix()))
@@ -66,48 +75,46 @@ func GenerateNonce(length int) string{
 }
 func (p *DevicePublisher) invite(e *fsm.Event) {
 	p.Status = e.Dst
-	header := e.Args[0].(*sip.Header)
 	var invite sip.Message
 	invite.IsRequest = true
 	invite.Header = sip.Header{
-		From:   header.To,
-		To:     header.From,
+		From:   p.Self,
+		To:     p.User,
 		CSeq:   sip.CSeq{1, sip.MethodInvite},
-		CallID: header.To.URI.String(),
+		CallID: p.Self.URI.String(),
 		ContentType: "application/sdp",
 	}
-	invite.Header.Via.Add(fmt.Sprintf("SIP/2.0/UDP %s;branch=z9hG4bK%s,",header.To.URI.Domain,GenerateNonce(29)))
+	invite.Header.Via.Add(fmt.Sprintf("SIP/2.0/UDP %s;branch=z9hG4bK%s,",p.Self.URI.Domain,GenerateNonce(29)))
 	invite.Header.MaxForwards.Reset()
-	invite.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodInvite, header.To.URI.String(), "SIP/2.0"))
+	invite.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodInvite, p.Self.URI.String(), "SIP/2.0"))
 	invite.Body = &sdp.Message{
 		Version:     "0",
-		Basic:       sdp.Basic{p.User.Username(), "0", "0", "IN", "IP4", header.To.URI.Domain},
+		Basic:       sdp.Basic{p.User.Username(), "0", "0", "IN", "IP4", p.Self.URI.Domain},
 		SessionName: "Play",
-		Connection:  &sdp.Connection{"IN", "IP4", header.To.URI.Domain},
+		Connection:  &sdp.Connection{"IN", "IP4", p.Self.URI.Domain},
 		Media: []sdp.Media{
 			{Info: sdp.MediaInfo{"video", strconv.Itoa(config.MediaPort), "RTP/AVP", "96 98 97"}, UnsupportLine: []string{
 				"a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000",
 			}},
 		},
 	}
-	p.conn.Write([]byte(invite.String()))
+	p.conn.WriteToUDP([]byte(invite.String()),p.addr)
 }
 func (p *DevicePublisher) onOK(e *fsm.Event) {
 	p.Status = e.Dst
-	header := e.Args[0].(*sip.Header)
-	if p.Publish(header.To.URI.String()) {
+	if p.Publish(p.User.URI.String()) {
 		var ack sip.Message
 		ack.IsRequest = true
-		ack.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodAck, header.From.URI.String(), "SIP/2.0"))
+		ack.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodAck, p.Self.URI.String(), "SIP/2.0"))
 		ack.Header = sip.Header{
-			From:   header.From,
-			To:     header.To,
+			From:  p.Self,
+			To:     p.User,
 			CSeq:   sip.CSeq{1, sip.MethodAck},
-			CallID: header.To.URI.String(),
+			CallID: p.Self.URI.String(),
 		}
-		ack.Header.Via.Add(fmt.Sprintf("SIP/2.0/UDP %s;branch=z9hG4bK%s,",header.To.URI.Domain,GenerateNonce(29)))
+		ack.Header.Via.Add(fmt.Sprintf("SIP/2.0/UDP %s;branch=z9hG4bK%s,",p.Self.URI.Domain,GenerateNonce(29)))
 		ack.Header.MaxForwards.Reset()
-		p.conn.Write([]byte(ack.String()))
+		p.conn.WriteToUDP([]byte(ack.String()),p.addr)
 	} else {
 
 	}
@@ -161,6 +168,7 @@ func run() {
 		}
 		var target *DevicePublisher
 		if sipMsg.IsRequest {
+			targetUdp,_:=net.ResolveUDPAddr("udp",sipMsg.Header.From.URI.Domain)
 			if d, ok := Devices.Load(sipMsg.Header.From.URI.String()); ok {
 				target = d.(*DevicePublisher)
 				target.LastUpdate = time.Now()
@@ -171,14 +179,14 @@ func run() {
 					res := sip.NewResponse(sip.StatusUnauthorized, &sipMsg)
 					h := &res.Header
 					h.WWWAuthenticate = "Digest realm=\"3402000000\",nonce=\"1677f194104d46aea6c9f8aebe507017\""
-					listener.Write([]byte(res.String()))
+					listener.WriteToUDP([]byte(res.String()),targetUdp)
 				} else {
 					res := sip.NewResponse(sip.StatusOK, &sipMsg)
-					listener.Write([]byte(res.String()))
+					listener.WriteToUDP([]byte(res.String()),targetUdp)
 					NewDevicePublisher(listener, sipMsg.Header)
 				}
 			default:
-				listener.Write([]byte(sip.NewResponse(sip.StatusOK, &sipMsg).String()))
+				listener.WriteToUDP([]byte(sip.NewResponse(sip.StatusOK, &sipMsg).String()),targetUdp)
 				if target == nil{
 					NewDevicePublisher(listener, sipMsg.Header)
 				}
@@ -188,7 +196,7 @@ func run() {
 				target = d.(*DevicePublisher)
 				switch sipMsg.ResponseLine.StatusCode {
 				case 200:
-					target.Event("ok", &sipMsg.Header)
+					target.Event("ok")
 				}
 			}
 		}
