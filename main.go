@@ -41,17 +41,18 @@ type DevicePublisher struct {
 	DeviceInfo
 }
 
-func NewDevicePublisher(conn *net.UDPConn, header sip.Header) {
+func NewDevicePublisher(conn *net.UDPConn,msg *sip.Message) {
+	header:=msg.Header
 	var result DevicePublisher
 	result.addr,_=net.ResolveUDPAddr("udp",header.From.URI.Domain)
 	result.conn = conn
 	result.User = header.From
-	uri,_:=sip.NewURI(conn.LocalAddr().String())
 	result.Self = sip.User{
-		config.SipID,
-		uri,
+		"",
+		msg.RequestLine.RequestURI,
 		sip.Args{},
 	}
+	Println(result.Self.String())
 	Devices.Store(result.User.URI.String(), &result)
 	result.FSM = fsm.NewFSM(sip.MethodRegister, []fsm.EventDesc{
 		{"invite", []string{sip.MethodRegister}, sip.MethodInvite},
@@ -86,7 +87,7 @@ func (p *DevicePublisher) invite(e *fsm.Event) {
 	}
 	invite.Header.Via.Add(fmt.Sprintf("SIP/2.0/UDP %s;branch=z9hG4bK%s,",p.Self.URI.Domain,GenerateNonce(29)))
 	invite.Header.MaxForwards.Reset()
-	invite.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodInvite, p.Self.URI.String(), "SIP/2.0"))
+	invite.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodInvite, p.User.URI.String(), "SIP/2.0"))
 	invite.Body = &sdp.Message{
 		Version:     "0",
 		Basic:       sdp.Basic{p.User.Username(), "0", "0", "IN", "IP4", p.Self.URI.Domain},
@@ -105,7 +106,7 @@ func (p *DevicePublisher) onOK(e *fsm.Event) {
 	if p.Publish(p.User.URI.String()) {
 		var ack sip.Message
 		ack.IsRequest = true
-		ack.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodAck, p.Self.URI.String(), "SIP/2.0"))
+		ack.RequestLine, _ = sip.NewRequestLine(fmt.Sprintf("%s %s %s", sip.MethodAck, p.User.URI.String(), "SIP/2.0"))
 		ack.Header = sip.Header{
 			From:  p.Self,
 			To:     p.User,
@@ -183,12 +184,12 @@ func run() {
 				} else {
 					res := sip.NewResponse(sip.StatusOK, &sipMsg)
 					listener.WriteToUDP([]byte(res.String()),targetUdp)
-					NewDevicePublisher(listener, sipMsg.Header)
+					NewDevicePublisher(listener, &sipMsg)
 				}
 			default:
 				listener.WriteToUDP([]byte(sip.NewResponse(sip.StatusOK, &sipMsg).String()),targetUdp)
 				if target == nil{
-					NewDevicePublisher(listener, sipMsg.Header)
+					NewDevicePublisher(listener, &sipMsg)
 				}
 			}
 		} else {
