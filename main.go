@@ -5,9 +5,10 @@ import (
 	"gitee.com/xiaochengtech/sdp"
 	"gitee.com/xiaochengtech/sip"
 	. "github.com/Monibuca/engine/v2"
+	"github.com/Monibuca/plugin-gb28181/transaction"
+	"github.com/Monibuca/plugin-gb28181/tu"
 	pluginrtp "github.com/Monibuca/plugin-rtp"
 	"math/rand"
-
 	//"github.com/max-min/streams/packet"
 	"github.com/looplab/fsm"
 	"log"
@@ -152,54 +153,80 @@ func resolvePS(){
 }
 
 func run() {
+
 	go resolvePS()
-	addr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
-	if err != nil {
-		log.Fatal(err)
+
+	config := &transaction.Config{
+		SipIP:      "192.168.1.120",
+		SipPort:    5060,
+		SipNetwork: "UDP",
+		Serial:     "34020000002000000001",
+		Realm:      "3402000000",
+		AckTimeout: 10,
+
+		RegisterValidity:  3600,
+		RegisterInterval:  60,
+		HeartbeatInterval: 60,
+		HeartbeatRetry:    3,
+
+		AudioEnable:      true,
+		WaitKeyFrame:     true,
+		MediaPortMin:     58200,
+		MediaPortMax:     58300,
+		MediaIdleTimeout: 30,
 	}
-	listener, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		sipMsg, err := sip.NewMessage(listener)
-		if err != nil {
-			Print(err)
-			continue
-		}
-		var target *DevicePublisher
-		if sipMsg.IsRequest {
-			targetUdp,_:=net.ResolveUDPAddr("udp",sipMsg.Header.From.URI.Domain)
-			if d, ok := Devices.Load(sipMsg.Header.From.URI.String()); ok {
-				target = d.(*DevicePublisher)
-				target.LastUpdate = time.Now()
-			}
-			switch sipMsg.RequestLine.Method {
-			case sip.MethodRegister:
-				if sipMsg.Header.Authorization == "" {
-					res := sip.NewResponse(sip.StatusUnauthorized, &sipMsg)
-					h := &res.Header
-					h.WWWAuthenticate = "Digest realm=\"3402000000\",nonce=\"1677f194104d46aea6c9f8aebe507017\""
-					listener.WriteToUDP([]byte(res.String()),targetUdp)
-				} else {
-					res := sip.NewResponse(sip.StatusOK, &sipMsg)
-					listener.WriteToUDP([]byte(res.String()),targetUdp)
-					NewDevicePublisher(listener, &sipMsg)
-				}
-			default:
-				listener.WriteToUDP([]byte(sip.NewResponse(sip.StatusOK, &sipMsg).String()),targetUdp)
-				if target == nil{
-					NewDevicePublisher(listener, &sipMsg)
-				}
-			}
-		} else {
-			if d, ok := Devices.Load(sipMsg.Header.To.URI.String()); ok {
-				target = d.(*DevicePublisher)
-				switch sipMsg.ResponseLine.StatusCode {
-				case 200:
-					target.Event("ok")
-				}
-			}
-		}
-	}
+	s := tu.NewServer(config)
+
+	s.Start()
+
+
+	//addr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//listener, err := net.ListenUDP("udp", addr)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//for {
+	//	sipMsg, err := sip.NewMessage(listener)
+	//	if err != nil {
+	//		Print(err)
+	//		continue
+	//	}
+	//	var target *DevicePublisher
+	//	if sipMsg.IsRequest {
+	//		targetUdp,_:=net.ResolveUDPAddr("udp",sipMsg.Header.From.URI.Domain)
+	//		if d, ok := Devices.Load(sipMsg.Header.From.URI.String()); ok {
+	//			target = d.(*DevicePublisher)
+	//			target.LastUpdate = time.Now()
+	//		}
+	//		switch sipMsg.RequestLine.Method {
+	//		case sip.MethodRegister:
+	//			if sipMsg.Header.Authorization == "" {
+	//				res := sip.NewResponse(sip.StatusUnauthorized, &sipMsg)
+	//				h := &res.Header
+	//				h.WWWAuthenticate = "Digest realm=\"3402000000\",nonce=\"1677f194104d46aea6c9f8aebe507017\""
+	//				listener.WriteToUDP([]byte(res.String()),targetUdp)
+	//			} else {
+	//				res := sip.NewResponse(sip.StatusOK, &sipMsg)
+	//				listener.WriteToUDP([]byte(res.String()),targetUdp)
+	//				NewDevicePublisher(listener, &sipMsg)
+	//			}
+	//		default:
+	//			listener.WriteToUDP([]byte(sip.NewResponse(sip.StatusOK, &sipMsg).String()),targetUdp)
+	//			if target == nil{
+	//				NewDevicePublisher(listener, &sipMsg)
+	//			}
+	//		}
+	//	} else {
+	//		if d, ok := Devices.Load(sipMsg.Header.To.URI.String()); ok {
+	//			target = d.(*DevicePublisher)
+	//			switch sipMsg.ResponseLine.StatusCode {
+	//			case 200:
+	//				target.Event("ok")
+	//			}
+	//		}
+	//	}
+	//}
 }
