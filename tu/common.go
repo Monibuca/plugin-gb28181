@@ -64,7 +64,19 @@ func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, user
 	}
 	return msg
 }
-
+func BuildResponse(msg *sip.Message)*sip.Message{
+	response:=sip.Message{
+		Mode:  sip.SIP_MESSAGE_RESPONSE,
+		From: msg.From,
+		To: msg.To,
+		CallID: msg.CallID,
+		CSeq: msg.CSeq,
+Via:msg.Via,
+MaxForwards: msg.MaxForwards,
+	}
+	response.StartLine
+	return &response
+}
 //z9hG4bK + 10个随机数字
 func randBranch() string {
 	return fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8))

@@ -5,10 +5,12 @@ import (
 	"gitee.com/xiaochengtech/sdp"
 	"gitee.com/xiaochengtech/sip"
 	. "github.com/Monibuca/engine/v2"
+	"github.com/Monibuca/engine/v2/util"
 	"github.com/Monibuca/plugin-gb28181/transaction"
-	"github.com/Monibuca/plugin-gb28181/tu"
 	pluginrtp "github.com/Monibuca/plugin-rtp"
 	"math/rand"
+	"net/http"
+
 	//"github.com/max-min/streams/packet"
 	"github.com/looplab/fsm"
 	"log"
@@ -20,12 +22,13 @@ import (
 
 var Devices sync.Map
 var config = struct {
-	SipID      string
+	Serial      string
+	Realm string
 	ListenAddr string
 	Expires    int
 	AutoInvite bool
 	MediaPort int
-}{"34020000002000000001", ":5060", 3600, true,6000}
+}{"34020000002000000001", "3402000000","127.0.0.1:5060", 3600, true,6000}
 
 type DeviceInfo struct {
 	sip.User
@@ -153,18 +156,21 @@ func resolvePS(){
 }
 
 func run() {
-
+	ipAddr,err:=net.ResolveUDPAddr("",config.ListenAddr)
+	if err!=nil{
+		log.Fatal(err)
+	}
 	go resolvePS()
 
 	config := &transaction.Config{
-		SipIP:      "192.168.1.120",
-		SipPort:    5060,
+		SipIP:      ipAddr.IP.String(),
+		SipPort:    uint16(ipAddr.Port),
 		SipNetwork: "UDP",
-		Serial:     "34020000002000000001",
-		Realm:      "3402000000",
+		Serial:     config.Serial,
+		Realm:      config.Realm,
 		AckTimeout: 10,
 
-		RegisterValidity:  3600,
+		RegisterValidity:  config.Expires,
 		RegisterInterval:  60,
 		HeartbeatInterval: 60,
 		HeartbeatRetry:    3,
@@ -175,11 +181,13 @@ func run() {
 		MediaPortMax:     58300,
 		MediaIdleTimeout: 30,
 	}
-	s := tu.NewServer(config)
+	s := transaction.NewCore(config)
 
 	s.Start()
+	http.HandleFunc("gb28181/list", func(w http.ResponseWriter, r *http.Request) {
+		sse:=util.NewSSE(w,r.Context())
 
-
+	})
 	//addr, err := net.ResolveUDPAddr("udp", config.ListenAddr)
 	//if err != nil {
 	//	log.Fatal(err)

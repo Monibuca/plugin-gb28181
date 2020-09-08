@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
+	"github.com/Monibuca/plugin-gb28181/tu"
 	"github.com/Monibuca/plugin-gb28181/utils"
 	"os"
 	"sync"
@@ -33,21 +34,20 @@ func NewCore(config *Config) *Core {
 	core := &Core{
 		handlers:     make(map[State]map[Event]Handler),
 		transactions: make(map[string]*Transaction),
-		mutex:        sync.Mutex{},
 		removeTa:     make(chan string, 10),
 		config:       config,
-		tp:           transport.NewUDPClient(config.SipIP, config.SipPort),
+		ctx: context.Background(),
 	}
-
-	//可以放一些全局参数在ctx
-	core.ctx = context.Background()
-
+	if config.SipNetwork == "TCP" {
+		core.tp = transport.NewTCPServer(config.SipPort,true)
+	} else {
+	 	core.tp = transport.NewUDPServer(config.SipPort)
+	}
 	//填充fsm
 	core.addICTHandler()
 	core.addISTHandler()
 	core.addNICTHandler()
 	core.addNISTHandler()
-
 	return core
 }
 
@@ -317,21 +317,21 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			}
 			ta = c.initTransaction(c.ctx, e)
 			//as uas
-			if msg.GetMethod() == sip.INVITE {
+			switch msg.GetMethod() {
+			case sip.INVITE:
 				ta.typo = FSM_IST
 				ta.state = IST_PRE_PROCEEDING
-			} else {
-				ta.typo = FSM_NIST
-				ta.state = NIST_PRE_TRYING
-			}
-
-			//构建transaction之后
-			if msg.GetMethod() == sip.CANCEL {
+			case sip.CANCEL:
 				//TODO:CANCEL处理
 				/* special handling for CANCEL */
 				/* in the new spec, if the CANCEL has a Via branch, then it
 				is the same as the one in the original INVITE */
 				return
+			case sip.REGISTER:
+				ta.typo = FSM_NIST
+				ta.state = NIST_PRE_TRYING
+				response:=tu.BuildResponse(msg)
+				c.SendMessage(response)
 			}
 			c.AddTransaction(ta)
 		} else {

@@ -16,7 +16,6 @@ type Server struct {
 func NewServer(config *transaction.Config) *Server {
 	return &Server{
 		Core:      transaction.NewCore(config),
-		registers: sync.Map{},
 	}
 }
 
