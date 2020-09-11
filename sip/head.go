@@ -440,7 +440,23 @@ type URI struct {
 	params  map[string]string // include branch/maddr/received/ttl/rport
 	headers map[string]string // include branch/maddr/received/ttl/rport
 }
-
+func (u *URI) Host() string {
+	return u.host
+}
+func (u *URI) IP() string {
+	t:=strings.Split(u.host,"@")
+	if len(t) == 1 {
+		return strings.Split(t[0],":")[0]
+	}
+	return strings.Split(t[1],":")[0]
+}
+func (u *URI) Port() string {
+	t:=strings.Split(u.host,"@")
+	if len(t) == 1 {
+		return strings.Split(t[0],":")[1]
+	}
+	return strings.Split(t[1],":")[1]
+}
 func (u *URI) String() string {
 	if u.scheme == "" {
 		u.scheme = "sip"

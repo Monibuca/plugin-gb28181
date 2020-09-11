@@ -82,7 +82,7 @@ func RunClient() {
 	//TODO：先发起注册
 	//TODO:build sip message
 	msg := BuildMessageRequest("", "", "", "", "", "",
-		0, 0, 0)
+		0, 0, 0,"")
 	resp := c.SendMessage(msg)
 	if resp.Code != 0 {
 		fmt.Println("request failed")

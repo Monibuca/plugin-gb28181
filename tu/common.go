@@ -20,7 +20,7 @@ expires: 过期时间
 cseq：消息序列号，当前对话递增
 */
 //构建消息：以客户端（可能是IPC，也可能是SIP Server）的角度
-func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, username string, srcIP string, srcPort uint16, expires, cseq int) *sip.Message {
+func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, username , srcIP string, srcPort uint16, expires, cseq int,body string) *sip.Message {
 	server := fmt.Sprintf("%s@%s", sipSerial, sipRealm)
 	client := fmt.Sprintf("%s@%s", username, sipRealm)
 
@@ -62,21 +62,13 @@ func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, user
 	msg.Contact = &sip.Contact{
 		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", username, srcIP, srcPort)),
 	}
+	if len(body)>0{
+		msg.ContentLength = len(body)
+		msg.Body = body
+	}
 	return msg
 }
-func BuildResponse(msg *sip.Message)*sip.Message{
-	response:=sip.Message{
-		Mode:  sip.SIP_MESSAGE_RESPONSE,
-		From: msg.From,
-		To: msg.To,
-		CallID: msg.CallID,
-		CSeq: msg.CSeq,
-Via:msg.Via,
-MaxForwards: msg.MaxForwards,
-	}
-	response.StartLine
-	return &response
-}
+
 //z9hG4bK + 10个随机数字
 func randBranch() string {
 	return fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8))

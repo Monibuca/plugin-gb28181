@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
-	"github.com/Monibuca/plugin-gb28181/tu"
 	"github.com/Monibuca/plugin-gb28181/utils"
 	"os"
 	"sync"
@@ -22,8 +21,14 @@ type Core struct {
 	removeTa     chan string                 //要删除transaction的时候，通过chan传递tid
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
+	Devices      sync.Map
 }
-
+type Device struct {
+	ID string
+	RegisterTime time.Time
+	UpdateTime time.Time
+	Status string
+}
 //初始化一个 Core，需要能响应请求，也要能发起请求
 //client 发起请求
 //server 响应请求
@@ -110,7 +115,7 @@ func (c *Core) initTransaction(ctx context.Context, obj *EventObj) *Transaction 
 	ta.callID = m.CallID
 	ta.cseq = m.CSeq
 	ta.origRequest = m
-
+	go ta.Run()
 	return ta
 }
 
@@ -311,13 +316,26 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	ta, ok := c.transactions[e.tid]
 	if !ok {
 		if msg.IsRequest() {
-			if msg.GetMethod() == sip.ACK {
+			switch msg.GetMethod(){
+				case sip.ACK:
 				//TODO:this should be a ACK for 2xx (but could be a late ACK!)
 				return
+
 			}
 			ta = c.initTransaction(c.ctx, e)
 			//as uas
 			switch msg.GetMethod() {
+			case sip.REGISTER:
+				ta.typo = FSM_NIST
+				ta.state = NIST_PROCEEDING
+				c.Devices.Store(msg.From.Uri.Host(), &Device{
+					ID:msg.From.Uri.Host(),
+					RegisterTime: time.Now(),
+					UpdateTime: time.Now(),
+					Status: string(sip.REGISTER),
+				})
+				e = c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+				//c.SendMessage(msg.BuildResponse(200))
 			case sip.INVITE:
 				ta.typo = FSM_IST
 				ta.state = IST_PRE_PROCEEDING
@@ -327,11 +345,6 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				/* in the new spec, if the CANCEL has a Via branch, then it
 				is the same as the one in the original INVITE */
 				return
-			case sip.REGISTER:
-				ta.typo = FSM_NIST
-				ta.state = NIST_PRE_TRYING
-				response:=tu.BuildResponse(msg)
-				c.SendMessage(response)
 			}
 			c.AddTransaction(ta)
 		} else {
@@ -344,11 +357,34 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			if msg.GetStatusCode() < 200 || msg.GetStatusCode() > 299 {
 				//非成功的响应
 				return nil
+			} else {
+				return nil
 			}
-
+//			ta.response<-&Response{
+//Code: msg.GetStatusCode(),
+//Data: msg,
+//Message: msg.GetReason(),
+//			}
 		}
 	}
-
+	switch msg.GetMethod() {
+	case sip.MESSAGE:
+		if v,ok:=c.Devices.Load(msg.From.Uri.Host());ok{
+			if v.(*Device).Status == string(sip.REGISTER) {
+				v.(*Device).Status = "ONLINE"
+				go c.Invite(msg)
+			}
+			v.(*Device).UpdateTime = time.Now()
+		}else{
+			c.Devices.Store(msg.From.Uri.Host(), &Device{
+				ID:msg.From.Uri.Host(),
+				RegisterTime: time.Now(),
+				UpdateTime: time.Now(),
+				Status: string(sip.REGISTER),
+			})
+		}
+		return
+	}
 	//把event推到transaction
 	ta.event <- e
 
@@ -356,4 +392,51 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//通过tag匹配到call和dialog
 	//处理是否要重传ack
 	return
+}
+func (c *Core) Invite(msg *sip.Message) {
+	sdp:=fmt.Sprintf(`v=0
+o=%s 0 0 IN IP4 %s
+s=Play
+c=IN IP4 %s
+t=0 0
+m=video %d RTP/AVP 96 98 97
+a=recvonly
+a=rtpmap:96 PS/90000
+a=rtpmap:97 MPEG4/90000
+a=rtpmap:98 H264/90000`,c.config.Serial,c.config.MediaIP,c.config.MediaIP,c.config.MediaPort)
+	invite := sip.Message{
+		Mode:          sip.SIP_MESSAGE_REQUEST,
+		MaxForwards:   70,
+		UserAgent:     "Monibuca",
+		Expires:       3600,
+		StartLine: &sip.StartLine{
+			Method: sip.INVITE,
+			Uri: msg.From.Uri,
+		},
+		Via: &sip.Via{
+			Transport: "UDP",
+			Host: msg.From.Uri.IP(),
+			Port: msg.From.Uri.Port(),
+			Params: map[string]string{
+				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
+				"rport":  "-1", //only key,no-value
+			},
+		},
+		From: msg.To,
+		To:msg.From,
+		CSeq: &sip.CSeq{
+			ID:1,
+			Method: sip.INVITE,
+		},
+		CallID :utils.RandNumString(8),
+		ContentType: "application/sdp",
+		Contact:&sip.Contact{
+			Nickname: c.config.Serial,
+			Uri: sip.NewURI(fmt.Sprintf("%s:%d",c.config.MediaIP,c.config.MediaPort)),
+		},
+		Body: sdp,
+		ContentLength: len(sdp),
+	}
+	response:=c.SendMessage(&invite)
+	print(response.Code)
 }

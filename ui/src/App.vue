@@ -9,7 +9,6 @@
         <td>
           <StartTime :value="item.UpdateTime"></StartTime>
         </td>
-        <td>{{item.IP}}</td>
         <td>{{item.Status}}</td>
         <td>
           <mu-button flat @click="preview(item)">预览</mu-button>
@@ -24,7 +23,7 @@ export default {
     return {
       Devices:[],
       columns:Object.freeze([
-          "设备号","注册时间","更新时间","IP","状态"
+          "设备号","注册时间","更新时间","状态","操作"
       ].map(title=>({title})))
     }
   },
