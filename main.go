@@ -1,16 +1,14 @@
 package gb28181
 
 import (
-	"fmt"
 	. "github.com/Monibuca/engine/v2"
 	"github.com/Monibuca/engine/v2/util"
 	"github.com/Monibuca/plugin-gb28181/transaction"
-	"net/http"
-	"time"
-
 	"log"
 	"net"
+	"net/http"
 	"sync"
+	"time"
 )
 
 var Devices sync.Map
@@ -31,37 +29,12 @@ func init() {
 		Run:    run,
 	})
 }
-func resolvePS() {
-	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", config.MediaPort))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if listener, err := net.ListenTCP("tcp", addr); err == nil {
-		for {
-			l, err := listener.AcceptTCP()
-			if err != nil {
-				log.Fatal(err)
-				return
-			}
-			//parser:=packet.NewRtpParsePacket()
-			go func() {
-				b := make([]byte, 1024)
-				i,err:=l.Read(b)
-				println(i,err)
-			}()
-		}
-	} else {
-		log.Fatal(err)
-	}
-}
 
 func run() {
 	ipAddr, err := net.ResolveUDPAddr("", config.ListenAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	go resolvePS()
-
 	config := &transaction.Config{
 		SipIP:      ipAddr.IP.String(),
 		SipPort:    uint16(ipAddr.Port),
@@ -83,6 +56,7 @@ func run() {
 		MediaIdleTimeout: 30,
 	}
 	s := transaction.NewCore(config)
+	s.OnInvite = onPublish
 	http.HandleFunc("/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
 		sse := util.NewSSE(w, r.Context())
 		for {

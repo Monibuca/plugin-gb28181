@@ -6,6 +6,7 @@ import (
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
 	"github.com/Monibuca/plugin-gb28181/utils"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -22,13 +23,15 @@ type Core struct {
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
 	Devices      sync.Map
+	OnInvite func(*Device) int
 }
 type Device struct {
-	ID string
+	ID           string
 	RegisterTime time.Time
-	UpdateTime time.Time
-	Status string
+	UpdateTime   time.Time
+	Status       string
 }
+
 //初始化一个 Core，需要能响应请求，也要能发起请求
 //client 发起请求
 //server 响应请求
@@ -41,12 +44,12 @@ func NewCore(config *Config) *Core {
 		transactions: make(map[string]*Transaction),
 		removeTa:     make(chan string, 10),
 		config:       config,
-		ctx: context.Background(),
+		ctx:          context.Background(),
 	}
 	if config.SipNetwork == "TCP" {
-		core.tp = transport.NewTCPServer(config.SipPort,true)
+		core.tp = transport.NewTCPServer(config.SipPort, true)
 	} else {
-	 	core.tp = transport.NewUDPServer(config.SipPort)
+		core.tp = transport.NewUDPServer(config.SipPort)
 	}
 	//填充fsm
 	core.addICTHandler()
@@ -314,25 +317,26 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//TODO：CANCEL、BYE 和 ACK 需要特殊处理，使用事物或者直接由TU层处理
 	//查找transaction
 	ta, ok := c.transactions[e.tid]
+	method := msg.GetMethod()
 	if !ok {
 		if msg.IsRequest() {
-			switch msg.GetMethod(){
-				case sip.ACK:
+			switch method {
+			case sip.ACK:
 				//TODO:this should be a ACK for 2xx (but could be a late ACK!)
 				return
 
 			}
 			ta = c.initTransaction(c.ctx, e)
 			//as uas
-			switch msg.GetMethod() {
+			switch method {
 			case sip.REGISTER:
 				ta.typo = FSM_NIST
 				ta.state = NIST_PROCEEDING
 				c.Devices.Store(msg.From.Uri.Host(), &Device{
-					ID:msg.From.Uri.Host(),
+					ID:           msg.From.Uri.Host(),
 					RegisterTime: time.Now(),
-					UpdateTime: time.Now(),
-					Status: string(sip.REGISTER),
+					UpdateTime:   time.Now(),
+					Status:       string(sip.REGISTER),
 				})
 				e = c.NewOutGoingMessageEvent(msg.BuildResponse(200))
 				//c.SendMessage(msg.BuildResponse(200))
@@ -348,42 +352,45 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			}
 			c.AddTransaction(ta)
 		} else {
-			//as uac
-			//无法匹配事物的响应，只能是 INVITE 的响应??
-			if msg.GetMethod() != sip.INVITE {
-				return ErrorUnknown //此消息无法处理
-			}
 
-			if msg.GetStatusCode() < 200 || msg.GetStatusCode() > 299 {
-				//非成功的响应
-				return nil
-			} else {
-				return nil
-			}
-//			ta.response<-&Response{
-//Code: msg.GetStatusCode(),
-//Data: msg,
-//Message: msg.GetReason(),
-//			}
 		}
 	}
-	switch msg.GetMethod() {
+	switch method {
 	case sip.MESSAGE:
-		if v,ok:=c.Devices.Load(msg.From.Uri.Host());ok{
+		if v, ok := c.Devices.Load(msg.From.Uri.Host()); ok {
 			if v.(*Device).Status == string(sip.REGISTER) {
 				v.(*Device).Status = "ONLINE"
-				go c.Invite(msg)
+				go c.Invite(msg,v.(*Device))
 			}
 			v.(*Device).UpdateTime = time.Now()
-		}else{
+		} else {
 			c.Devices.Store(msg.From.Uri.Host(), &Device{
-				ID:msg.From.Uri.Host(),
+				ID:           msg.From.Uri.Host(),
 				RegisterTime: time.Now(),
-				UpdateTime: time.Now(),
-				Status: string(sip.REGISTER),
+				UpdateTime:   time.Now(),
+				Status:       string(sip.REGISTER),
 			})
 		}
 		return
+	case sip.INVITE:
+		if msg.IsResponse() {
+			if msg.GetStatusCode() == 200 {
+				if v,ok:=c.Devices.Load(msg.To.Uri.Host());ok{
+					v.(*Device).Status = string(sip.INVITE)
+
+				}
+				go c.Ack(msg)
+				if ok {
+					ta.response <- &Response{
+						Code:    msg.GetStatusCode(),
+						Data:    msg,
+						Message: msg.GetReason(),
+					}
+				} else {
+					return
+				}
+			}
+		}
 	}
 	//把event推到transaction
 	ta.event <- e
@@ -393,8 +400,80 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//处理是否要重传ack
 	return
 }
-func (c *Core) Invite(msg *sip.Message) {
-	sdp:=fmt.Sprintf(`v=0
+func (c *Core) Send(msg *sip.Message) error{
+	viaParams := msg.Via.Params
+	//host
+	var host, port string
+	var ok1, ok2 bool
+	if host, ok1 = viaParams["maddr"]; !ok1 {
+		if host, ok2 = viaParams["received"]; !ok2 {
+			host = msg.Via.Host
+		}
+	}
+	//port
+	port = viaParams["rport"]
+	if port == "" || port == "0" || port == "-1" {
+		port = msg.Via.Port
+	}
+
+	if port == "" {
+		port = "5060"
+	}
+
+	addr := fmt.Sprintf("%s:%s", host, port)
+	fmt.Println("dest addr:", addr)
+	var err1, err2 error
+	pkt := &transport.Packet{}
+	pkt.Data, err1 = sip.Encode(msg)
+
+	if msg.Via.Transport == "UDP" {
+		pkt.Addr, err2 = net.ResolveUDPAddr("udp", addr)
+	} else {
+		pkt.Addr, err2 = net.ResolveTCPAddr("tcp", addr)
+	}
+
+	if err1 != nil {
+		return err1
+	}
+
+	if err2 != nil {
+		return err2
+	}
+	c.tp.WritePacket(pkt)
+	return nil
+}
+func (c *Core) Ack(msg *sip.Message) {
+	ack := sip.Message{
+		Mode:        sip.SIP_MESSAGE_REQUEST,
+		MaxForwards: 70,
+		UserAgent:   "Monibuca",
+		Expires:     3600,
+		StartLine: &sip.StartLine{
+			Method: sip.ACK,
+			Uri:    msg.To.Uri,
+		},
+		Via: &sip.Via{
+			Transport: "UDP",
+			Host:      msg.To.Uri.IP(),
+			Port:      msg.To.Uri.Port(),
+			Params: map[string]string{
+				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
+				"rport":  "-1", //only key,no-value
+			},
+		},
+		From: msg.From,
+		To:   msg.To,
+		CSeq: &sip.CSeq{
+			ID:     1,
+			Method: sip.ACK,
+		},
+		CallID:      msg.CallID,
+	}
+	c.Send(&ack)
+}
+func (c *Core) Invite(msg *sip.Message ,device *Device) {
+	port:=c.OnInvite(device)
+	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
 s=Play
 c=IN IP4 %s
@@ -403,40 +482,39 @@ m=video %d RTP/AVP 96 98 97
 a=recvonly
 a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
-a=rtpmap:98 H264/90000`,c.config.Serial,c.config.MediaIP,c.config.MediaIP,c.config.MediaPort)
+a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP,port)
 	invite := sip.Message{
-		Mode:          sip.SIP_MESSAGE_REQUEST,
-		MaxForwards:   70,
-		UserAgent:     "Monibuca",
-		Expires:       3600,
+		Mode:        sip.SIP_MESSAGE_REQUEST,
+		MaxForwards: 70,
+		UserAgent:   "Monibuca",
+		Expires:     3600,
 		StartLine: &sip.StartLine{
 			Method: sip.INVITE,
-			Uri: msg.From.Uri,
+			Uri:    msg.From.Uri,
 		},
 		Via: &sip.Via{
 			Transport: "UDP",
-			Host: msg.From.Uri.IP(),
-			Port: msg.From.Uri.Port(),
+			Host:      msg.From.Uri.IP(),
+			Port:      msg.From.Uri.Port(),
 			Params: map[string]string{
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 				"rport":  "-1", //only key,no-value
 			},
 		},
 		From: msg.To,
-		To:msg.From,
+		To:   msg.From,
 		CSeq: &sip.CSeq{
-			ID:1,
+			ID:     1,
 			Method: sip.INVITE,
 		},
-		CallID :utils.RandNumString(8),
+		CallID:      utils.RandNumString(8),
 		ContentType: "application/sdp",
-		Contact:&sip.Contact{
+		Contact: &sip.Contact{
 			Nickname: c.config.Serial,
-			Uri: sip.NewURI(fmt.Sprintf("%s:%d",c.config.MediaIP,c.config.MediaPort)),
+			Uri:      sip.NewURI(fmt.Sprintf("%s:%d", c.config.MediaIP, c.config.MediaPort)),
 		},
-		Body: sdp,
+		Body:          sdp,
 		ContentLength: len(sdp),
 	}
-	response:=c.SendMessage(&invite)
-	print(response.Code)
+	fmt.Printf("invite response statuscode: %d\n",c.SendMessage(&invite).Code)
 }

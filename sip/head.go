@@ -13,11 +13,11 @@ import (
 //Mac OS     :     \r
 const (
 	VERSION = "SIP/2.0" // sip version
-	//CRLF     = "\r\n"     // 0x0D0A
-	//CRLFCRLF = "\r\n\r\n" // 0x0D0A0D0A
+	CRLF     = "\r\n"     // 0x0D0A
+	CRLFCRLF = "\r\n\r\n" // 0x0D0A0D0A
 
-	CRLF     = "\n"   // 0x0D
-	CRLFCRLF = "\n\n" // 0x0D0D
+	//CRLF     = "\n"   // 0x0D
+	//CRLFCRLF = "\n\n" // 0x0D0D
 )
 
 //SIP消息类型：请求or响应
