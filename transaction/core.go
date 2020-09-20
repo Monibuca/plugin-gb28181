@@ -364,13 +364,16 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			}
 			v.(*Device).UpdateTime = time.Now()
 		} else {
-			c.Devices.Store(msg.From.Uri.Host(), &Device{
+			v:=&Device{
 				ID:           msg.From.Uri.Host(),
 				RegisterTime: time.Now(),
 				UpdateTime:   time.Now(),
 				Status:       string(sip.REGISTER),
-			})
+			}
+			c.Devices.Store(msg.From.Uri.Host(),v )
+			go c.Invite(msg,v)
 		}
+		c.Send(msg.BuildResponse(200))
 		return
 	case sip.INVITE:
 		if msg.IsResponse() {

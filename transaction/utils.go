@@ -89,6 +89,9 @@ func checkMessage(msg *sip.Message) error {
 	//检查seq、method等
 	//不可以有router？
 	//是否根据消息是接收还是发送检查？
+	if msg == nil {
+		return ErrorCheck
+	}
 	return nil
 }
 

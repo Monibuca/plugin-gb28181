@@ -4,6 +4,7 @@ import (
 	. "github.com/Monibuca/engine/v2"
 	"github.com/Monibuca/engine/v2/util"
 	"github.com/Monibuca/plugin-gb28181/transaction"
+	. "github.com/logrusorgru/aurora"
 	"log"
 	"net"
 	"net/http"
@@ -35,6 +36,7 @@ func run() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	Print(Green("server gb28181 start at"), BrightBlue(config.ListenAddr))
 	config := &transaction.Config{
 		SipIP:      ipAddr.IP.String(),
 		SipPort:    uint16(ipAddr.Port),
@@ -72,6 +74,9 @@ func run() {
 				return
 			}
 		}
+	})
+	http.HandleFunc("/gb28181/cmd", func(w http.ResponseWriter, r *http.Request){
+
 	})
 	s.Start()
 

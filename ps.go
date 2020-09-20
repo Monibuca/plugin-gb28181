@@ -2,27 +2,32 @@ package gb28181
 
 import (
 	. "github.com/Monibuca/engine/v2"
+	"github.com/Monibuca/engine/v2/avformat"
 	"github.com/Monibuca/engine/v2/util"
 
+	"github.com/Monibuca/plugin-gb28181/packet"
 	"github.com/Monibuca/plugin-gb28181/transaction"
 	rtp "github.com/Monibuca/plugin-rtp"
-	"github.com/mask-pp/rtp-ps/packet"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func init() {
-	println(packet.NewRtpParsePacket())
-}
+const (
+	G711Mu  = 0x90
+	G7221AUDIOTYPE = 0x92
+	G7231AUDIOTYPE = 0x93
+	G729AUDIOTYPE  = 0x99
+)
 
 func onPublish(device *transaction.Device) (port int) {
 	rtpPublisher := new(rtp.RTP)
 	if !rtpPublisher.Publish("gb28181/" + device.ID) {
 		return
 	}
-	parser := packet.NewRtpParsePacket()
+	rtpPublisher.Type = "GB28181"
+	var parser packet.DecPSPackage
 	addr, err := net.ResolveUDPAddr("udp", ":0")
 	if err != nil {
 		return
@@ -45,11 +50,11 @@ func onPublish(device *transaction.Device) (port int) {
 	}
 	go func() {
 		bufUDP := make([]byte, 1048576)
-		Printf("udp server start listen video port[%d]",port)
+		Printf("udp server start listen video port[%d]", port)
 		defer Printf("udp server stop listen video port[%d]", port)
 		timer := time.Unix(0, 0)
-		var psPackets []byte
-		var timestamp uint32
+		var psPacket []byte
+		var psRtp rtp.RTPPack
 		for {
 			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
 				elapsed := time.Now().Sub(timer)
@@ -57,24 +62,29 @@ func onPublish(device *transaction.Device) (port int) {
 					Printf("Package recv from VConn.len:%d\n", n)
 					timer = time.Now()
 				}
-				pack := &rtp.RTPPack{
-					Type: rtp.RTP_TYPE_VIDEO,
+				if err := psRtp.Unmarshal(bufUDP[:n]); err != nil {
+					Println(err)
+					continue
 				}
-				pack.Unmarshal(bufUDP[:n])
-				if len(pack.Payload)>=4 && util.BigEndian.Uint32(pack.Payload) == packet.StartCodePS {
-					if psPackets != nil {
-						if nalus, err := parser.Read(psPackets); err == nil {
-							for _, nalu := range nalus {
-								rtpPublisher.WriteNALU(timestamp, nalu)
+				if len(psRtp.Payload) >= 4 && util.BigEndian.Uint32(psRtp.Payload) == packet.StartCodePS {
+					if psPacket != nil{
+						if err := parser.Read(psPacket); err == nil {
+							for _, payload := range avformat.SplitH264(parser.VideoPayload) {
+								rtpPublisher.WriteNALU(psRtp.Timestamp, payload)
 							}
+							if parser.AudioPayload != nil{
+								//TODO: 需要增加一个字节的头
+								//rtpPublisher.PushAudio(psRtp.Timestamp, parser.AudioPayload)
+							}
+						} else {
+							Print(err)
 						}
+						psPacket = nil
 					}
-					timestamp = pack.Timestamp
-					psPackets = append([]byte{}, pack.Payload...)
-				} else {
-					psPackets = append(psPackets, pack.Payload...)
+					psPacket = append(psPacket, psRtp.Payload...)
+				} else if psPacket != nil {
+					psPacket = append(psPacket, psRtp.Payload...)
 				}
-				//s.HandleRTP(pack)
 			} else {
 				Println("udp server read video pack error", err)
 				continue
