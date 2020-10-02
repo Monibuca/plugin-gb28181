@@ -343,12 +343,12 @@ func (ta *Transaction) Run() {
 			evtHandlers, ok1 := core.handlers[state]
 			if !ok1 {
 				fmt.Println("invalid state:", ta.state.String())
-				return
+				break
 			}
 			f, ok2 := evtHandlers[e.evt]
 			if !ok2 {
 				fmt.Println("invalid handler for this event:", e.evt.String())
-				return
+				break
 			}
 			fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
 			err := f(ta, e)

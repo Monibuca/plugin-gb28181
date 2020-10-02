@@ -4,10 +4,13 @@ import (
 	. "github.com/Monibuca/engine/v2"
 	"github.com/Monibuca/engine/v2/util"
 	"github.com/Monibuca/plugin-gb28181/transaction"
+	rtp "github.com/Monibuca/plugin-rtp"
 	. "github.com/logrusorgru/aurora"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -38,14 +41,14 @@ func run() {
 	}
 	Print(Green("server gb28181 start at"), BrightBlue(config.ListenAddr))
 	config := &transaction.Config{
-		SipIP:      ipAddr.IP.String(),
-		SipPort:    uint16(ipAddr.Port),
-		SipNetwork: "UDP",
-		Serial:     config.Serial,
-		Realm:      config.Realm,
-		AckTimeout: 10,
-		MediaIP: ipAddr.IP.String(),
-		MediaPort: config.MediaPort,
+		SipIP:             ipAddr.IP.String(),
+		SipPort:           uint16(ipAddr.Port),
+		SipNetwork:        "UDP",
+		Serial:            config.Serial,
+		Realm:             config.Realm,
+		AckTimeout:        10,
+		MediaIP:           ipAddr.IP.String(),
+		MediaPort:         config.MediaPort,
 		RegisterValidity:  config.Expires,
 		RegisterInterval:  60,
 		HeartbeatInterval: 60,
@@ -75,9 +78,64 @@ func run() {
 			}
 		}
 	})
-	http.HandleFunc("/gb28181/cmd", func(w http.ResponseWriter, r *http.Request){
-
+	http.HandleFunc("/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		id := r.URL.Query().Get("id")
+		ptzcmd := r.URL.Query().Get("ptzcmd")
+		if v, ok := s.Devices.Load(id); ok {
+			w.WriteHeader(v.(*transaction.Device).Control(ptzcmd))
+		} else {
+			w.WriteHeader(404)
+		}
 	})
 	s.Start()
 
+}
+
+func onPublish(device *transaction.Device) (port int) {
+	rtpPublisher := new(rtp.RTP_PS)
+	if !rtpPublisher.Publish("gb28181/" + device.ID) {
+		return
+	}
+	rtpPublisher.Type = "GB28181"
+	addr, err := net.ResolveUDPAddr("udp", ":0")
+	if err != nil {
+		return
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return
+	}
+	networkBuffer := 1048576
+	if err := conn.SetReadBuffer(networkBuffer); err != nil {
+		Printf("udp server video conn set read buffer error, %v", err)
+	}
+	if err := conn.SetWriteBuffer(networkBuffer); err != nil {
+		Printf("udp server video conn set write buffer error, %v", err)
+	}
+	la := conn.LocalAddr().String()
+	strPort := la[strings.LastIndex(la, ":")+1:]
+	if port, err = strconv.Atoi(strPort); err != nil {
+		return
+	}
+	go func() {
+		bufUDP := make([]byte, 1048576)
+		Printf("udp server start listen video port[%d]", port)
+		defer Printf("udp server stop listen video port[%d]", port)
+		timer := time.Unix(0, 0)
+		for {
+			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
+				elapsed := time.Now().Sub(timer)
+				if elapsed >= 30*time.Second {
+					Printf("Package recv from VConn.len:%d\n", n)
+					timer = time.Now()
+				}
+				rtpPublisher.PushPS(bufUDP[:n])
+			} else {
+				Println("udp server read video pack error", err)
+				continue
+			}
+		}
+	}()
+	return
 }

@@ -23,13 +23,16 @@ type Core struct {
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
 	Devices      sync.Map
-	OnInvite func(*Device) int
+	OnInvite     func(*Device) int
 }
 type Device struct {
 	ID           string
 	RegisterTime time.Time
 	UpdateTime   time.Time
 	Status       string
+	requestMsg   sip.Message
+	core         *Core
+	sn int
 }
 
 //初始化一个 Core，需要能响应请求，也要能发起请求
@@ -332,12 +335,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			case sip.REGISTER:
 				ta.typo = FSM_NIST
 				ta.state = NIST_PROCEEDING
-				c.Devices.Store(msg.From.Uri.Host(), &Device{
-					ID:           msg.From.Uri.Host(),
-					RegisterTime: time.Now(),
-					UpdateTime:   time.Now(),
-					Status:       string(sip.REGISTER),
-				})
+				c.AddDevice(msg)
 				e = c.NewOutGoingMessageEvent(msg.BuildResponse(200))
 				//c.SendMessage(msg.BuildResponse(200))
 			case sip.INVITE:
@@ -357,30 +355,32 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	}
 	switch method {
 	case sip.MESSAGE:
-		if v, ok := c.Devices.Load(msg.From.Uri.Host()); ok {
-			if v.(*Device).Status == string(sip.REGISTER) {
-				v.(*Device).Status = "ONLINE"
-				go c.Invite(msg,v.(*Device))
+		if msg.IsRequest() {
+			if v, ok := c.Devices.Load(msg.From.Uri.Host()); ok {
+				if v.(*Device).Status == string(sip.REGISTER) {
+					v.(*Device).Status = "ONLINE"
+					go c.Invite(msg, v.(*Device))
+				}
+				v.(*Device).UpdateTime = time.Now()
+			} else {
+				go c.Invite(msg, c.AddDevice(msg))
 			}
-			v.(*Device).UpdateTime = time.Now()
+			c.Send(msg.BuildResponse(200))
+			return
 		} else {
-			v:=&Device{
-				ID:           msg.From.Uri.Host(),
-				RegisterTime: time.Now(),
-				UpdateTime:   time.Now(),
-				Status:       string(sip.REGISTER),
+			if ok {
+				ta.response <- &Response{
+					Code:    msg.GetStatusCode(),
+					Data:    msg,
+					Message: msg.GetReason(),
+				}
 			}
-			c.Devices.Store(msg.From.Uri.Host(),v )
-			go c.Invite(msg,v)
 		}
-		c.Send(msg.BuildResponse(200))
-		return
 	case sip.INVITE:
 		if msg.IsResponse() {
 			if msg.GetStatusCode() == 200 {
-				if v,ok:=c.Devices.Load(msg.To.Uri.Host());ok{
+				if v, ok := c.Devices.Load(msg.To.Uri.Host()); ok {
 					v.(*Device).Status = string(sip.INVITE)
-
 				}
 				go c.Ack(msg)
 				if ok {
@@ -403,7 +403,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//处理是否要重传ack
 	return
 }
-func (c *Core) Send(msg *sip.Message) error{
+func (c *Core) Send(msg *sip.Message) error {
 	viaParams := msg.Via.Params
 	//host
 	var host, port string
@@ -445,6 +445,53 @@ func (c *Core) Send(msg *sip.Message) error{
 	c.tp.WritePacket(pkt)
 	return nil
 }
+func (d *Device) Control(PTZCmd string) int {
+	d.sn++
+	d.requestMsg.CallID = utils.RandNumString(8)
+	d.requestMsg.ContentType = "Application/MANSCDP+xml"
+	d.requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
+<Control>
+<CmdType>DeviceControl</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+<PTZCmd>%s</PTZCmd>
+</Control>`, d.sn, d.requestMsg.From.Uri.UserInfo(), PTZCmd)
+	d.requestMsg.ContentLength = len(d.requestMsg.Body)
+	return d.core.SendMessage(&d.requestMsg).Code
+}
+func (c *Core) AddDevice(msg *sip.Message) *Device {
+	v := &Device{
+		ID:           msg.From.Uri.Host(),
+		RegisterTime: time.Now(),
+		UpdateTime:   time.Now(),
+		Status:       string(sip.REGISTER),
+		core:         c,
+	}
+	v.requestMsg.Mode = sip.SIP_MESSAGE_REQUEST
+	v.requestMsg.MaxForwards = 70
+	v.requestMsg.UserAgent = "Monibuca"
+	v.requestMsg.StartLine = &sip.StartLine{
+		Method: sip.MESSAGE,
+		Uri:    msg.To.Uri,
+	}
+	v.requestMsg.Via = &sip.Via{
+		Transport: "UDP",
+		Host:      msg.To.Uri.IP(),
+		Port:      msg.To.Uri.Port(),
+		Params: map[string]string{
+			"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
+			"rport":  "-1", //only key,no-value
+		},
+	}
+	v.requestMsg.From = msg.From
+	v.requestMsg.To = msg.To
+	v.requestMsg.CSeq = &sip.CSeq{
+		ID:     1,
+		Method: sip.MESSAGE,
+	}
+	c.Devices.Store(msg.From.Uri.Host(), v)
+	return v
+}
 func (c *Core) Ack(msg *sip.Message) {
 	ack := sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
@@ -470,12 +517,12 @@ func (c *Core) Ack(msg *sip.Message) {
 			ID:     1,
 			Method: sip.ACK,
 		},
-		CallID:      msg.CallID,
+		CallID: msg.CallID,
 	}
 	c.Send(&ack)
 }
-func (c *Core) Invite(msg *sip.Message ,device *Device) {
-	port:=c.OnInvite(device)
+func (c *Core) Invite(msg *sip.Message, device *Device) {
+	port := c.OnInvite(device)
 	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
 s=Play
@@ -485,7 +532,7 @@ m=video %d RTP/AVP 96 98 97
 a=recvonly
 a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
-a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP,port)
+a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP, port)
 	invite := sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
 		MaxForwards: 70,
@@ -519,5 +566,5 @@ a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP,por
 		Body:          sdp,
 		ContentLength: len(sdp),
 	}
-	fmt.Printf("invite response statuscode: %d\n",c.SendMessage(&invite).Code)
+	fmt.Printf("invite response statuscode: %d\n", c.SendMessage(&invite).Code)
 }

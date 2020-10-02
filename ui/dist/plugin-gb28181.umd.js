@@ -127,16 +127,18 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=2a686a42&
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=280713fb&
 var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.preview(item)}}},[_vm._v("预览")])],1)]}}])})],1)}
+return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(item)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(item)}}},[_vm._v("👉")])],1)]}}])})],1)}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=2a686a42&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=280713fb&
 
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
+//
+//
 //
 //
 //
@@ -180,6 +182,12 @@ var staticRenderFns = []
     },
     preview(item){
       alert("尚未实现")
+    },
+    left(item){
+      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01021F0000D6'})
+    },
+    right(item){
+      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01011F0000D6'})
     }
   }
 });

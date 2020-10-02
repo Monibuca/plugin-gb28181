@@ -11,7 +11,9 @@
         </td>
         <td>{{item.Status}}</td>
         <td>
-          <mu-button flat @click="preview(item)">预览</mu-button>
+<!--          <mu-button flat @click="preview(item)">预览</mu-button>-->
+          <mu-button flat @click="left(item)">👈</mu-button>
+          <mu-button flat @click="right(item)">👉</mu-button>
         </td>
       </template>
     </mu-data-table>
@@ -41,6 +43,12 @@ export default {
     },
     preview(item){
       alert("尚未实现")
+    },
+    left(item){
+      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01021F0000D6'})
+    },
+    right(item){
+      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01011F0000D6'})
     }
   }
 }

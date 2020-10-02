@@ -443,6 +443,9 @@ type URI struct {
 func (u *URI) Host() string {
 	return u.host
 }
+func (u *URI) UserInfo() string {
+	return strings.Split(u.host,"@")[0]
+}
 func (u *URI) IP() string {
 	t:=strings.Split(u.host,"@")
 	if len(t) == 1 {
