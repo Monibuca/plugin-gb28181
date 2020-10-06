@@ -374,6 +374,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					Data:    msg,
 					Message: msg.GetReason(),
 				}
+			}else{
+				return
 			}
 		}
 	case sip.INVITE:
