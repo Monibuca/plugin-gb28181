@@ -254,9 +254,13 @@ func Decode(data []byte) (msg *Message, err error) {
 					Method:  Method(tmp[0]),
 					Version: VERSION,
 				}
-				msg.StartLine.Uri, err = parseURI(tmp[1])
-				if err != nil {
-					return
+				if len(tmp) > 1{
+					msg.StartLine.Uri, err = parseURI(tmp[1])
+					if err != nil {
+						return
+					}
+				} else {
+					fmt.Println(firstline)
 				}
 			}
 			continue

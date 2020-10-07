@@ -397,9 +397,10 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			}
 		}
 	}
-	//把event推到transaction
-	ta.event <- e
-
+	if ta!=nil{
+		//把event推到transaction
+		ta.event <- e
+	}
 	//TODO：TU层处理：根据需要，创建，或者匹配 Dialog
 	//通过tag匹配到call和dialog
 	//处理是否要重传ack
@@ -478,8 +479,8 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 	}
 	v.requestMsg.Via = &sip.Via{
 		Transport: "UDP",
-		Host:      msg.To.Uri.IP(),
-		Port:      msg.To.Uri.Port(),
+		Host:      msg.Via.Host,
+		Port:      msg.Via.Port,
 		Params: map[string]string{
 			"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 			"rport":  "-1", //only key,no-value
@@ -506,8 +507,8 @@ func (c *Core) Ack(msg *sip.Message) {
 		},
 		Via: &sip.Via{
 			Transport: "UDP",
-			Host:      msg.To.Uri.IP(),
-			Port:      msg.To.Uri.Port(),
+			Host:      msg.Via.Host,
+			Port:      msg.Via.Port,
 			Params: map[string]string{
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 				"rport":  "-1", //only key,no-value
@@ -524,6 +525,7 @@ func (c *Core) Ack(msg *sip.Message) {
 	c.Send(&ack)
 }
 func (c *Core) Invite(msg *sip.Message, device *Device) {
+	delete(msg.From.Params,"tag")
 	port := c.OnInvite(device)
 	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
@@ -535,6 +537,7 @@ a=recvonly
 a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
 a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP, port)
+	delete(msg.From.Params,"tag")
 	invite := sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
 		MaxForwards: 70,
@@ -546,8 +549,8 @@ a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP, po
 		},
 		Via: &sip.Via{
 			Transport: "UDP",
-			Host:      msg.From.Uri.IP(),
-			Port:      msg.From.Uri.Port(),
+			Host:      msg.Via.Host,
+			Port:      msg.Via.Port,
 			Params: map[string]string{
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 				"rport":  "-1", //only key,no-value
