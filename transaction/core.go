@@ -360,6 +360,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					CmdType string
 				}{}
 				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"GB2312\" ?>", "")
+				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"GB2312\"?>", "")
 				xml.Unmarshal([]byte(msg.Body), temp)
 				switch temp.XMLName.Local {
 				case "Notify":
