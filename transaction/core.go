@@ -2,12 +2,14 @@ package transaction
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
 	"github.com/Monibuca/plugin-gb28181/utils"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,16 +25,7 @@ type Core struct {
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
 	Devices      sync.Map
-	OnInvite     func(*Device) int
-}
-type Device struct {
-	ID           string
-	RegisterTime time.Time
-	UpdateTime   time.Time
-	Status       string
-	requestMsg   sip.Message
-	core         *Core
-	sn int
+	OnInvite     func(*Channel) int
 }
 
 //初始化一个 Core，需要能响应请求，也要能发起请求
@@ -356,16 +349,32 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	switch method {
 	case sip.MESSAGE:
 		if msg.IsRequest() {
-			if v, ok := c.Devices.Load(msg.From.Uri.Host()); ok {
-				if v.(*Device).Status == string(sip.REGISTER) {
-					v.(*Device).Status = "ONLINE"
-					go c.Invite(msg, v.(*Device))
+			if v, ok := c.Devices.Load(msg.From.Uri.UserInfo()); ok {
+				d := v.(*Device)
+				if d.Status == string(sip.REGISTER) {
+					d.Status = "ONLINE"
 				}
-				v.(*Device).UpdateTime = time.Now()
-			} else {
-				go c.Invite(msg, c.AddDevice(msg))
+				d.UpdateTime = time.Now()
+				temp := &struct {
+					XMLName xml.Name
+					CmdType string
+				}{}
+				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"GB2312\" ?>", "")
+				xml.Unmarshal([]byte(msg.Body), temp)
+				switch temp.XMLName.Local {
+				case "Notify":
+					go d.Query()
+				case "Response":
+					switch temp.CmdType {
+					case "Catalog":
+						temp := &struct {
+							DeviceList []Channel `xml:"DeviceList>Item"`
+						}{}
+						xml.Unmarshal([]byte(msg.Body), temp)
+						d.Channels = temp.DeviceList
+					}
+				}
 			}
-			c.Send(msg.BuildResponse(200))
 			return
 		} else {
 			if ok {
@@ -374,8 +383,6 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					Data:    msg,
 					Message: msg.GetReason(),
 				}
-			}else{
-				return
 			}
 		}
 	case sip.INVITE:
@@ -391,13 +398,11 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 						Data:    msg,
 						Message: msg.GetReason(),
 					}
-				} else {
-					return
 				}
 			}
 		}
 	}
-	if ta!=nil{
+	if ta != nil {
 		//把event推到transaction
 		ta.event <- e
 	}
@@ -448,20 +453,6 @@ func (c *Core) Send(msg *sip.Message) error {
 	c.tp.WritePacket(pkt)
 	return nil
 }
-func (d *Device) Control(PTZCmd string) int {
-	d.sn++
-	d.requestMsg.CallID = utils.RandNumString(8)
-	d.requestMsg.ContentType = "Application/MANSCDP+xml"
-	d.requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
-<Control>
-<CmdType>DeviceControl</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-<PTZCmd>%s</PTZCmd>
-</Control>`, d.sn, d.requestMsg.From.Uri.UserInfo(), PTZCmd)
-	d.requestMsg.ContentLength = len(d.requestMsg.Body)
-	return d.core.SendMessage(&d.requestMsg).Code
-}
 func (c *Core) AddDevice(msg *sip.Message) *Device {
 	v := &Device{
 		ID:           msg.From.Uri.Host(),
@@ -469,30 +460,12 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 		UpdateTime:   time.Now(),
 		Status:       string(sip.REGISTER),
 		core:         c,
+		from:         &sip.Contact{Uri: msg.StartLine.Uri},
+		to:           msg.To,
+		host:         msg.Via.Host,
+		port:         msg.Via.Port,
 	}
-	v.requestMsg.Mode = sip.SIP_MESSAGE_REQUEST
-	v.requestMsg.MaxForwards = 70
-	v.requestMsg.UserAgent = "Monibuca"
-	v.requestMsg.StartLine = &sip.StartLine{
-		Method: sip.MESSAGE,
-		Uri:    msg.To.Uri,
-	}
-	v.requestMsg.Via = &sip.Via{
-		Transport: "UDP",
-		Host:      msg.Via.Host,
-		Port:      msg.Via.Port,
-		Params: map[string]string{
-			"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
-			"rport":  "-1", //only key,no-value
-		},
-	}
-	v.requestMsg.From = msg.From
-	v.requestMsg.To = msg.To
-	v.requestMsg.CSeq = &sip.CSeq{
-		ID:     1,
-		Method: sip.MESSAGE,
-	}
-	c.Devices.Store(msg.From.Uri.Host(), v)
+	c.Devices.Store(msg.From.Uri.UserInfo(), v)
 	return v
 }
 func (c *Core) Ack(msg *sip.Message) {
@@ -523,53 +496,4 @@ func (c *Core) Ack(msg *sip.Message) {
 		CallID: msg.CallID,
 	}
 	c.Send(&ack)
-}
-func (c *Core) Invite(msg *sip.Message, device *Device) {
-	delete(msg.From.Params,"tag")
-	port := c.OnInvite(device)
-	sdp := fmt.Sprintf(`v=0
-o=%s 0 0 IN IP4 %s
-s=Play
-c=IN IP4 %s
-t=0 0
-m=video %d RTP/AVP 96 98 97
-a=recvonly
-a=rtpmap:96 PS/90000
-a=rtpmap:97 MPEG4/90000
-a=rtpmap:98 H264/90000`, c.config.Serial, c.config.MediaIP, c.config.MediaIP, port)
-	delete(msg.From.Params,"tag")
-	invite := sip.Message{
-		Mode:        sip.SIP_MESSAGE_REQUEST,
-		MaxForwards: 70,
-		UserAgent:   "Monibuca",
-		Expires:     3600,
-		StartLine: &sip.StartLine{
-			Method: sip.INVITE,
-			Uri:    msg.From.Uri,
-		},
-		Via: &sip.Via{
-			Transport: "UDP",
-			Host:      msg.Via.Host,
-			Port:      msg.Via.Port,
-			Params: map[string]string{
-				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
-				"rport":  "-1", //only key,no-value
-			},
-		},
-		From: msg.To,
-		To:   msg.From,
-		CSeq: &sip.CSeq{
-			ID:     1,
-			Method: sip.INVITE,
-		},
-		CallID:      utils.RandNumString(8),
-		ContentType: "application/sdp",
-		Contact: &sip.Contact{
-			Nickname: c.config.Serial,
-			Uri:      sip.NewURI(fmt.Sprintf("%s:%d", c.config.MediaIP, c.config.MediaPort)),
-		},
-		Body:          sdp,
-		ContentLength: len(sdp),
-	}
-	fmt.Printf("invite response statuscode: %d\n", c.SendMessage(&invite).Code)
 }

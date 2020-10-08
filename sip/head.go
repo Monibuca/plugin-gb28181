@@ -446,6 +446,9 @@ func (u *URI) Host() string {
 func (u *URI) UserInfo() string {
 	return strings.Split(u.host,"@")[0]
 }
+func (u *URI) Domain() string {
+	return strings.Split(u.host,"@")[1]
+}
 func (u *URI) IP() string {
 	t:=strings.Split(u.host,"@")
 	if len(t) == 1 {

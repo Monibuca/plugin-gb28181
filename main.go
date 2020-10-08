@@ -89,12 +89,11 @@ func run() {
 		}
 	})
 	s.Start()
-
 }
 
-func onPublish(device *transaction.Device) (port int) {
+func onPublish(channel *transaction.Channel) (port int) {
 	rtpPublisher := new(rtp.RTP_PS)
-	if !rtpPublisher.Publish("gb28181/" + device.ID) {
+	if !rtpPublisher.Publish("gb28181/" + channel.DeviceID) {
 		return
 	}
 	rtpPublisher.Type = "GB28181"
