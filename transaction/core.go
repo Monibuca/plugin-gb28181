@@ -390,7 +390,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	case sip.INVITE:
 		if msg.IsResponse() {
 			if msg.GetStatusCode() == 200 {
-				if v, ok := c.Devices.Load(msg.To.Uri.Host()); ok {
+				if v, ok := c.Devices.Load(msg.To.Uri.UserInfo()); ok {
 					v.(*Device).Status = string(sip.INVITE)
 				}
 				go c.Ack(msg)
@@ -457,7 +457,7 @@ func (c *Core) Send(msg *sip.Message) error {
 }
 func (c *Core) AddDevice(msg *sip.Message) *Device {
 	v := &Device{
-		ID:           msg.From.Uri.Host(),
+		ID:           msg.From.Uri.UserInfo(),
 		RegisterTime: time.Now(),
 		UpdateTime:   time.Now(),
 		Status:       string(sip.REGISTER),
