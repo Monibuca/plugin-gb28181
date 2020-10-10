@@ -87,7 +87,7 @@ func run() {
 		}
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if v, ok := s.Devices.Load(id); ok {
-			w.WriteHeader(v.(*transaction.Device).Control(ptzcmd))
+			w.WriteHeader(v.(*transaction.Device).Control(channel,ptzcmd))
 		} else {
 			w.WriteHeader(404)
 		}
