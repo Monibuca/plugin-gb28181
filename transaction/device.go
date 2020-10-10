@@ -72,8 +72,13 @@ func (d *Device) Query() int {
 	requestMsg.ContentLength = len(requestMsg.Body)
 	return d.core.SendMessage(requestMsg).Code
 }
-func (d *Device) Control(PTZCmd string) int {
+func (d *Device) Control(channelIndex int,PTZCmd string) int {
+	channel := &d.Channels[channelIndex]
 	requestMsg := d.CreateMessage(sip.MESSAGE)
+	requestMsg.StartLine.Uri = sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain())
+	requestMsg.To = &sip.Contact{
+		Uri: requestMsg.StartLine.Uri,
+	}
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
 <Control>
@@ -85,11 +90,11 @@ func (d *Device) Control(PTZCmd string) int {
 	requestMsg.ContentLength = len(requestMsg.Body)
 	return d.core.SendMessage(requestMsg).Code
 }
-func (d *Device) Invite(channelIndex int) {
+func (d *Device) Invite(channelIndex int) int {
 	channel := &d.Channels[channelIndex]
 	port := d.core.OnInvite(channel)
 	if port == 0 {
-		return
+		return 304
 	}
 	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
@@ -113,5 +118,7 @@ a=rtpmap:98 H264/90000`, d.core.config.Serial, d.core.config.MediaIP, d.core.con
 	}
 	invite.Body = sdp
 	invite.ContentLength = len(sdp)
-	fmt.Printf("invite response statuscode: %d\n", d.core.SendMessage(invite).Code)
+	code:=d.core.SendMessage(invite).Code
+	fmt.Printf("invite response statuscode: %d\n",code )
+	return code
 }

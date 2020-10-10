@@ -81,9 +81,26 @@ func run() {
 	http.HandleFunc("/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
+		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		if err!=nil{
+			w.WriteHeader(404)
+		}
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if v, ok := s.Devices.Load(id); ok {
 			w.WriteHeader(v.(*transaction.Device).Control(ptzcmd))
+		} else {
+			w.WriteHeader(404)
+		}
+	})
+	http.HandleFunc("/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		id := r.URL.Query().Get("id")
+		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		if err!=nil{
+			w.WriteHeader(404)
+		}
+		if v, ok := s.Devices.Load(id); ok {
+			w.WriteHeader(v.(*transaction.Device).Invite(channel))
 		} else {
 			w.WriteHeader(404)
 		}

@@ -118,16 +118,17 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=0c361c4c&
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=524a23ca&
 var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name)+" ")]),_c('td',[_vm._v(_vm._s(item.Manufacturer)+" ")]),_vm._v(" "),_c('td',[_vm._v(_vm._s(item.Address)+" ")]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(item)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(item)}}},[_vm._v("👉")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
+var $index = ref.$index;
+return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index)}}},[_vm._v("invite")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(prop.row.ID, $index)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(prop.row.ID, $index)}}},[_vm._v("👉")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}])})],1)}
+return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels.length))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}])})],1)}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=0c361c4c&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=524a23ca&
 
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
 //
@@ -164,41 +165,68 @@ var staticRenderFns = []
 //
 //
 //
+//
+//
+//
+//
+//
+//
 
 /* harmony default export */ var Appvue_type_script_lang_js_ = ({
-  data(){
-    return {
-      Devices:[],
-      columns:Object.freeze([
-          "设备号","注册时间","更新时间","状态"
-      ].map(title=>({title}))),
-      columns2:Object.freeze([
-        "通道编号","名称","厂商","地址","状态","操作"
-      ]).map(title=>({title})),
-    }
-  },
-  created(){
-    this.fetchlist()
-  },
-  methods:{
-    fetchlist() {
-      const listES = new EventSource(this.apiHost + "/gb28181/list");
-      listES.onmessage = evt => {
-        if (!evt.data) return;
-        this.Devices = JSON.parse(evt.data) || [];
-      };
-      this.$once("hook:destroyed",()=>listES.close())
+    data() {
+        return {
+            Devices: [],
+            columns: Object.freeze(
+                ["设备号", "通道数", "注册时间", "更新时间", "状态"].map(
+                    (title) => ({
+                        title,
+                    })
+                )
+            ),
+            columns2: Object.freeze([
+                "通道编号",
+                "名称",
+                "厂商",
+                "地址",
+                "状态",
+                "操作",
+            ]).map((title) => ({ title })),
+        };
     },
-    preview(item){
-      alert("尚未实现")
+    created() {
+        this.fetchlist();
     },
-    left(item){
-      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01021F0000D6'})
+    methods: {
+        fetchlist() {
+            const listES = new EventSource(this.apiHost + "/gb28181/list");
+            listES.onmessage = (evt) => {
+                if (!evt.data) return;
+                this.Devices = JSON.parse(evt.data) || [];
+                this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
+            };
+            this.$once("hook:destroyed", () => listES.close());
+        },
+        preview(item) {
+            alert("尚未实现");
+        },
+        left(id, channel) {
+            this.ajax.get("/gb28181/control", {
+                id,
+                channel,
+                ptzcmd: "A50F01021F0000D6",
+            });
+        },
+        right(id, channel) {
+            this.ajax.get("/gb28181/control", {
+                id,
+                channel,
+                ptzcmd: "A50F01011F0000D6",
+            });
+        },
+        invite(id, channel) {
+            this.ajax.get("/gb28181/invite", { id, channel });
+        },
     },
-    right(item){
-      this.ajax.get("/gb28181/control",{id:item.ID,ptzcmd:'A50F01011F0000D6'})
-    }
-  }
 });
 
 // CONCATENATED MODULE: ./src/App.vue?vue&type=script&lang=js&
