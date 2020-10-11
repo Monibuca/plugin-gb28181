@@ -1,7 +1,7 @@
 <template>
     <div>
         <mu-data-table :data="Devices" :columns="columns">
-            <template #expand="prop" v-if="prop.row.Channels">
+            <template #expand="prop">
                 <mu-data-table :data="prop.row.Channels" :columns="columns2">
                     <template #default="{ row: item, $index }">
                         <td>{{ item.DeviceID }}</td>
