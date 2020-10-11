@@ -46,18 +46,20 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			Uri:    d.to.Uri,
 		}, Via: &sip.Via{
 			Transport: "UDP",
-			Host:      d.host,
-			Port:      d.port,
+			Host:      d.core.config.SipIP,
+			Port:      fmt.Sprintf("%d",d.core.config.SipPort),
 			Params: map[string]string{
+				"received":d.host,
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
-				"rport":  "-1", //only key,no-value
+				"rport":  d.port, //only key,no-value
 			},
 		}, From: d.from,
 		To: d.to, CSeq: &sip.CSeq{
 			ID:     1,
 			Method: Method,
-		}, CallID: utils.RandNumString(8),
+		}, CallID: utils.RandNumString(10),
 	}
+	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
 }
 func (d *Device) Query() int {
@@ -105,16 +107,19 @@ m=video %d RTP/AVP 96 98 97
 a=recvonly
 a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
-a=rtpmap:98 H264/90000`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
+a=rtpmap:98 H264/90000
+y=0200000001`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
 	invite := d.CreateMessage(sip.INVITE)
 	invite.StartLine.Uri = sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain())
 	invite.To = &sip.Contact{
 		Uri: invite.StartLine.Uri,
 	}
+	invite.From = &sip.Contact{
+		Uri: sip.NewURI(d.core.config.Serial + "@" + d.core.config.Realm),
+	}
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
-		Nickname: d.core.config.Serial,
-		Uri:      sip.NewURI(fmt.Sprintf("%s:%d", d.core.config.MediaIP, d.core.config.MediaPort)),
+		Uri:      sip.NewURI(fmt.Sprintf("%s@%s:%d",d.core.config.Serial, d.core.config.SipIP,d.core.config.SipPort)),
 	}
 	invite.Body = sdp
 	invite.ContentLength = len(sdp)

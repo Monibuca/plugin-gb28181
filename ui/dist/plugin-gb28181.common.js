@@ -118,17 +118,17 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=524a23ca&
-var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=652bbdd4&
+var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([(_vm.item.Channels)?{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
 var $index = ref.$index;
-return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index)}}},[_vm._v("invite")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(prop.row.ID, $index)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(prop.row.ID, $index)}}},[_vm._v("👉")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
+return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index)}}},[_vm._v("invite")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(prop.row.ID, $index)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(prop.row.ID, $index)}}},[_vm._v("👉")])],1)]}}],null,true)})]}}:null,{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels.length))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}])})],1)}
+return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels?item.Channels.length:0))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}],null,true)})],1)}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=524a23ca&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=652bbdd4&
 
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
 //

@@ -9,7 +9,7 @@ import (
 	"github.com/Monibuca/plugin-gb28181/utils"
 	"net"
 	"os"
-	"strings"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -27,7 +27,10 @@ type Core struct {
 	Devices      sync.Map
 	OnInvite     func(*Channel) int
 }
-
+var xmlReg *regexp.Regexp
+func init(){
+	xmlReg,_= regexp.Compile("<\\?.+\\?>")
+}
 //初始化一个 Core，需要能响应请求，也要能发起请求
 //client 发起请求
 //server 响应请求
@@ -359,9 +362,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					XMLName xml.Name
 					CmdType string
 				}{}
-				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"GB2312\" ?>", "")
-				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"GB2312\"?>", "")
-				msg.Body = strings.ReplaceAll(msg.Body, "<?xml version=\"1.0\" encoding=\"gb2312\"?>", "")
+				msg.Body = xmlReg.ReplaceAllString(msg.Body,"")
 				xml.Unmarshal([]byte(msg.Body), temp)
 				switch temp.XMLName.Local {
 				case "Notify":
@@ -462,7 +463,7 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 		UpdateTime:   time.Now(),
 		Status:       string(sip.REGISTER),
 		core:         c,
-		from:         &sip.Contact{Uri: msg.StartLine.Uri},
+		from:         &sip.Contact{Uri: msg.StartLine.Uri,Params: make(map[string]string)},
 		to:           msg.To,
 		host:         msg.Via.Host,
 		port:         msg.Via.Port,
