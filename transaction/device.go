@@ -49,15 +49,15 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			Host:      d.core.config.SipIP,
 			Port:      fmt.Sprintf("%d",d.core.config.SipPort),
 			Params: map[string]string{
-				"received":d.host,
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
-				"rport":  d.port, //only key,no-value
+				"rport":  "-1", //only key,no-value
 			},
 		}, From: d.from,
 		To: d.to, CSeq: &sip.CSeq{
 			ID:     1,
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
+		Addr : d.host+":"+d.port,
 	}
 	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
@@ -123,6 +123,7 @@ y=0200000001`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaI
 	}
 	invite.Body = sdp
 	invite.ContentLength = len(sdp)
+
 	code:=d.core.SendMessage(invite).Code
 	fmt.Printf("invite response statuscode: %d\n",code )
 	return code

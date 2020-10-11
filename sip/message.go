@@ -35,6 +35,7 @@ type Message struct {
 	ContentLength int      //Content-Length
 	Route *Contact
 	Body string
+	Addr string
 }
 func (m *Message)BuildResponse(code int)*Message{
 	response:=Message{

@@ -399,27 +399,31 @@ func (ta *Transaction) SipSend(msg *sip.Message) error {
 	if err != nil {
 		return err
 	}
-	viaParams := msg.Via.Params
+    addr := msg.Addr
+    if addr==""{
+		viaParams := msg.Via.Params
+		//host
+		var host, port string
+		var ok1, ok2 bool
 
-	//host
-	var host, port string
-	var ok1, ok2 bool
-	if host, ok1 = viaParams["maddr"]; !ok1 {
-		if host, ok2 = viaParams["received"]; !ok2 {
-			host = msg.Via.Host
+		if host, ok1 = viaParams["maddr"]; !ok1 {
+			if host, ok2 = viaParams["received"]; !ok2 {
+				host = msg.Via.Host
+			}
 		}
-	}
-	//port
-	port = viaParams["rport"]
-	if port == "" || port == "0" || port == "-1" {
-		port = msg.Via.Port
+		//port
+		port = viaParams["rport"]
+		if port == "" || port == "0" || port == "-1" {
+			port = msg.Via.Port
+		}
+
+		if port == "" {
+			port = "5060"
+		}
+
+		addr = fmt.Sprintf("%s:%s", host, port)
 	}
 
-	if port == "" {
-		port = "5060"
-	}
-
-	addr := fmt.Sprintf("%s:%s", host, port)
 	fmt.Println("dest addr:", addr)
 
 	var err1, err2 error
