@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/utils"
+	"strings"
 	"time"
 )
 
@@ -108,7 +109,9 @@ a=recvonly
 a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
 a=rtpmap:98 H264/90000
-y=0200000001`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
+y=0200000001
+`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
+	sdp = strings.ReplaceAll(sdp,"\n","\r\n")
 	invite := d.CreateMessage(sip.INVITE)
 	invite.StartLine.Uri = sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain())
 	invite.To = &sip.Contact{
@@ -116,6 +119,7 @@ y=0200000001`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaI
 	}
 	invite.From = &sip.Contact{
 		Uri: sip.NewURI(d.core.config.Serial + "@" + d.core.config.Realm),
+		Params: map[string]string{"tag":utils.RandNumString(9)},
 	}
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
@@ -123,8 +127,11 @@ y=0200000001`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaI
 	}
 	invite.Body = sdp
 	invite.ContentLength = len(sdp)
-
-	code:=d.core.SendMessage(invite).Code
-	fmt.Printf("invite response statuscode: %d\n",code )
-	return code
+	invite.Subject = fmt.Sprintf("%s:0200000001,34020000002020000001:0",channel.DeviceID)
+	response := d.core.SendMessage(invite)
+	fmt.Printf("invite response statuscode: %d\n",response.Code )
+	if response.Code == 200 {
+		go d.core.Ack(response.Data,invite.Addr)
+	}
+	return response.Code
 }

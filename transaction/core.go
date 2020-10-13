@@ -27,10 +27,13 @@ type Core struct {
 	Devices      sync.Map
 	OnInvite     func(*Channel) int
 }
+
 var xmlReg *regexp.Regexp
-func init(){
-	xmlReg,_= regexp.Compile("<\\?.+\\?>")
+
+func init() {
+	xmlReg, _ = regexp.Compile("<\\?.+\\?>")
 }
+
 //初始化一个 Core，需要能响应请求，也要能发起请求
 //client 发起请求
 //server 响应请求
@@ -362,7 +365,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					XMLName xml.Name
 					CmdType string
 				}{}
-				msg.Body = xmlReg.ReplaceAllString(msg.Body,"")
+				msg.Body = xmlReg.ReplaceAllString(msg.Body, "")
 				xml.Unmarshal([]byte(msg.Body), temp)
 				switch temp.XMLName.Local {
 				case "Notify":
@@ -390,17 +393,11 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		}
 	case sip.INVITE:
 		if msg.IsResponse() {
-			if msg.GetStatusCode() == 200 {
-				if v, ok := c.Devices.Load(msg.To.Uri.UserInfo()); ok {
-					v.(*Device).Status = string(sip.INVITE)
-				}
-				go c.Ack(msg)
-				if ok {
-					ta.response <- &Response{
-						Code:    msg.GetStatusCode(),
-						Data:    msg,
-						Message: msg.GetReason(),
-					}
+			if ok {
+				ta.response <- &Response{
+					Code:    msg.GetStatusCode(),
+					Data:    msg,
+					Message: msg.GetReason(),
 				}
 			}
 		}
@@ -415,26 +412,27 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	return
 }
 func (c *Core) Send(msg *sip.Message) error {
-	viaParams := msg.Via.Params
-	//host
-	var host, port string
-	var ok1, ok2 bool
-	if host, ok1 = viaParams["maddr"]; !ok1 {
-		if host, ok2 = viaParams["received"]; !ok2 {
-			host = msg.Via.Host
-		}
-	}
-	//port
-	port = viaParams["rport"]
-	if port == "" || port == "0" || port == "-1" {
-		port = msg.Via.Port
-	}
+	//viaParams := msg.Via.Params
+	////host
+	//var host, port string
+	//var ok1, ok2 bool
+	//if host, ok1 = viaParams["maddr"]; !ok1 {
+	//	if host, ok2 = viaParams["received"]; !ok2 {
+	//		host = msg.Via.Host
+	//	}
+	//}
+	////port
+	//port = viaParams["rport"]
+	//if port == "" || port == "0" || port == "-1" {
+	//	port = msg.Via.Port
+	//}
+	//
+	//if port == "" {
+	//	port = "5060"
+	//}
 
-	if port == "" {
-		port = "5060"
-	}
-
-	addr := fmt.Sprintf("%s:%s", host, port)
+	//addr := fmt.Sprintf("%s:%s", host, port)
+	addr := msg.Addr
 	fmt.Println("dest addr:", addr)
 	var err1, err2 error
 	pkt := &transport.Packet{}
@@ -463,7 +461,7 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 		UpdateTime:   time.Now(),
 		Status:       string(sip.REGISTER),
 		core:         c,
-		from:         &sip.Contact{Uri: msg.StartLine.Uri,Params: make(map[string]string)},
+		from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
 		to:           msg.To,
 		host:         msg.Via.Host,
 		port:         msg.Via.Port,
@@ -471,7 +469,7 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 	c.Devices.Store(msg.From.Uri.UserInfo(), v)
 	return v
 }
-func (c *Core) Ack(msg *sip.Message) {
+func (c *Core) Ack(msg *sip.Message, addr string) {
 	ack := sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
 		MaxForwards: 70,
@@ -497,6 +495,7 @@ func (c *Core) Ack(msg *sip.Message) {
 			Method: sip.ACK,
 		},
 		CallID: msg.CallID,
+		Addr:   addr,
 	}
 	c.Send(&ack)
 }
