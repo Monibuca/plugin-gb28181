@@ -66,6 +66,7 @@ func (c *Core) AddTransaction(ta *Transaction) {
 	c.mutex.Lock()
 	c.transactions[ta.id] = ta
 	c.mutex.Unlock()
+	go ta.Run()
 }
 
 //delete transaction
@@ -120,7 +121,7 @@ func (c *Core) initTransaction(ctx context.Context, obj *EventObj) *Transaction 
 	ta.callID = m.CallID
 	ta.cseq = m.CSeq
 	ta.origRequest = m
-	go ta.Run()
+
 	return ta
 }
 
@@ -227,7 +228,7 @@ func (c *Core) Handler() {
 	ch := c.tp.ReadPacketChan()
 	//阻塞读取消息
 	for {
-		fmt.Println("PacketHandler ========== SIP Client")
+		//fmt.Println("PacketHandler ========== SIP Client")
 		select {
 		case tid := <-c.removeTa:
 			c.DelTransaction(tid)
@@ -292,7 +293,7 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 //响应消息则需要匹配到请求，让请求的transaction来处理。
 //TODO：参考srs和osip的流程，以及文档，做最终处理。需要将逻辑分成两层：TU 层和 transaction 层
 func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
-	fmt.Println("packet content:", string(p.Data))
+	//fmt.Println("packet content:", string(p.Data))
 	var msg *sip.Message
 	msg, err = sip.Decode(p.Data)
 	if err != nil {
@@ -306,7 +307,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		return err
 	}
 
-	fmt.Println("receive message:", msg.GetMethod())
+	//fmt.Println("receive message:", msg.GetMethod())
 
 	e := c.NewInComingMessageEvent(msg)
 
@@ -319,42 +320,17 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//TODO：CANCEL、BYE 和 ACK 需要特殊处理，使用事物或者直接由TU层处理
 	//查找transaction
 	ta, ok := c.transactions[e.tid]
+
 	method := msg.GetMethod()
-	if !ok {
-		if msg.IsRequest() {
-			switch method {
-			case sip.ACK:
-				//TODO:this should be a ACK for 2xx (but could be a late ACK!)
-				return
-
-			}
-			ta = c.initTransaction(c.ctx, e)
-			//as uas
-			switch method {
-			case sip.REGISTER:
-				ta.typo = FSM_NIST
-				ta.state = NIST_PROCEEDING
-				c.AddDevice(msg)
-				e = c.NewOutGoingMessageEvent(msg.BuildResponse(200))
-				//c.SendMessage(msg.BuildResponse(200))
-			case sip.INVITE:
-				ta.typo = FSM_IST
-				ta.state = IST_PRE_PROCEEDING
-			case sip.CANCEL:
-				//TODO:CANCEL处理
-				/* special handling for CANCEL */
-				/* in the new spec, if the CANCEL has a Via branch, then it
-				is the same as the one in the original INVITE */
-				return
-			}
-			c.AddTransaction(ta)
-		} else {
-
-		}
-	}
-	switch method {
-	case sip.MESSAGE:
-		if msg.IsRequest() {
+	if msg.IsRequest() {
+		switch method {
+		case sip.ACK:
+			//TODO:this should be a ACK for 2xx (but could be a late ACK!)
+			return
+		case sip.BYE:
+			c.Send(msg.BuildResponse(200))
+			return
+		case sip.MESSAGE:
 			if v, ok := c.Devices.Load(msg.From.Uri.UserInfo()); ok {
 				d := v.(*Device)
 				if d.Status == string(sip.REGISTER) {
@@ -380,31 +356,41 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 						d.Channels = temp.DeviceList
 					}
 				}
+				if ta == nil {
+					c.Send(msg.BuildResponse(200))
+				}
 			}
+			if ta!=nil {
+				ta.event <-c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+			}
+		case sip.REGISTER:
+			if !ok {
+				ta = c.initTransaction(c.ctx, e)
+				ta.typo = FSM_NIST
+				ta.state = NIST_PROCEEDING
+				c.AddTransaction(ta)
+			}
+			c.AddDevice(msg)
+			ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+		//case sip.INVITE:
+		//	ta.typo = FSM_IST
+		//	ta.state = IST_PRE_PROCEEDING
+		case sip.CANCEL:
+			//TODO:CANCEL处理
+			/* special handling for CANCEL */
+			/* in the new spec, if the CANCEL has a Via branch, then it
+			is the same as the one in the original INVITE */
 			return
-		} else {
-			if ok {
-				ta.response <- &Response{
-					Code:    msg.GetStatusCode(),
-					Data:    msg,
-					Message: msg.GetReason(),
-				}
-			}
 		}
-	case sip.INVITE:
-		if msg.IsResponse() {
-			if ok {
-				ta.response <- &Response{
-					Code:    msg.GetStatusCode(),
-					Data:    msg,
-					Message: msg.GetReason(),
-				}
-			}
-		}
-	}
-	if ta != nil {
-		//把event推到transaction
+	} else if ok {
 		ta.event <- e
+		if msg.GetStatusCode() >=200 {
+			ta.response <- &Response{
+				Code:    msg.GetStatusCode(),
+				Data:    msg,
+				Message: msg.GetReason(),
+			}
+		}
 	}
 	//TODO：TU层处理：根据需要，创建，或者匹配 Dialog
 	//通过tag匹配到call和dialog
@@ -412,27 +398,30 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	return
 }
 func (c *Core) Send(msg *sip.Message) error {
-	//viaParams := msg.Via.Params
-	////host
-	//var host, port string
-	//var ok1, ok2 bool
-	//if host, ok1 = viaParams["maddr"]; !ok1 {
-	//	if host, ok2 = viaParams["received"]; !ok2 {
-	//		host = msg.Via.Host
-	//	}
-	//}
-	////port
-	//port = viaParams["rport"]
-	//if port == "" || port == "0" || port == "-1" {
-	//	port = msg.Via.Port
-	//}
-	//
-	//if port == "" {
-	//	port = "5060"
-	//}
-
-	//addr := fmt.Sprintf("%s:%s", host, port)
 	addr := msg.Addr
+
+	if addr=="" {
+		viaParams := msg.Via.Params
+		var host, port string
+		var ok1, ok2 bool
+		if host, ok1 = viaParams["maddr"]; !ok1 {
+			if host, ok2 = viaParams["received"]; !ok2 {
+				host = msg.Via.Host
+			}
+		}
+		//port
+		port = viaParams["rport"]
+		if port == "" || port == "0" || port == "-1" {
+			port = msg.Via.Port
+		}
+
+		if port == "" {
+			port = "5060"
+		}
+
+		addr = fmt.Sprintf("%s:%s", host, port)
+	}
+
 	fmt.Println("dest addr:", addr)
 	var err1, err2 error
 	pkt := &transport.Packet{}
