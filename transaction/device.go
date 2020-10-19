@@ -159,8 +159,10 @@ y=0200000001
 }
 func (d *Device) Bye(channelIndex int) int{
 	channel := &d.Channels[channelIndex]
-	channel.Bye()
-	return 200
+	defer func() {
+		channel.inviteRes = nil
+	}()
+	return channel.Bye().Code
 }
 func (c *Channel) Ack() {
 	ack := c.CreateMessage(sip.ACK)
@@ -169,10 +171,10 @@ func (c *Channel) Ack() {
 	ack.CallID = c.inviteRes.CallID
 	go c.device.core.Send(ack)
 }
-func (c *Channel) Bye() {
+func (c *Channel) Bye() *Response{
 	bye := c.CreateMessage(sip.BYE)
 	bye.From = c.inviteRes.From
 	bye.To = c.inviteRes.To
 	bye.CallID = c.inviteRes.CallID
-	go c.device.core.Send(bye)
+	return c.device.core.SendMessage(bye)
 }

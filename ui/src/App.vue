@@ -112,8 +112,10 @@ export default {
         item.Connected = true
       });
     },
-    bye(id, channel) {
-      this.ajax.get("/gb28181/bye", {id, channel});
+    bye(id, channel,item) {
+      this.ajax.get("/gb28181/bye", {id, channel}).then(x=>{
+        item.Connected = false
+      });;
     }
   },
 };

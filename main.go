@@ -151,18 +151,15 @@ func onPublish(channel *transaction.Channel) (port int) {
 		bufUDP := make([]byte, 1048576)
 		Printf("udp server start listen video port[%d]", port)
 		defer Printf("udp server stop listen video port[%d]", port)
-		timer := time.Unix(0, 0)
-		for {
+		for rtpPublisher.Err() == nil {
+			if err = conn.SetReadDeadline(time.Now().Add(time.Second*30));err!=nil{
+				return
+			}
 			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
-				elapsed := time.Now().Sub(timer)
-				if elapsed >= 30*time.Second {
-					Printf("Package recv from VConn.len:%d\n", n)
-					timer = time.Now()
-				}
 				rtpPublisher.PushPS(bufUDP[:n])
 			} else {
 				Println("udp server read video pack error", err)
-				continue
+				rtpPublisher.Close()
 			}
 		}
 	}()
