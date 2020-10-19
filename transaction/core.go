@@ -353,7 +353,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 							DeviceList []Channel `xml:"DeviceList>Item"`
 						}{}
 						xml.Unmarshal([]byte(msg.Body), temp)
-						d.Channels = temp.DeviceList
+						d.UpdateChannels(temp.DeviceList)
 					}
 				}
 				if ta == nil {
@@ -457,34 +457,4 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 	}
 	c.Devices.Store(msg.From.Uri.UserInfo(), v)
 	return v
-}
-func (c *Core) Ack(msg *sip.Message, addr string) {
-	ack := sip.Message{
-		Mode:        sip.SIP_MESSAGE_REQUEST,
-		MaxForwards: 70,
-		UserAgent:   "Monibuca",
-		Expires:     3600,
-		StartLine: &sip.StartLine{
-			Method: sip.ACK,
-			Uri:    msg.To.Uri,
-		},
-		Via: &sip.Via{
-			Transport: "UDP",
-			Host:      msg.Via.Host,
-			Port:      msg.Via.Port,
-			Params: map[string]string{
-				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
-				"rport":  "-1", //only key,no-value
-			},
-		},
-		From: msg.From,
-		To:   msg.To,
-		CSeq: &sip.CSeq{
-			ID:     1,
-			Method: sip.ACK,
-		},
-		CallID: msg.CallID,
-		Addr:   addr,
-	}
-	c.Send(&ack)
 }

@@ -96,11 +96,24 @@ func run() {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
 		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
-		if err!=nil{
+		if err != nil {
 			w.WriteHeader(404)
 		}
 		if v, ok := s.Devices.Load(id); ok {
 			w.WriteHeader(v.(*transaction.Device).Invite(channel))
+		} else {
+			w.WriteHeader(404)
+		}
+	})
+	http.HandleFunc("/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		id := r.URL.Query().Get("id")
+		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		if err != nil {
+			w.WriteHeader(404)
+		}
+		if v, ok := s.Devices.Load(id); ok {
+			w.WriteHeader(v.(*transaction.Device).Bye(channel))
 		} else {
 			w.WriteHeader(404)
 		}

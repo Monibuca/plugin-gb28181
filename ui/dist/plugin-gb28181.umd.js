@@ -96,6 +96,24 @@ return /******/ (function(modules) { // webpackBootstrap
 /************************************************************************/
 /******/ ({
 
+/***/ "789d":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
+
+/***/ }),
+
+/***/ "b284":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _plugin_webrtc_ui_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_plugin_webrtc_ui_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_plugin_webrtc_ui_node_modules_vue_loader_lib_loaders_stylePostLoader_js_plugin_webrtc_ui_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_plugin_webrtc_ui_node_modules_cache_loader_dist_cjs_js_ref_0_0_plugin_webrtc_ui_node_modules_vue_loader_lib_index_js_vue_loader_options_Player_vue_vue_type_style_index_0_id_70987c50_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("789d");
+/* harmony import */ var _plugin_webrtc_ui_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_plugin_webrtc_ui_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_plugin_webrtc_ui_node_modules_vue_loader_lib_loaders_stylePostLoader_js_plugin_webrtc_ui_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_plugin_webrtc_ui_node_modules_cache_loader_dist_cjs_js_ref_0_0_plugin_webrtc_ui_node_modules_vue_loader_lib_index_js_vue_loader_options_Player_vue_vue_type_style_index_0_id_70987c50_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_plugin_webrtc_ui_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_plugin_webrtc_ui_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_plugin_webrtc_ui_node_modules_vue_loader_lib_loaders_stylePostLoader_js_plugin_webrtc_ui_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_plugin_webrtc_ui_node_modules_cache_loader_dist_cjs_js_ref_0_0_plugin_webrtc_ui_node_modules_vue_loader_lib_index_js_vue_loader_options_Player_vue_vue_type_style_index_0_id_70987c50_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
+ /* unused harmony default export */ var _unused_webpack_default_export = (_plugin_webrtc_ui_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_plugin_webrtc_ui_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_plugin_webrtc_ui_node_modules_vue_loader_lib_loaders_stylePostLoader_js_plugin_webrtc_ui_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_plugin_webrtc_ui_node_modules_cache_loader_dist_cjs_js_ref_0_0_plugin_webrtc_ui_node_modules_vue_loader_lib_index_js_vue_loader_options_Player_vue_vue_type_style_index_0_id_70987c50_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default.a); 
+
+/***/ }),
+
 /***/ "deee":
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
@@ -127,34 +145,26 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=42803452&
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=f1080fa4&
 var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
 var $index = ref.$index;
-return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index)}}},[_vm._v("invite")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.left(prop.row.ID, $index)}}},[_vm._v("👈")]),_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.right(prop.row.ID, $index)}}},[_vm._v("👉")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
+return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.ptz(prop.row.ID, $index,item)}}},[_vm._v("云台")]):_vm._e(),(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.bye(prop.row.ID, $index)}}},[_vm._v("断开")]):_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index,item)}}},[_vm._v("连接 ")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels?item.Channels.length:0))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}])})],1)}
+return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels ? item.Channels.length : 0))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}])}),_c('webrtc-player',{ref:"player",attrs:{"PublicIP":_vm.PublicIP},on:{"ptz":_vm.sendPtz},model:{value:(_vm.previewStreamPath),callback:function ($$v) {_vm.previewStreamPath=$$v},expression:"previewStreamPath"}})],1)}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=42803452&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=f1080fa4&
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/components/Player.vue?vue&type=template&id=70987c50&scoped=true&
+var Playervue_type_template_id_70987c50_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('Modal',_vm._g(_vm._b({attrs:{"draggable":"","title":_vm.streamPath},on:{"on-ok":_vm.onClosePreview,"on-cancel":_vm.onClosePreview}},'Modal',_vm.$attrs,false),_vm.$listeners),[_c('div',{staticClass:"container"},[_c('video',{ref:"webrtc",attrs:{"width":"488","height":"275","autoplay":"","muted":"","controls":""},domProps:{"srcObject":_vm.stream,"muted":true}}),_c('div',{staticClass:"control"},_vm._l((4),function(n){return _c('svg',{class:'arrow'+n,attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg","xmlns:xlink":"http://www.w3.org/1999/xlink","width":"64","height":"64"},on:{"click":function($event){return _vm.$emit('ptz',n)}}},[_c('defs'),_c('path',{attrs:{"d":"M682.666667 955.733333H341.333333a17.066667 17.066667 0 0 1-17.066666-17.066666V529.066667H85.333333a17.066667 17.066667 0 0 1-12.066133-29.1328l426.666667-426.666667a17.0496 17.0496 0 0 1 24.132266 0l426.666667 426.666667A17.066667 17.066667 0 0 1 938.666667 529.066667H699.733333v409.6a17.066667 17.066667 0 0 1-17.066666 17.066666z m-324.266667-34.133333h307.2V512a17.066667 17.066667 0 0 1 17.066667-17.066667h214.801066L512 109.4656 126.532267 494.933333H341.333333a17.066667 17.066667 0 0 1 17.066667 17.066667v409.6z","p-id":"6849"}})])}),0)]),_c('div',{attrs:{"slot":"footer"},slot:"footer"},[(_vm.remoteSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.remoteSDPURL,"download":"remoteSDP.txt"},slot:"content"},[_vm._v("remoteSDP")])]):_vm._e(),(_vm.localSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.localSDPURL,"download":"localSDP.txt"},slot:"content"},[_vm._v("localSDP")])]):_vm._e()],1)])}
+var Playervue_type_template_id_70987c50_scoped_true_staticRenderFns = []
+
+
+// CONCATENATED MODULE: ./src/components/Player.vue?vue&type=template&id=70987c50&scoped=true&
+
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/components/Player.vue?vue&type=script&lang=js&
 //
 //
 //
@@ -181,65 +191,76 @@ var staticRenderFns = []
 //
 //
 
-/* harmony default export */ var Appvue_type_script_lang_js_ = ({
-    data() {
-        return {
-            Devices: [],
-            columns: Object.freeze(
-                ["设备号", "通道数", "注册时间", "更新时间", "状态"].map(
-                    (title) => ({
-                        title,
-                    })
-                )
-            ),
-            columns2: Object.freeze([
-                "通道编号",
-                "名称",
-                "厂商",
-                "地址",
-                "状态",
-                "操作",
-            ]).map((title) => ({ title })),
-        };
-    },
-    created() {
-        this.fetchlist();
-    },
+let pc = null;
+/* harmony default export */ var Playervue_type_script_lang_js_ = ({
+  data() {
+    return {
+      iceConnectionState: pc && pc.iceConnectionState,
+      stream: null,
+      localSDP: "",
+      remoteSDP: "",
+      remoteSDPURL: "",
+      localSDPURL: "",
+      streamPath: ""
+    };
+  },
+props:{
+  PublicIP:String
+},
     methods: {
-        fetchlist() {
-            const listES = new EventSource(this.apiHost + "/gb28181/list");
-            listES.onmessage = (evt) => {
-                if (!evt.data) return;
-                this.Devices = JSON.parse(evt.data) || [];
-                this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
+        async play(streamPath) {
+            pc = new RTCPeerConnection();
+            pc.addTransceiver('video',{
+              direction:'recvonly'
+            })
+            this.streamPath = streamPath;
+            pc.onsignalingstatechange = e => {
+                //console.log(e);
             };
-            this.$once("hook:destroyed", () => listES.close());
-        },
-        preview(item) {
-            alert("尚未实现");
-        },
-        left(id, channel) {
-            this.ajax.get("/gb28181/control", {
-                id,
-                channel,
-                ptzcmd: "A50F01021F0000D6",
+            pc.oniceconnectionstatechange = e => {
+                this.$toast.info(pc.iceConnectionState);
+                this.iceConnectionState = pc.iceConnectionState;
+            };
+            pc.onicecandidate = event => {
+                console.log(event)
+            };
+            pc.ontrack = event => {
+               // console.log(event);
+                if (event.track.kind == "video")
+                    this.stream = event.streams[0];
+            };
+            await pc.setLocalDescription(await pc.createOffer());
+            this.localSDP = pc.localDescription.sdp;
+            this.localSDPURL = URL.createObjectURL(
+                new Blob([this.localSDP], { type: "text/plain" })
+            );
+            const result = await this.ajax({
+                type: "POST",
+                processData: false,
+                data: JSON.stringify(pc.localDescription.toJSON()),
+                url: "/webrtc/play?streamPath=" + this.streamPath,
+                dataType: "json"
             });
+            if (result.errmsg) {
+                this.$toast.error(result.errmsg);
+                return;
+            } else {
+                this.remoteSDP = result.sdp;
+                this.remoteSDPURL = URL.createObjectURL(new Blob([this.remoteSDP], { type: "text/plain" }));
+            }
+            await pc.setRemoteDescription(new RTCSessionDescription(result));
         },
-        right(id, channel) {
-            this.ajax.get("/gb28181/control", {
-                id,
-                channel,
-                ptzcmd: "A50F01011F0000D6",
-            });
-        },
-        invite(id, channel) {
-            this.ajax.get("/gb28181/invite", { id, channel });
-        },
-    },
+        onClosePreview() {
+            pc.close();
+        }
+    }
 });
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=script&lang=js&
- /* harmony default export */ var src_Appvue_type_script_lang_js_ = (Appvue_type_script_lang_js_); 
+// CONCATENATED MODULE: ./src/components/Player.vue?vue&type=script&lang=js&
+ /* harmony default export */ var components_Playervue_type_script_lang_js_ = (Playervue_type_script_lang_js_); 
+// EXTERNAL MODULE: ./src/components/Player.vue?vue&type=style&index=0&id=70987c50&scoped=true&lang=css&
+var Playervue_type_style_index_0_id_70987c50_scoped_true_lang_css_ = __webpack_require__("b284");
+
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/runtime/componentNormalizer.js
 /* globals __VUE_SSR_CONTEXT__ */
 
@@ -340,7 +361,8 @@ function normalizeComponent (
   }
 }
 
-// CONCATENATED MODULE: ./src/App.vue
+// CONCATENATED MODULE: ./src/components/Player.vue
+
 
 
 
@@ -349,6 +371,149 @@ function normalizeComponent (
 /* normalize component */
 
 var component = normalizeComponent(
+  components_Playervue_type_script_lang_js_,
+  Playervue_type_template_id_70987c50_scoped_true_render,
+  Playervue_type_template_id_70987c50_scoped_true_staticRenderFns,
+  false,
+  null,
+  "70987c50",
+  null
+  
+)
+
+/* harmony default export */ var Player = (component.exports);
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
+/* harmony default export */ var Appvue_type_script_lang_js_ = ({
+  components:{
+    WebrtcPlayer: Player
+  },
+  props:{
+    ListenAddr:String
+  },
+  computed:{
+    PublicIP(){
+      return this.ListenAddr.split(":")[0]
+    }
+  },
+  data() {
+    return {
+      Devices: [], previewStreamPath:false,
+      context:{
+        id:null,
+        channel:0,
+        item:null
+      },
+      columns: Object.freeze(
+          ["设备号", "通道数", "注册时间", "更新时间", "状态"].map(
+              (title) => ({
+                title,
+              })
+          )
+      ),
+      columns2: Object.freeze([
+        "通道编号",
+        "名称",
+        "厂商",
+        "地址",
+        "状态",
+        "操作",
+      ]).map((title) => ({title})),
+      ptzCmds:["A50F010800880045","A50F01018800003E", "A50F010400880041","A50F01028800003F"]
+    };
+  },
+  created() {
+    this.fetchlist();
+  },
+  methods: {
+    fetchlist() {
+      const listES = new EventSource(this.apiHost + "/gb28181/list");
+      listES.onmessage = (evt) => {
+        if (!evt.data) return;
+        this.Devices = JSON.parse(evt.data) || [];
+        this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
+      };
+      this.$once("hook:destroyed", () => listES.close());
+    },
+    ptz(id, channel,item) {
+      this.context = {
+        id,channel,item
+      }
+      this.previewStreamPath = true
+      this.$nextTick(() =>this.$refs.player.play("gb28181/"+item.DeviceID));
+    },
+    sendPtz(n){
+      this.ajax.get("/gb28181/control", {
+        id:this.context.id,
+        channel:this.context.channel,
+        ptzcmd: this.ptzCmds[n-1],
+      });
+      this.ajax.get("/gb28181/control", {
+        id:this.context.id,
+        channel:this.context.channel,
+        ptzcmd: "A50F0100000000B5",
+      });
+    },
+    invite(id, channel,item) {
+      this.ajax.get("/gb28181/invite", {id, channel}).then(x=>{
+        item.Connected = true
+      });
+    },
+    bye(id, channel) {
+      this.ajax.get("/gb28181/bye", {id, channel});
+    }
+  },
+});
+
+// CONCATENATED MODULE: ./src/App.vue?vue&type=script&lang=js&
+ /* harmony default export */ var src_Appvue_type_script_lang_js_ = (Appvue_type_script_lang_js_); 
+// CONCATENATED MODULE: ./src/App.vue
+
+
+
+
+
+/* normalize component */
+
+var App_component = normalizeComponent(
   src_Appvue_type_script_lang_js_,
   render,
   staticRenderFns,
@@ -359,7 +524,7 @@ var component = normalizeComponent(
   
 )
 
-/* harmony default export */ var App = (component.exports);
+/* harmony default export */ var App = (App_component.exports);
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/@vue/cli-service/lib/commands/build/entry-lib.js
 
 

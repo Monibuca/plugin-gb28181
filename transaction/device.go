@@ -21,6 +21,9 @@ type Channel struct {
 	RegisterWay  int
 	Secrecy      int
 	Status       string
+	device       *Device
+	inviteRes    *sip.Message
+	Connected    bool
 }
 type Device struct {
 	ID           string
@@ -36,6 +39,36 @@ type Device struct {
 	port         string
 }
 
+func (d *Device) UpdateChannels(list []Channel) {
+	for _, c := range list {
+		c.device = d
+		have := false
+		for i, o := range d.Channels {
+			if o.DeviceID == c.DeviceID {
+				c.inviteRes = o.inviteRes
+				c.Connected = o.inviteRes!=nil
+				d.Channels[i] = c
+				have = true
+				break
+			}
+		}
+		if !have {
+			d.Channels = append(d.Channels, c)
+		}
+	}
+}
+func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
+	requestMsg = c.device.CreateMessage(Method)
+	requestMsg.StartLine.Uri = sip.NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
+	requestMsg.To = &sip.Contact{
+		Uri: requestMsg.StartLine.Uri,
+	}
+	requestMsg.From = &sip.Contact{
+		Uri:    sip.NewURI(c.device.core.config.Serial + "@" + c.device.core.config.Realm),
+		Params: map[string]string{"tag": utils.RandNumString(9)},
+	}
+	return
+}
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	d.sn++
 	requestMsg = &sip.Message{
@@ -48,7 +81,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 		}, Via: &sip.Via{
 			Transport: "UDP",
 			Host:      d.core.config.SipIP,
-			Port:      fmt.Sprintf("%d",d.core.config.SipPort),
+			Port:      fmt.Sprintf("%d", d.core.config.SipPort),
 			Params: map[string]string{
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 				"rport":  "-1", //only key,no-value
@@ -58,7 +91,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			ID:     1,
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr : d.host+":"+d.port,
+		Addr: d.host + ":" + d.port,
 	}
 	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
@@ -75,13 +108,9 @@ func (d *Device) Query() int {
 	requestMsg.ContentLength = len(requestMsg.Body)
 	return d.core.SendMessage(requestMsg).Code
 }
-func (d *Device) Control(channelIndex int,PTZCmd string) int {
+func (d *Device) Control(channelIndex int, PTZCmd string) int {
 	channel := &d.Channels[channelIndex]
-	requestMsg := d.CreateMessage(sip.MESSAGE)
-	requestMsg.StartLine.Uri = sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain())
-	requestMsg.To = &sip.Contact{
-		Uri: requestMsg.StartLine.Uri,
-	}
+	requestMsg := channel.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
 <Control>
@@ -111,27 +140,39 @@ a=rtpmap:97 MPEG4/90000
 a=rtpmap:98 H264/90000
 y=0200000001
 `, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
-	sdp = strings.ReplaceAll(sdp,"\n","\r\n")
-	invite := d.CreateMessage(sip.INVITE)
-	invite.StartLine.Uri = sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain())
-	invite.To = &sip.Contact{
-		Uri: invite.StartLine.Uri,
-	}
-	invite.From = &sip.Contact{
-		Uri: sip.NewURI(d.core.config.Serial + "@" + d.core.config.Realm),
-		Params: map[string]string{"tag":utils.RandNumString(9)},
-	}
+	sdp = strings.ReplaceAll(sdp, "\n", "\r\n")
+	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
-		Uri:      sip.NewURI(fmt.Sprintf("%s@%s:%d",d.core.config.Serial, d.core.config.SipIP,d.core.config.SipPort)),
+		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.core.config.Serial, d.core.config.SipIP, d.core.config.SipPort)),
 	}
 	invite.Body = sdp
 	invite.ContentLength = len(sdp)
-	invite.Subject = fmt.Sprintf("%s:0200000001,34020000002020000001:0",channel.DeviceID)
+	invite.Subject = fmt.Sprintf("%s:0200000001,34020000002020000001:0", channel.DeviceID)
 	response := d.core.SendMessage(invite)
-	fmt.Printf("invite response statuscode: %d\n",response.Code )
+	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
-		go d.core.Ack(response.Data,invite.Addr)
+		channel.inviteRes = response.Data
+		channel.Ack()
 	}
 	return response.Code
+}
+func (d *Device) Bye(channelIndex int) int{
+	channel := &d.Channels[channelIndex]
+	channel.Bye()
+	return 200
+}
+func (c *Channel) Ack() {
+	ack := c.CreateMessage(sip.ACK)
+	ack.From = c.inviteRes.From
+	ack.To = c.inviteRes.To
+	ack.CallID = c.inviteRes.CallID
+	go c.device.core.Send(ack)
+}
+func (c *Channel) Bye() {
+	bye := c.CreateMessage(sip.BYE)
+	bye.From = c.inviteRes.From
+	bye.To = c.inviteRes.To
+	bye.CallID = c.inviteRes.CallID
+	go c.device.core.Send(bye)
 }
