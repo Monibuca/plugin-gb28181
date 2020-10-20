@@ -153,6 +153,7 @@ y=0200000001
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
 		channel.inviteRes = response.Data
+		channel.Connected = true
 		channel.Ack()
 	}
 	return response.Code
@@ -161,6 +162,7 @@ func (d *Device) Bye(channelIndex int) int{
 	channel := &d.Channels[channelIndex]
 	defer func() {
 		channel.inviteRes = nil
+		channel.Connected = false
 	}()
 	return channel.Bye().Code
 }

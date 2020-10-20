@@ -100,11 +100,12 @@ export default {
         id:this.context.id,
         channel:this.context.channel,
         ptzcmd: this.ptzCmds[n-1],
-      });
-      this.ajax.get("/gb28181/control", {
-        id:this.context.id,
-        channel:this.context.channel,
-        ptzcmd: "A50F0100000000B5",
+      }).then(x=>{
+        this.ajax.get("/gb28181/control", {
+          id:this.context.id,
+          channel:this.context.channel,
+          ptzcmd: "A50F0100000000B5",
+        });
       });
     },
     invite(id, channel,item) {

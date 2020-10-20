@@ -136,7 +136,7 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=95c443ae&
+// CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=2fa9ad33&
 var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
 var $index = ref.$index;
@@ -146,7 +146,7 @@ return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Channels 
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=95c443ae&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=2fa9ad33&
 
 // CONCATENATED MODULE: C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"2507526a-vue-loader-template"}!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/cache-loader/dist/cjs.js??ref--0-0!C:/Users/dexte/go/src/github.com/Monibuca/plugin-webrtc/ui/node_modules/vue-loader/lib??vue-loader-options!./src/components/Player.vue?vue&type=template&id=70987c50&scoped=true&
 var Playervue_type_template_id_70987c50_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('Modal',_vm._g(_vm._b({attrs:{"draggable":"","title":_vm.streamPath},on:{"on-ok":_vm.onClosePreview,"on-cancel":_vm.onClosePreview}},'Modal',_vm.$attrs,false),_vm.$listeners),[_c('div',{staticClass:"container"},[_c('video',{ref:"webrtc",attrs:{"width":"488","height":"275","autoplay":"","muted":"","controls":""},domProps:{"srcObject":_vm.stream,"muted":true}}),_c('div',{staticClass:"control"},_vm._l((4),function(n){return _c('svg',{class:'arrow'+n,attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg","xmlns:xlink":"http://www.w3.org/1999/xlink","width":"64","height":"64"},on:{"click":function($event){return _vm.$emit('ptz',n)}}},[_c('defs'),_c('path',{attrs:{"d":"M682.666667 955.733333H341.333333a17.066667 17.066667 0 0 1-17.066666-17.066666V529.066667H85.333333a17.066667 17.066667 0 0 1-12.066133-29.1328l426.666667-426.666667a17.0496 17.0496 0 0 1 24.132266 0l426.666667 426.666667A17.066667 17.066667 0 0 1 938.666667 529.066667H699.733333v409.6a17.066667 17.066667 0 0 1-17.066666 17.066666z m-324.266667-34.133333h307.2V512a17.066667 17.066667 0 0 1 17.066667-17.066667h214.801066L512 109.4656 126.532267 494.933333H341.333333a17.066667 17.066667 0 0 1 17.066667 17.066667v409.6z","p-id":"6849"}})])}),0)]),_c('div',{attrs:{"slot":"footer"},slot:"footer"},[(_vm.remoteSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.remoteSDPURL,"download":"remoteSDP.txt"},slot:"content"},[_vm._v("remoteSDP")])]):_vm._e(),(_vm.localSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.localSDPURL,"download":"localSDP.txt"},slot:"content"},[_vm._v("localSDP")])]):_vm._e()],1)])}
@@ -476,11 +476,12 @@ var component = normalizeComponent(
         id:this.context.id,
         channel:this.context.channel,
         ptzcmd: this.ptzCmds[n-1],
-      });
-      this.ajax.get("/gb28181/control", {
-        id:this.context.id,
-        channel:this.context.channel,
-        ptzcmd: "A50F0100000000B5",
+      }).then(x=>{
+        this.ajax.get("/gb28181/control", {
+          id:this.context.id,
+          channel:this.context.channel,
+          ptzcmd: "A50F0100000000B5",
+        });
       });
     },
     invite(id, channel,item) {
