@@ -107,7 +107,7 @@ export default {
             channel:this.context.channel,
             ptzcmd: "A50F0100000000B5",
           });
-        },1000)
+        },500)
       });
     },
     invite(id, channel,item) {

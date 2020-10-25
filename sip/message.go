@@ -3,9 +3,10 @@ package sip
 import (
 	"errors"
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/utils"
 	"strconv"
 	"strings"
+
+	"github.com/Monibuca/plugin-gb28181/utils"
 )
 
 //Content-Type: Application/MANSCDP+xml
@@ -33,31 +34,33 @@ type Message struct {
 	ContentType   string   //Content-Type
 	Expires       int      //Expires
 	ContentLength int      //Content-Length
-	Route *Contact
-	Body string
-	Addr string
+	Route         *Contact
+	Body          string
+	Addr          string
 }
-func (m *Message)BuildResponse(code int)*Message{
-	response:=Message{
-		Mode:  SIP_MESSAGE_RESPONSE,
-		From: m.From,
-		To: m.To,
-		CallID: m.CallID,
-		CSeq: m.CSeq,
-		Via:m.Via,
+
+func (m *Message) BuildResponse(code int) *Message {
+	response := Message{
+		Mode:        SIP_MESSAGE_RESPONSE,
+		From:        m.From,
+		To:          m.To,
+		CallID:      m.CallID,
+		CSeq:        m.CSeq,
+		Via:         m.Via,
 		MaxForwards: m.MaxForwards,
-		StartLine:&StartLine{
-			Code:code,
+		StartLine: &StartLine{
+			Code: code,
 		},
 	}
 	return &response
 }
+
 //z9hG4bK + 10个随机数字
 func randBranch() string {
 	return fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8))
 }
 
-func BuildMessageRequest(method Method, transport, sipSerial, sipRealm, username , srcIP string, srcPort uint16, expires, cseq int,body string) *Message {
+func BuildMessageRequest(method Method, transport, sipSerial, sipRealm, username, srcIP string, srcPort uint16, expires, cseq int, body string) *Message {
 	server := fmt.Sprintf("%s@%s", sipSerial, sipRealm)
 	client := fmt.Sprintf("%s@%s", username, sipRealm)
 
@@ -99,14 +102,12 @@ func BuildMessageRequest(method Method, transport, sipSerial, sipRealm, username
 	msg.Contact = &Contact{
 		Uri: NewURI(fmt.Sprintf("%s@%s:%d", username, srcIP, srcPort)),
 	}
-	if len(body)>0{
+	if len(body) > 0 {
 		msg.ContentLength = len(body)
 		msg.Body = body
 	}
 	return msg
 }
-
-
 
 func (m *Message) GetMode() Mode {
 	return m.Mode
@@ -121,6 +122,11 @@ func (m *Message) IsResponse() bool {
 }
 
 func (m *Message) GetMethod() Method {
+	if m.CSeq == nil {
+		b, _ := Encode(m)
+		println(string(b))
+		return MESSAGE
+	}
 	return m.CSeq.Method
 }
 
@@ -243,7 +249,7 @@ func Decode(data []byte) (msg *Message, err error) {
 					raw:     firstline,
 					Version: VERSION,
 					Code:    int(num),
-					phrase:  strings.Join(tmp[2:]," "),
+					phrase:  strings.Join(tmp[2:], " "),
 				}
 			} else {
 				//request line
@@ -255,7 +261,7 @@ func Decode(data []byte) (msg *Message, err error) {
 					Method:  Method(tmp[0]),
 					Version: VERSION,
 				}
-				if len(tmp) > 1{
+				if len(tmp) > 1 {
 					msg.StartLine.Uri, err = parseURI(tmp[1])
 					if err != nil {
 						return
@@ -445,5 +451,5 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString(msg.Body)
 	}
 
-	return []byte( sb.String()), nil
+	return []byte(sb.String()), nil
 }
