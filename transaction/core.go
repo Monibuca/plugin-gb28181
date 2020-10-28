@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/transport"
-	"github.com/Monibuca/plugin-gb28181/utils"
 	"net"
 	"os"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/sip"
+	"github.com/Monibuca/plugin-gb28181/transport"
+	"github.com/Monibuca/plugin-gb28181/utils"
 )
 
 //Core: transactions manager
@@ -300,7 +301,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		fmt.Println("parse sip message failed:", err.Error())
 		return ErrorParse
 	}
-
+	if msg.Via == nil {
+		return ErrorParse
+	}
 	//这里不处理超过MTU的包，不处理半包
 	err = checkMessage(msg)
 	if err != nil {
@@ -360,8 +363,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					c.Send(msg.BuildResponse(200))
 				}
 			}
-			if ta!=nil {
-				ta.event <-c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+			if ta != nil {
+				ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
 			}
 		case sip.REGISTER:
 			if !ok {
@@ -384,7 +387,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		}
 	} else if ok {
 		ta.event <- e
-		if msg.GetStatusCode() >=200 {
+		if msg.GetStatusCode() >= 200 {
 			ta.response <- &Response{
 				Code:    msg.GetStatusCode(),
 				Data:    msg,
@@ -400,7 +403,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 func (c *Core) Send(msg *sip.Message) error {
 	addr := msg.Addr
 
-	if addr=="" {
+	if addr == "" {
 		viaParams := msg.Via.Params
 		var host, port string
 		var ok1, ok2 bool

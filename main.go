@@ -22,8 +22,7 @@ var config = struct {
 	ListenAddr string
 	Expires    int
 	AutoInvite bool
-	MediaPort  uint16
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 6000}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true}
 
 func init() {
 	InstallPlugin(&PluginConfig{
@@ -48,7 +47,6 @@ func run() {
 		Realm:             config.Realm,
 		AckTimeout:        10,
 		MediaIP:           ipAddr.IP.String(),
-		MediaPort:         config.MediaPort,
 		RegisterValidity:  config.Expires,
 		RegisterInterval:  60,
 		HeartbeatInterval: 60,
