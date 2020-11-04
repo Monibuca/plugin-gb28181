@@ -1,18 +1,20 @@
 package transaction
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
 	"github.com/Monibuca/plugin-gb28181/utils"
+	"golang.org/x/net/html/charset"
 )
 
 //Core: transactions manager
@@ -27,12 +29,6 @@ type Core struct {
 	config       *Config                     //sip server配置信息
 	Devices      sync.Map
 	OnInvite     func(*Channel) int
-}
-
-var xmlReg *regexp.Regexp
-
-func init() {
-	xmlReg, _ = regexp.Compile("<\\?.+\\?>")
 }
 
 //初始化一个 Core，需要能响应请求，也要能发起请求
@@ -341,21 +337,21 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				}
 				d.UpdateTime = time.Now()
 				temp := &struct {
-					XMLName xml.Name
-					CmdType string
+					XMLName    xml.Name
+					CmdType    string
+					DeviceList []Channel `xml:"DeviceList>Item"`
 				}{}
-				msg.Body = xmlReg.ReplaceAllString(msg.Body, "")
-				xml.Unmarshal([]byte(msg.Body), temp)
+				decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
+				decoder.CharsetReader = func(c string, i io.Reader) (io.Reader, error) {
+					return charset.NewReaderLabel(c, i)
+				}
+				decoder.Decode(temp)
 				switch temp.XMLName.Local {
 				case "Notify":
 					go d.Query()
 				case "Response":
 					switch temp.CmdType {
 					case "Catalog":
-						temp := &struct {
-							DeviceList []Channel `xml:"DeviceList>Item"`
-						}{}
-						xml.Unmarshal([]byte(msg.Body), temp)
 						d.UpdateChannels(temp.DeviceList)
 					}
 				}
