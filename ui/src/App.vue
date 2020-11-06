@@ -37,6 +37,9 @@
 </template>
 <script>
 import WebrtcPlayer from "./components/Player"
+
+const PZT_CMDS = ["A50F010800880045", "A50F01018800003E", "A50F010400880041", "A50F01028800003F", "A50F010A888800CF", "A50F0109888800CE", "A50F0106888800CB", "A50F0105888800CA","A50F0110000010D5","A50F0120000010E5","A50F014800880085","A50F014400880081"]
+
 export default {
   components:{
     WebrtcPlayer
@@ -72,7 +75,7 @@ export default {
         "状态",
         "操作",
       ]).map((title) => ({title})),
-      ptzCmds:["A50F010800880045","A50F01018800003E", "A50F010400880041","A50F01028800003F"]
+      ptzCmds: PZT_CMDS
     };
   },
   created() {
