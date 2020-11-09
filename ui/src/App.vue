@@ -37,8 +37,7 @@
 </template>
 <script>
 import WebrtcPlayer from "./components/Player"
-
-const PZT_CMDS = ["A50F010800880045", "A50F01018800003E", "A50F010400880041", "A50F01028800003F", "A50F010A888800CF", "A50F0109888800CE", "A50F0106888800CB", "A50F0105888800CA","A50F0110000010D5","A50F0120000010E5","A50F014800880085","A50F014400880081","A50F01428800007F","A50F01418800007E","A50F018100010037","A50F018200010038","A50F018300010039"]
+import {getPTZCmd,PTZ_TYPE} from "./utils/ptz-cmd";
 
 export default {
   components:{
@@ -75,7 +74,6 @@ export default {
         "状态",
         "操作",
       ]).map((title) => ({title})),
-      ptzCmds: PZT_CMDS
     };
   },
   created() {
@@ -94,21 +92,26 @@ export default {
     ptz(id, channel,item) {
       this.context = {
         id,channel,item
-      }
+      };
       this.previewStreamPath = true
       this.$nextTick(() =>this.$refs.player.play("gb28181/"+item.DeviceID));
     },
-    sendPtz(n){
+    sendPtz(options){
+      const ptzCmd = getPTZCmd(options);
+      const ptzCmdStop = getPTZCmd({type:PTZ_TYPE.stop});
       this.ajax.get("/gb28181/control", {
         id:this.context.id,
         channel:this.context.channel,
-        ptzcmd: this.ptzCmds[n-1],
+        ptzcmd: ptzCmd,
       }).then(x=>{
+        if(options.type === PTZ_TYPE.stop || options.cycle === true){
+          return;
+        }
         setTimeout(()=>{
           this.ajax.get("/gb28181/control", {
             id:this.context.id,
             channel:this.context.channel,
-            ptzcmd: "A50F0100000000B5",
+            ptzcmd: ptzCmdStop,
           });
         },500)
       });
@@ -121,7 +124,7 @@ export default {
     bye(id, channel,item) {
       this.ajax.get("/gb28181/bye", {id, channel}).then(x=>{
         item.Connected = false
-      });;
+      });
     }
   },
 };
