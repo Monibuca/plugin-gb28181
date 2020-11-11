@@ -223,6 +223,7 @@ func (c *Core) Handler() {
 	}()
 
 	ch := c.tp.ReadPacketChan()
+	timer:=time.Tick(time.Second*5)
 	//阻塞读取消息
 	for {
 		//fmt.Println("PacketHandler ========== SIP Client")
@@ -235,6 +236,8 @@ func (c *Core) Handler() {
 				fmt.Println("handler sip response message failed:", err.Error())
 				continue
 			}
+		case <-timer:
+			c.RemoveDead()
 		}
 	}
 }

@@ -2,10 +2,11 @@ package transaction
 
 import (
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/utils"
 	"strings"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/sip"
+	"github.com/Monibuca/plugin-gb28181/utils"
 )
 
 type Channel struct {
@@ -39,6 +40,15 @@ type Device struct {
 	port         string
 }
 
+func (c *Core) RemoveDead() {
+	c.Devices.Range(func(k, v interface{}) bool {
+		device := v.(*Device)
+		if device.UpdateTime.Sub(device.RegisterTime) > time.Second*36 {
+			c.Devices.Delete(k)
+		}
+		return true
+	})
+}
 func (d *Device) UpdateChannels(list []Channel) {
 	for _, c := range list {
 		c.device = d
@@ -46,7 +56,7 @@ func (d *Device) UpdateChannels(list []Channel) {
 		for i, o := range d.Channels {
 			if o.DeviceID == c.DeviceID {
 				c.inviteRes = o.inviteRes
-				c.Connected = o.inviteRes!=nil
+				c.Connected = o.inviteRes != nil
 				d.Channels[i] = c
 				have = true
 				break
@@ -158,7 +168,7 @@ y=0200000001
 	}
 	return response.Code
 }
-func (d *Device) Bye(channelIndex int) int{
+func (d *Device) Bye(channelIndex int) int {
 	channel := &d.Channels[channelIndex]
 	defer func() {
 		channel.inviteRes = nil
@@ -173,7 +183,7 @@ func (c *Channel) Ack() {
 	ack.CallID = c.inviteRes.CallID
 	go c.device.core.Send(ack)
 }
-func (c *Channel) Bye() *Response{
+func (c *Channel) Bye() *Response {
 	bye := c.CreateMessage(sip.BYE)
 	bye.From = c.inviteRes.From
 	bye.To = c.inviteRes.To
