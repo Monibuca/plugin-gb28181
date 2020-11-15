@@ -136,6 +136,7 @@ func (d *Device) Invite(channelIndex int) int {
 	channel := &d.Channels[channelIndex]
 	port := d.core.OnInvite(channel)
 	if port == 0 {
+		channel.Connected = true
 		return 304
 	}
 	sdp := fmt.Sprintf(`v=0
