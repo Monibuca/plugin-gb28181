@@ -1,37 +1,42 @@
 <template>
   <div>
-    <mu-data-table :data="Devices" :columns="columns">
-      <template #expand="prop">
-        <mu-data-table :data="prop.row.Channels" :columns="columns2">
-          <template #default="{ row: item, $index }">
-            <td>{{ item.DeviceID }}</td>
-            <td>{{ item.Name }}</td>
-            <td>{{ item.Manufacturer }}</td>
-            <td>{{ item.Address }}</td>
-            <td>{{ item.Status }}</td>
-            <td>
-              <mu-button flat v-if="item.Connected" @click="ptz(prop.row.ID, $index,item)">云台</mu-button>
-              <mu-button flat v-if="item.Connected" @click="bye(prop.row.ID, $index)">断开</mu-button>
-              <mu-button v-else flat @click="invite(prop.row.ID, $index,item)"
-              >连接
-              </mu-button
-              >
-            </td>
-          </template>
-        </mu-data-table>
-      </template>
-      <template #default="{ row: item }">
-        <td>{{ item.ID }}</td>
-        <td>{{ item.Channels ? item.Channels.length : 0 }}</td>
-        <td>
-          <StartTime :value="item.RegisterTime"></StartTime>
-        </td>
-        <td>
-          <StartTime :value="item.UpdateTime"></StartTime>
-        </td>
-        <td>{{ item.Status }}</td>
-      </template>
-    </mu-data-table>
+    <div class="tabpanel" v-if="$parent.titleTabActive === 0">
+      <mu-data-table :data="Devices" :columns="columns">
+        <template #expand="prop">
+          <mu-data-table :data="prop.row.Channels" :columns="columns2">
+            <template #default="{ row: item, $index }">
+              <td>{{ item.DeviceID }}</td>
+              <td>{{ item.Name }}</td>
+              <td>{{ item.Manufacturer }}</td>
+              <td>{{ item.Address }}</td>
+              <td>{{ item.Status }}</td>
+              <td>
+                <mu-button flat v-if="item.Connected" @click="ptz(prop.row.ID, $index,item)">云台</mu-button>
+                <mu-button flat v-if="item.Connected" @click="bye(prop.row.ID, $index)">断开</mu-button>
+                <mu-button v-else flat @click="invite(prop.row.ID, $index,item)"
+                >连接
+                </mu-button
+                >
+              </td>
+            </template>
+          </mu-data-table>
+        </template>
+        <template #default="{ row: item }">
+          <td>{{ item.ID }}</td>
+          <td>{{ item.Channels ? item.Channels.length : 0 }}</td>
+          <td>
+            <StartTime :value="item.RegisterTime"></StartTime>
+          </td>
+          <td>
+            <StartTime :value="item.UpdateTime"></StartTime>
+          </td>
+          <td>{{ item.Status }}</td>
+        </template>
+      </mu-data-table>
+    </div>
+    <div class="tabpanel" v-if="$parent.titleTabActive === 1">
+
+    </div>
     <webrtc-player ref="player" @ptz="sendPtz" v-model="previewStreamPath" :PublicIP="PublicIP"></webrtc-player>
   </div>
 </template>
@@ -78,6 +83,9 @@ export default {
   },
   created() {
     this.fetchlist();
+  },
+  mounted() {
+    this.$parent.titleTabs=["列表","N路播放"];
   },
   methods: {
     fetchlist() {
