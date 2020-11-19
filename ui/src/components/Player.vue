@@ -66,9 +66,9 @@ export default {
       ptzType:PTZ_TYPE,
     };
   },
-props:{
-  PublicIP:String
-},
+  props:{
+    PublicIP:String
+  },
     methods: {
         async play(streamPath) {
             pc = new RTCPeerConnection();
