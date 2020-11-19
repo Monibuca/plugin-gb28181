@@ -43,7 +43,7 @@ type Device struct {
 func (c *Core) RemoveDead() {
 	c.Devices.Range(func(k, v interface{}) bool {
 		device := v.(*Device)
-		if device.UpdateTime.Sub(device.RegisterTime) > time.Second*36 {
+		if device.UpdateTime.Sub(device.RegisterTime) > time.Duration(c.config.RegisterValidity)*time.Second {
 			c.Devices.Delete(k)
 		}
 		return true
