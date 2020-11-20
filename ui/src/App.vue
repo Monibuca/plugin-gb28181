@@ -116,10 +116,14 @@
                     this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
                     let channelList =[]
                     this.Devices.forEach((device)=>{
-                      const channels = device.Channels;
-                      channelList = channelList.concat(channels);
+                      const channels = device.Channels || [];
+                      if(channels.length > 0){
+                          channelList = channelList.concat(channels);
+                      }
                     });
-                    this.channelList = channelList;
+                    if(channelList.length > 0){
+                        this.channelList = channelList;
+                    }
                 };
                 this.$once("hook:destroyed", () => listES.close());
             },
