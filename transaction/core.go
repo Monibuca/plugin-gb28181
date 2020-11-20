@@ -223,7 +223,7 @@ func (c *Core) Handler() {
 	}()
 
 	ch := c.tp.ReadPacketChan()
-	timer:=time.Tick(time.Second*5)
+	timer := time.Tick(time.Second * 5)
 	//阻塞读取消息
 	for {
 		//fmt.Println("PacketHandler ========== SIP Client")
@@ -282,9 +282,14 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 
 	//把event推到transaction
 	ta.event <- e
-
-	//等待事件结束，并返回
-	return <-ta.response
+	select {
+	case res := <-ta.response:
+		return res
+	case <-time.After(time.Second * 10):
+		return &Response{
+			Code: 504,
+		}
+	}
 }
 
 //接收到的消息处理
