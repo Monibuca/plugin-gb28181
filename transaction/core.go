@@ -282,10 +282,14 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 
 	//把event推到transaction
 	ta.event <- e
-	select {
-	case res := <-ta.response:
-		return res
-	case <-ta.done:
+	<-ta.done
+	if ta.lastResponse != nil {
+		return &Response{
+			Code:    ta.lastResponse.GetStatusCode(),
+			Data:    ta.lastResponse,
+			Message: ta.lastResponse.GetReason(),
+		}
+	} else {
 		return &Response{
 			Code: 504,
 		}

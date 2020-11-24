@@ -106,22 +106,12 @@ func ict_rcv_1xx(t *Transaction, e *EventObj) error {
 }
 func ict_rcv_2xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
-	t.response <- &Response{
-		Code:    e.msg.GetStatusCode(),
-		Data:    e.msg,
-		Message: e.msg.GetReason(),
-	}
 	t.Terminate()
 
 	return nil
 }
 func ict_rcv_3456xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
-	t.response <- &Response{
-		Code:    e.msg.GetStatusCode(),
-		Data:    e.msg,
-		Message: e.msg.GetReason(),
-	}
 	if t.state != ICT_COMPLETED {
 		/* not a retransmission */
 		/* automatic handling of ack! */
