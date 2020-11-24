@@ -285,7 +285,7 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 	select {
 	case res := <-ta.response:
 		return res
-	case <-time.After(time.Second * 10):
+	case <-ta.done:
 		return &Response{
 			Code: 504,
 		}
@@ -391,13 +391,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		}
 	} else if ok {
 		ta.event <- e
-		if msg.GetStatusCode() >= 200 {
-			ta.response <- &Response{
-				Code:    msg.GetStatusCode(),
-				Data:    msg,
-				Message: msg.GetReason(),
-			}
-		}
+
 	}
 	//TODO：TU层处理：根据需要，创建，或者匹配 Dialog
 	//通过tag匹配到call和dialog
