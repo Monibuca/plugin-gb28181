@@ -50,6 +50,7 @@ import (
          to take
 
                  Figure 6: non-INVITE client transaction
+*/Figure 6: non-INVITE client transaction
 */
 func nict_snd_request(t *Transaction, e *EventObj) error {
 	msg := e.msg
@@ -128,7 +129,11 @@ func nict_rcv_1xx(t *Transaction, e *EventObj) error {
 func nict_rcv_23456xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
 	t.state = NICT_COMPLETED
-
+	t.response <- &Response{
+		Code:    e.msg.GetStatusCode(),
+		Data:    e.msg,
+		Message: e.msg.GetReason(),
+	}
 	if e.msg.IsReliable() {
 		//不设置timerK
 	} else {

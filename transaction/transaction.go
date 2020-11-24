@@ -356,13 +356,6 @@ func (ta *Transaction) Run() {
 			if err != nil {
 				fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
 			}
-			if e.msg.IsResponse() && e.msg.GetStatusCode() >= 200 {
-				ta.response <- &Response{
-					Code:    e.msg.GetStatusCode(),
-					Data:    e.msg,
-					Message: e.msg.GetReason(),
-				}
-			}
 		case <-ta.done:
 			fmt.Println("fsm exit")
 			return
