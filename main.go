@@ -1,11 +1,6 @@
 package gb28181
 
 import (
-	. "github.com/Monibuca/engine/v2"
-	"github.com/Monibuca/engine/v2/util"
-	"github.com/Monibuca/plugin-gb28181/transaction"
-	rtp "github.com/Monibuca/plugin-rtp"
-	. "github.com/logrusorgru/aurora"
 	"log"
 	"net"
 	"net/http"
@@ -13,6 +8,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/Monibuca/engine/v2"
+	"github.com/Monibuca/engine/v2/util"
+	"github.com/Monibuca/plugin-gb28181/transaction"
+	rtp "github.com/Monibuca/plugin-rtp"
+	. "github.com/logrusorgru/aurora"
 )
 
 var Devices sync.Map
@@ -79,13 +80,13 @@ func run() {
 	http.HandleFunc("/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
-		if err!=nil{
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
+		if err != nil {
 			w.WriteHeader(404)
 		}
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if v, ok := s.Devices.Load(id); ok {
-			w.WriteHeader(v.(*transaction.Device).Control(channel,ptzcmd))
+			w.WriteHeader(v.(*transaction.Device).Control(channel, ptzcmd))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -93,7 +94,7 @@ func run() {
 	http.HandleFunc("/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
 			w.WriteHeader(404)
 		}
@@ -106,7 +107,7 @@ func run() {
 	http.HandleFunc("/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
 			w.WriteHeader(404)
 		}
@@ -124,6 +125,11 @@ func onPublish(channel *transaction.Channel) (port int) {
 	if !rtpPublisher.Publish("gb28181/" + channel.DeviceID) {
 		return
 	}
+	defer func() {
+		if port == 0 {
+			rtpPublisher.Close()
+		}
+	}()
 	rtpPublisher.Type = "GB28181"
 	addr, err := net.ResolveUDPAddr("udp", ":0")
 	if err != nil {
@@ -149,8 +155,9 @@ func onPublish(channel *transaction.Channel) (port int) {
 		bufUDP := make([]byte, 1048576)
 		Printf("udp server start listen video port[%d]", port)
 		defer Printf("udp server stop listen video port[%d]", port)
+		defer conn.Close()
 		for rtpPublisher.Err() == nil {
-			if err = conn.SetReadDeadline(time.Now().Add(time.Second*30));err!=nil{
+			if err = conn.SetReadDeadline(time.Now().Add(time.Second * 30)); err != nil {
 				return
 			}
 			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
