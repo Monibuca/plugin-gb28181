@@ -23,7 +23,7 @@ type Core struct {
 	ctx          context.Context             //上下文
 	handlers     map[State]map[Event]Handler //每个状态都可以处理有限个事件。不必加锁。
 	transactions map[string]*Transaction     //管理所有 transactions,key:tid,value:transaction
-	mutex        sync.Mutex                  //transactions的锁
+	mutex        sync.RWMutex                //transactions的锁
 	removeTa     chan string                 //要删除transaction的时候，通过chan传递tid
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
@@ -257,7 +257,9 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 	e := c.NewOutGoingMessageEvent(msg)
 
 	//匹配事物
+	c.mutex.RLock()
 	ta, ok := c.transactions[e.tid]
+	c.mutex.RUnlock()
 	if !ok {
 		//新的请求
 		ta = c.initTransaction(c.ctx, e)
@@ -330,8 +332,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	}
 	//TODO：CANCEL、BYE 和 ACK 需要特殊处理，使用事物或者直接由TU层处理
 	//查找transaction
+	c.mutex.RLock()
 	ta, ok := c.transactions[e.tid]
-
+	c.mutex.RUnlock()
 	method := msg.GetMethod()
 	if msg.IsRequest() {
 		switch method {
