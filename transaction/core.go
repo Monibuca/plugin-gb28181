@@ -460,8 +460,7 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 		core:         c,
 		from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
 		to:           msg.To,
-		host:         msg.Via.Host,
-		port:         msg.Via.Port,
+		addr:         msg.Via.GetSendBy(),
 	}
 	c.Devices.Store(msg.From.Uri.UserInfo(), v)
 	return v
