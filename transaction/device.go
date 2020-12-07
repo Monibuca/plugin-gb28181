@@ -36,7 +36,7 @@ type Device struct {
 	sn           int
 	from         *sip.Contact
 	to           *sip.Contact
-	addr         string
+	Addr         string
 }
 
 func (c *Core) RemoveDead() {
@@ -100,7 +100,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			ID:     1,
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr: d.addr,
+		Addr: d.Addr,
 	}
 	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
