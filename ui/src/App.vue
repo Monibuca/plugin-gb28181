@@ -52,22 +52,18 @@
         </div>
         <div class="tabpanel" v-if="$parent.titleTabActive === 1">
             <div class="search">
-                <i-select v-model="channelSelectedList" multiple>
-                    <Option
-                        v-for="(channel, index) in channelList"
-                        :value="channel"
-                        :label="channel.DeviceID + '(' + channel.Name + ')'"
-                        :key="index"
-                    >
-                    </Option>
-                </i-select>
+            <i-select v-model="channelSelectedList" multiple>
+              <i-option v-for="(channel,index) in channelList"
+                      :value="channel"
+                      :label="channel.DeviceID + '(' + channel.Name + ')'"
+                      :key="index">
+              </i-option>
+            </i-select>
             </div>
             <div class="flex-box">
-                <template v-for="(channel, index) in channelSelectedList">
-                    <div class="flex-item" :key="index" v-if="channel.ID">
-                        <webrtc-player2
-                            :stream-path="'gb28181/' + channel.ID"
-                        ></webrtc-player2>
+                <template v-for="(channel,index) in channelSelectedList">
+                    <div class="flex-item" :key="index" v-if="channel.DeviceID">
+                        <webrtc-player2 :stream-path="'gb28181/'+channel.DeviceID"></webrtc-player2>
                     </div>
                 </template>
             </div>
