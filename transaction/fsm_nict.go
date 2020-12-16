@@ -128,7 +128,7 @@ func nict_rcv_1xx(t *Transaction, e *EventObj) error {
 func nict_rcv_23456xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
 	t.state = NICT_COMPLETED
-
+	
 	if e.msg.IsReliable() {
 		//不设置timerK
 	} else {

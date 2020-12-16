@@ -1,28 +1,32 @@
 package gb28181
 
 import (
-	. "github.com/Monibuca/engine/v2"
-	"github.com/Monibuca/engine/v2/util"
-	"github.com/Monibuca/plugin-gb28181/transaction"
-	rtp "github.com/Monibuca/plugin-rtp"
-	. "github.com/logrusorgru/aurora"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/Monibuca/engine/v2"
+	"github.com/Monibuca/engine/v2/util"
+	"github.com/Monibuca/plugin-gb28181/transaction"
+	rtp "github.com/Monibuca/plugin-rtp"
+	. "github.com/logrusorgru/aurora"
 )
 
 var Devices sync.Map
 var config = struct {
-	Serial     string
-	Realm      string
-	ListenAddr string
-	Expires    int
-	AutoInvite bool
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true}
+	Serial       string
+	Realm        string
+	ListenAddr   string
+	Expires      int
+	AutoInvite   bool
+	MediaPortMin uint16
+	MediaPortMax uint16
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, 58300}
 
 func init() {
 	InstallPlugin(&PluginConfig{
@@ -54,8 +58,8 @@ func run() {
 
 		AudioEnable:      true,
 		WaitKeyFrame:     true,
-		MediaPortMin:     58200,
-		MediaPortMax:     58300,
+		MediaPortMin:     config.MediaPortMin,
+		MediaPortMax:     config.MediaPortMax,
 		MediaIdleTimeout: 30,
 	}
 	s := transaction.NewCore(config)
@@ -79,13 +83,13 @@ func run() {
 	http.HandleFunc("/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
-		if err!=nil{
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
+		if err != nil {
 			w.WriteHeader(404)
 		}
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if v, ok := s.Devices.Load(id); ok {
-			w.WriteHeader(v.(*transaction.Device).Control(channel,ptzcmd))
+			w.WriteHeader(v.(*transaction.Device).Control(channel, ptzcmd))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -93,7 +97,7 @@ func run() {
 	http.HandleFunc("/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
 			w.WriteHeader(404)
 		}
@@ -106,7 +110,7 @@ func run() {
 	http.HandleFunc("/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		id := r.URL.Query().Get("id")
-		channel ,err:= strconv.Atoi(r.URL.Query().Get("channel"))
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
 			w.WriteHeader(404)
 		}
@@ -118,26 +122,39 @@ func run() {
 	})
 	s.Start()
 }
-
 func onPublish(channel *transaction.Channel) (port int) {
 	rtpPublisher := new(rtp.RTP_PS)
 	if !rtpPublisher.Publish("gb28181/" + channel.DeviceID) {
 		return
 	}
+	defer func() {
+		if port == 0 {
+			rtpPublisher.Close()
+		}
+	}()
 	rtpPublisher.Type = "GB28181"
-	addr, err := net.ResolveUDPAddr("udp", ":0")
-	if err != nil {
-		return
+	var conn *net.UDPConn
+	var err error
+	rang := int(config.MediaPortMax - config.MediaPortMin)
+	for count := rang; count > 0; count-- {
+		randNum := rand.Intn(rang)
+		port = int(config.MediaPortMin) + randNum
+		addr, _ := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(port))
+		conn, err = net.ListenUDP("udp", addr)
+		if err != nil {
+			continue
+		} else {
+			break
+		}
 	}
-	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return
 	}
 	networkBuffer := 1048576
-	if err := conn.SetReadBuffer(networkBuffer); err != nil {
+	if err = conn.SetReadBuffer(networkBuffer); err != nil {
 		Printf("udp server video conn set read buffer error, %v", err)
 	}
-	if err := conn.SetWriteBuffer(networkBuffer); err != nil {
+	if err = conn.SetWriteBuffer(networkBuffer); err != nil {
 		Printf("udp server video conn set write buffer error, %v", err)
 	}
 	la := conn.LocalAddr().String()
@@ -149,8 +166,9 @@ func onPublish(channel *transaction.Channel) (port int) {
 		bufUDP := make([]byte, 1048576)
 		Printf("udp server start listen video port[%d]", port)
 		defer Printf("udp server stop listen video port[%d]", port)
+		defer conn.Close()
 		for rtpPublisher.Err() == nil {
-			if err = conn.SetReadDeadline(time.Now().Add(time.Second*30));err!=nil{
+			if err = conn.SetReadDeadline(time.Now().Add(time.Second * 30)); err != nil {
 				return
 			}
 			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {

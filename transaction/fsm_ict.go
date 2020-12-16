@@ -1,9 +1,10 @@
 package transaction
 
 import (
-	"github.com/Monibuca/plugin-gb28181/sip"
 	"fmt"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/sip"
 )
 
 /*
@@ -105,14 +106,12 @@ func ict_rcv_1xx(t *Transaction, e *EventObj) error {
 }
 func ict_rcv_2xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
-
 	t.Terminate()
 
 	return nil
 }
 func ict_rcv_3456xx(t *Transaction, e *EventObj) error {
 	t.lastResponse = e.msg
-
 	if t.state != ICT_COMPLETED {
 		/* not a retransmission */
 		/* automatic handling of ack! */

@@ -23,7 +23,7 @@ type Core struct {
 	ctx          context.Context             //上下文
 	handlers     map[State]map[Event]Handler //每个状态都可以处理有限个事件。不必加锁。
 	transactions map[string]*Transaction     //管理所有 transactions,key:tid,value:transaction
-	mutex        sync.Mutex                  //transactions的锁
+	mutex        sync.RWMutex                //transactions的锁
 	removeTa     chan string                 //要删除transaction的时候，通过chan传递tid
 	tp           transport.ITransport        //transport
 	config       *Config                     //sip server配置信息
@@ -223,7 +223,7 @@ func (c *Core) Handler() {
 	}()
 
 	ch := c.tp.ReadPacketChan()
-	timer:=time.Tick(time.Second*5)
+	timer := time.Tick(time.Second * 5)
 	//阻塞读取消息
 	for {
 		//fmt.Println("PacketHandler ========== SIP Client")
@@ -257,7 +257,9 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 	e := c.NewOutGoingMessageEvent(msg)
 
 	//匹配事物
+	c.mutex.RLock()
 	ta, ok := c.transactions[e.tid]
+	c.mutex.RUnlock()
 	if !ok {
 		//新的请求
 		ta = c.initTransaction(c.ctx, e)
@@ -282,9 +284,18 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 
 	//把event推到transaction
 	ta.event <- e
-
-	//等待事件结束，并返回
-	return <-ta.response
+	<-ta.done
+	if ta.lastResponse != nil {
+		return &Response{
+			Code:    ta.lastResponse.GetStatusCode(),
+			Data:    ta.lastResponse,
+			Message: ta.lastResponse.GetReason(),
+		}
+	} else {
+		return &Response{
+			Code: 504,
+		}
+	}
 }
 
 //接收到的消息处理
@@ -321,8 +332,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	}
 	//TODO：CANCEL、BYE 和 ACK 需要特殊处理，使用事物或者直接由TU层处理
 	//查找transaction
+	c.mutex.RLock()
 	ta, ok := c.transactions[e.tid]
-
+	c.mutex.RUnlock()
 	method := msg.GetMethod()
 	if msg.IsRequest() {
 		switch method {
@@ -386,13 +398,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		}
 	} else if ok {
 		ta.event <- e
-		if msg.GetStatusCode() >= 200 {
-			ta.response <- &Response{
-				Code:    msg.GetStatusCode(),
-				Data:    msg,
-				Message: msg.GetReason(),
-			}
-		}
+
 	}
 	//TODO：TU层处理：根据需要，创建，或者匹配 Dialog
 	//通过tag匹配到call和dialog
@@ -454,8 +460,7 @@ func (c *Core) AddDevice(msg *sip.Message) *Device {
 		core:         c,
 		from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
 		to:           msg.To,
-		host:         msg.Via.Host,
-		port:         msg.Via.Port,
+		Addr:         msg.Via.GetSendBy(),
 	}
 	c.Devices.Store(msg.From.Uri.UserInfo(), v)
 	return v

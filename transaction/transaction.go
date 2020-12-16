@@ -2,11 +2,12 @@ package transaction
 
 import (
 	"context"
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/transport"
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/sip"
+	"github.com/Monibuca/plugin-gb28181/transport"
 )
 
 //状态机之状态
@@ -355,7 +356,6 @@ func (ta *Transaction) Run() {
 			if err != nil {
 				fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
 			}
-
 		case <-ta.done:
 			fmt.Println("fsm exit")
 			return
@@ -399,8 +399,8 @@ func (ta *Transaction) SipSend(msg *sip.Message) error {
 	if err != nil {
 		return err
 	}
-    addr := msg.Addr
-    if addr==""{
+	addr := msg.Addr
+	if addr == "" {
 		viaParams := msg.Via.Params
 		//host
 		var host, port string
