@@ -71,11 +71,12 @@
                 const result = await this.ajax({
                     type: "POST",
                     processData: false,
-                    data: localDescriptionData,
+                    data: JSON.stringify(localDescriptionData),
                     url: "/webrtc/play?streamPath=" + streamPath,
                     dataType: "json"
                 });
-                if (result.error) {
+                if (result.errmsg) {
+                    console.error(result.errmsg);
                     return;
                 }
                 //
