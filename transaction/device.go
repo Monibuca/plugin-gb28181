@@ -37,6 +37,7 @@ type Device struct {
 	from         *sip.Contact
 	to           *sip.Contact
 	Addr         string
+	SipIP        string //暴露的IP
 }
 
 func (c *Core) RemoveDead() {
@@ -129,7 +130,9 @@ func (d *Device) Control(channelIndex int, PTZCmd string) int {
 <PTZCmd>%s</PTZCmd>
 </Control>`, d.sn, requestMsg.To.Uri.UserInfo(), PTZCmd)
 	requestMsg.ContentLength = len(requestMsg.Body)
-	return d.core.SendMessage(requestMsg).Code
+	response := d.core.SendMessage(requestMsg)
+	d.SipIP = response.Data.Via.Params["received"]
+	return response.Code
 }
 func (d *Device) Invite(channelIndex int) int {
 	channel := &d.Channels[channelIndex]
@@ -137,6 +140,10 @@ func (d *Device) Invite(channelIndex int) int {
 	if port == 0 {
 		channel.Connected = true
 		return 304
+	}
+	ip := d.core.config.MediaIP
+	if d.SipIP != "" {
+		ip = d.SipIP
 	}
 	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
@@ -149,7 +156,7 @@ a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
 a=rtpmap:98 H264/90000
 y=0200000001
-`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
+`, d.core.config.Serial, ip, ip, port)
 	sdp = strings.ReplaceAll(sdp, "\n", "\r\n")
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
