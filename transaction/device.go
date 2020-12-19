@@ -116,7 +116,9 @@ func (d *Device) Query() int {
 <DeviceID>%s</DeviceID>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
-	return d.core.SendMessage(requestMsg).Code
+	response := d.core.SendMessage(requestMsg)
+	d.SipIP = response.Data.Via.Params["received"]
+	return response.Code
 }
 func (d *Device) Control(channelIndex int, PTZCmd string) int {
 	channel := &d.Channels[channelIndex]
@@ -130,9 +132,7 @@ func (d *Device) Control(channelIndex int, PTZCmd string) int {
 <PTZCmd>%s</PTZCmd>
 </Control>`, d.sn, requestMsg.To.Uri.UserInfo(), PTZCmd)
 	requestMsg.ContentLength = len(requestMsg.Body)
-	response := d.core.SendMessage(requestMsg)
-	d.SipIP = response.Data.Via.Params["received"]
-	return response.Code
+	return d.core.SendMessage(requestMsg).Code
 }
 func (d *Device) Invite(channelIndex int) int {
 	channel := &d.Channels[channelIndex]
