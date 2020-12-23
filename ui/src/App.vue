@@ -32,6 +32,7 @@
                                     @click="invite(prop.row.ID, $index, item)"
                                     >连接
                                 </mu-button>
+                                <mu-button>录像</mu-button>
                             </td>
                         </template>
                     </mu-data-table>
@@ -99,6 +100,7 @@ export default {
                 totalPage: 0,
                 currentPage: 0
             },
+            recordList:[],
             context: {
                 id: null,
                 channel: 0,
