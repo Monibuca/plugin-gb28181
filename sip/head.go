@@ -12,7 +12,7 @@ import (
 //windows    :     \n
 //Mac OS     :     \r
 const (
-	VERSION = "SIP/2.0" // sip version
+	VERSION  = "SIP/2.0"  // sip version
 	CRLF     = "\r\n"     // 0x0D0A
 	CRLFCRLF = "\r\n\r\n" // 0x0D0A0D0A
 
@@ -440,28 +440,29 @@ type URI struct {
 	params  map[string]string // include branch/maddr/received/ttl/rport
 	headers map[string]string // include branch/maddr/received/ttl/rport
 }
+
 func (u *URI) Host() string {
 	return u.host
 }
 func (u *URI) UserInfo() string {
-	return strings.Split(u.host,"@")[0]
+	return strings.Split(u.host, "@")[0]
 }
 func (u *URI) Domain() string {
-	return strings.Split(u.host,"@")[1]
+	return strings.Split(u.host, "@")[1]
 }
 func (u *URI) IP() string {
-	t:=strings.Split(u.host,"@")
+	t := strings.Split(u.host, "@")
 	if len(t) == 1 {
-		return strings.Split(t[0],":")[0]
+		return strings.Split(t[0], ":")[0]
 	}
-	return strings.Split(t[1],":")[0]
+	return strings.Split(t[1], ":")[0]
 }
 func (u *URI) Port() string {
-	t:=strings.Split(u.host,"@")
+	t := strings.Split(u.host, "@")
 	if len(t) == 1 {
-		return strings.Split(t[0],":")[1]
+		return strings.Split(t[0], ":")[1]
 	}
-	return strings.Split(t[1],":")[1]
+	return strings.Split(t[1], ":")[1]
 }
 func (u *URI) String() string {
 	if u.scheme == "" {
@@ -546,8 +547,12 @@ func parseURI(str string) (ret URI, err error) {
 		arr1 := strings.Split(paramStr, ";")
 		for _, one := range arr1 {
 			tmp := strings.Split(one, "=")
-			k, v := tmp[0], tmp[1]
-			ret.params[k] = v
+			if len(tmp) == 2 {
+				k, v := tmp[0], tmp[1]
+				ret.params[k] = v
+			} else {
+				ret.params[tmp[0]] = ""
+			}
 		}
 	}
 

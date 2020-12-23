@@ -64,6 +64,21 @@ func run() {
 	}
 	s := transaction.NewCore(config)
 	s.OnInvite = onPublish
+	http.HandleFunc("/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		id := r.URL.Query().Get("id")
+		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
+		if err != nil {
+			w.WriteHeader(404)
+		}
+		startTime := r.URL.Query().Get("startTime")
+		endTime := r.URL.Query().Get("endTime")
+		if v, ok := s.Devices.Load(id); ok {
+			w.WriteHeader(v.(*transaction.Device).QueryRecord(channel, startTime, endTime))
+		} else {
+			w.WriteHeader(404)
+		}
+	})
 	http.HandleFunc("/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
 		sse := util.NewSSE(w, r.Context())
 		for {

@@ -9,6 +9,7 @@ import (
 	"github.com/Monibuca/plugin-gb28181/utils"
 )
 
+// Channel 通道
 type Channel struct {
 	DeviceID     string
 	Name         string
@@ -25,6 +26,19 @@ type Channel struct {
 	device       *Device
 	inviteRes    *sip.Message
 	Connected    bool
+	Records      []Record
+}
+
+// Record 录像
+type Record struct {
+	DeviceID  string
+	Name      string
+	FilePath  string
+	Address   string
+	StartTime string
+	EndTime   string
+	Secrecy   int
+	Type      string
 }
 type Device struct {
 	ID           string
@@ -37,6 +51,7 @@ type Device struct {
 	from         *sip.Contact
 	to           *sip.Contact
 	Addr         string
+	SipIP        string //暴露的IP
 }
 
 func (c *Core) RemoveDead() {
@@ -63,6 +78,14 @@ func (d *Device) UpdateChannels(list []Channel) {
 		}
 		if !have {
 			d.Channels = append(d.Channels, c)
+		}
+	}
+}
+func (d *Device) UpdateRecord(channelId string, list []Record) {
+	for _, c := range d.Channels {
+		if c.DeviceID == channelId {
+			c.Records = list
+			break
 		}
 	}
 }
@@ -115,6 +138,27 @@ func (d *Device) Query() int {
 <DeviceID>%s</DeviceID>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
+	response := d.core.SendMessage(requestMsg)
+	if response.Data != nil {
+		d.SipIP = response.Data.Via.Params["received"]
+	}
+	return response.Code
+}
+func (d *Device) QueryRecord(channelIndex int, startTime, endTime string) int {
+	channel := &d.Channels[channelIndex]
+	requestMsg := channel.CreateMessage(sip.MESSAGE)
+	requestMsg.ContentType = "Application/MANSCDP+xml"
+	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
+<Query>
+<CmdType>RecordInfo</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+<StartTime>%s</StartTime>
+<EndTime>%s</EndTime>
+<Secrecy>0</Secrecy>
+<Type>time</Type>
+</Query>`, d.sn, requestMsg.To.Uri.UserInfo(), startTime, endTime)
+	requestMsg.ContentLength = len(requestMsg.Body)
 	return d.core.SendMessage(requestMsg).Code
 }
 func (d *Device) Control(channelIndex int, PTZCmd string) int {
@@ -138,6 +182,10 @@ func (d *Device) Invite(channelIndex int) int {
 		channel.Connected = true
 		return 304
 	}
+	ip := d.core.config.MediaIP
+	if d.SipIP != "" {
+		ip = d.SipIP
+	}
 	sdp := fmt.Sprintf(`v=0
 o=%s 0 0 IN IP4 %s
 s=Play
@@ -149,7 +197,7 @@ a=rtpmap:96 PS/90000
 a=rtpmap:97 MPEG4/90000
 a=rtpmap:98 H264/90000
 y=0200000001
-`, d.core.config.Serial, d.core.config.MediaIP, d.core.config.MediaIP, port)
+`, d.core.config.Serial, ip, ip, port)
 	sdp = strings.ReplaceAll(sdp, "\n", "\r\n")
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
