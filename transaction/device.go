@@ -9,6 +9,7 @@ import (
 	"github.com/Monibuca/plugin-gb28181/utils"
 )
 
+// Channel 通道
 type Channel struct {
 	DeviceID     string
 	Name         string
@@ -25,6 +26,19 @@ type Channel struct {
 	device       *Device
 	inviteRes    *sip.Message
 	Connected    bool
+	Records      []Record
+}
+
+// Record 录像
+type Record struct {
+	DeviceID  string
+	Name      string
+	FilePath  string
+	Address   string
+	StartTime string
+	EndTime   string
+	Secrecy   int
+	Type      string
 }
 type Device struct {
 	ID           string
@@ -64,6 +78,14 @@ func (d *Device) UpdateChannels(list []Channel) {
 		}
 		if !have {
 			d.Channels = append(d.Channels, c)
+		}
+	}
+}
+func (d *Device) UpdateRecord(channelId string, list []Record) {
+	for _, c := range d.Channels {
+		if c.DeviceID == channelId {
+			c.Records = list
+			break
 		}
 	}
 }
@@ -117,8 +139,27 @@ func (d *Device) Query() int {
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
 	response := d.core.SendMessage(requestMsg)
-	d.SipIP = response.Data.Via.Params["received"]
+	if response.Data != nil {
+		d.SipIP = response.Data.Via.Params["received"]
+	}
 	return response.Code
+}
+func (d *Device) QueryRecord(channelIndex int, startTime, endTime string) int {
+	channel := &d.Channels[channelIndex]
+	requestMsg := channel.CreateMessage(sip.MESSAGE)
+	requestMsg.ContentType = "Application/MANSCDP+xml"
+	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
+<Query>
+<CmdType>RecordInfo</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+<StartTime>%s</StartTime>
+<EndTime>%s</EndTime>
+<Secrecy>0</Secrecy>
+<Type>time</Type>
+</Query>`, d.sn, requestMsg.To.Uri.UserInfo(), startTime, endTime)
+	requestMsg.ContentLength = len(requestMsg.Body)
+	return d.core.SendMessage(requestMsg).Code
 }
 func (d *Device) Control(channelIndex int, PTZCmd string) int {
 	channel := &d.Channels[channelIndex]

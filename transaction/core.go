@@ -354,7 +354,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				temp := &struct {
 					XMLName    xml.Name
 					CmdType    string
+					DeviceID   string
 					DeviceList []Channel `xml:"DeviceList>Item"`
+					RecordList []Record  `xml:"RecordList>Item"`
 				}{}
 				decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
 				decoder.CharsetReader = func(c string, i io.Reader) (io.Reader, error) {
@@ -368,6 +370,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					switch temp.CmdType {
 					case "Catalog":
 						d.UpdateChannels(temp.DeviceList)
+					case "RecordInfo":
+						d.UpdateRecord(temp.DeviceID, temp.RecordList)
 					}
 				}
 				if ta == nil {
