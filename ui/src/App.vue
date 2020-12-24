@@ -4,8 +4,8 @@
             <mu-data-table :data="Devices" :columns="columns">
                 <template #expand="prop">
                     <mu-data-table
-                        :data="prop.row.Channels"
-                        :columns="columns2"
+                            :data="prop.row.Channels"
+                            :columns="columns2"
                     >
                         <template #default="{ row: item, $index }">
                             <td>{{ item.DeviceID }}</td>
@@ -15,24 +15,25 @@
                             <td>{{ item.Status }}</td>
                             <td>
                                 <mu-button
-                                    flat
-                                    v-if="item.Connected"
-                                    @click="ptz(prop.row.ID, $index, item)"
-                                    >云台
+                                        flat
+                                        v-if="item.Connected"
+                                        @click="ptz(prop.row.ID, $index, item)"
+                                >云台
                                 </mu-button>
                                 <mu-button
-                                    flat
-                                    v-if="item.Connected"
-                                    @click="bye(prop.row.ID, $index)"
-                                    >断开</mu-button
+                                        flat
+                                        v-if="item.Connected"
+                                        @click="bye(prop.row.ID, $index)"
+                                >断开
+                                </mu-button
                                 >
                                 <mu-button
-                                    v-else
-                                    flat
-                                    @click="invite(prop.row.ID, $index, item)"
-                                    >连接
+                                        v-else
+                                        flat
+                                        @click="invite(prop.row.ID, $index, item)"
+                                >连接
                                 </mu-button>
-                                <mu-button>录像</mu-button>
+                                <mu-button @click="getRecords(prop.row.ID, $index,item)">录像</mu-button>
                             </td>
                         </template>
                     </mu-data-table>
@@ -60,188 +61,234 @@
                 </template>
             </div>
             <template v-if="channelList.length > 0">
-                <Page :total="channelList.length" :page-size="pageInfo.onePageSize" @on-change="handlePageChange"></Page>
+                <Page :total="channelList.length" :page-size="pageInfo.onePageSize"
+                      @on-change="handlePageChange"></Page>
             </template>
         </div>
         <webrtc-player
-            ref="player"
-            @ptz="sendPtz"
-            v-model="previewStreamPath"
-            :PublicIP="PublicIP"
+                ref="player"
+                @ptz="sendPtz"
+                v-model="previewStreamPath"
+                :PublicIP="PublicIP"
         ></webrtc-player>
+        <records ref="records" v-model="recordModal" :records="recordList" @close="initRecordSearch"></records>
     </div>
 </template>
 <script>
-import WebrtcPlayer from "./components/Player";
-import WebrtcPlayer2 from "./components/Player2";
-import { getPTZCmd, PTZ_TYPE } from "./utils/ptz-cmd";
+    import WebrtcPlayer from "./components/Player";
+    import WebrtcPlayer2 from "./components/Player2";
+    import Records from './components/Records';
+    import {getPTZCmd, PTZ_TYPE} from "./utils/ptz-cmd";
+    import {getOneTimeRange} from "./utils";
 
-export default {
-    components: {
-        WebrtcPlayer,
-        WebrtcPlayer2,
-    },
-    props: {
-        ListenAddr: String,
-    },
-    computed: {
-        PublicIP() {
-            return this.ListenAddr.split(":")[0];
+
+    export default {
+        components: {
+            WebrtcPlayer,
+            WebrtcPlayer2,
+            Records
         },
-    },
-    data() {
-        return {
-            Devices: [],
-            previewStreamPath: false,
-            channelList: [],
-            channelShowList: [],
-            pageInfo: {
-                onePageSize: 9,
-                totalPage: 0,
-                currentPage: 0
+        props: {
+            ListenAddr: String,
+        },
+        computed: {
+            PublicIP() {
+                return this.ListenAddr.split(":")[0];
             },
-            recordList:[],
-            context: {
-                id: null,
-                channel: 0,
-                item: null,
-            },
-            columns: Object.freeze(
-                [
-                    "设备号",
+        },
+        data() {
+            return {
+                Devices: [],
+                previewStreamPath: false,
+                channelList: [],
+                channelShowList: [],
+                pageInfo: {
+                    onePageSize: 9,
+                    totalPage: 0,
+                    currentPage: 0
+                },
+                recordList: [],
+                recordModal: false,
+                recordSearch: {
+                    id: null,
+                    channel: 0,
+                    deviceId: null
+                },
+                context: {
+                    id: null,
+                    channel: 0,
+                    item: null,
+                },
+                columns: Object.freeze(
+                    [
+                        "设备号",
+                        "地址",
+                        "通道数",
+                        "注册时间",
+                        "更新时间",
+                        "状态",
+                    ].map((title) => ({
+                        title,
+                    }))
+                ),
+                columns2: Object.freeze([
+                    "通道编号",
+                    "名称",
+                    "厂商",
                     "地址",
-                    "通道数",
-                    "注册时间",
-                    "更新时间",
                     "状态",
-                ].map((title) => ({
-                    title,
-                }))
-            ),
-            columns2: Object.freeze([
-                "通道编号",
-                "名称",
-                "厂商",
-                "地址",
-                "状态",
-                "操作",
-            ]).map((title) => ({ title })),
-        };
-    },
-    created() {
-        this.fetchlist();
-    },
-    mounted() {
-        this.$parent.titleTabs = ["列表", "N路播放"];
-    },
-    methods: {
-        fetchlist() {
-            const listES = new EventSource(this.apiHost + "/gb28181/list");
-            listES.onmessage = (evt) => {
-                if (!evt.data) return;
-                this.Devices = JSON.parse(evt.data) || [];
-                this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
-                let channelList = [];
-                this.Devices.forEach((device) => {
-                    const channels = device.Channels || [];
-                    if (channels.length > 0) {
-                        channelList = channelList.concat(channels);
+                    "操作",
+                ]).map((title) => ({title})),
+            };
+        },
+        created() {
+            this.fetchlist();
+        },
+        mounted() {
+            this.$parent.titleTabs = ["列表", "N路播放"];
+        },
+        methods: {
+            fetchlist() {
+                const listES = new EventSource(this.apiHost + "/gb28181/list");
+                listES.onmessage = (evt) => {
+                    if (!evt.data) return;
+                    this.Devices = JSON.parse(evt.data) || [];
+                    this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
+                    let channelList = [];
+                    let recordList = [];
+                    this.Devices.forEach((device) => {
+                        const channels = device.Channels || [];
+                        if (channels.length > 0) {
+                            channelList = channelList.concat(channels);
+                        }
+
+                        if (this.recordSearch.id && this.recordSearch.deviceId) {
+                            const channel = channels.filter((i) => {
+                                return i.DeviceID === this.recordSearch.deviceId && this.recordSearch.id === device.ID;
+                            });
+
+                            if (channel) {
+                                this.recordList = channel.Records || [];
+                            }
+                        }
+                    });
+                    if (channelList.length > 0) {
+                        this.channelList = channelList;
+                        this.updatePageInfo(channelList.length);
                     }
+                };
+                this.$once("hook:destroyed", () => listES.close());
+            },
+            ptz(id, channel, item) {
+                this.context = {
+                    id,
+                    channel,
+                    item,
+                };
+                this.previewStreamPath = true;
+                this.$nextTick(() =>
+                    this.$refs.player.play("gb28181/" + item.DeviceID)
+                );
+            },
+            sendPtz(options) {
+                const ptzCmd = getPTZCmd(options);
+                const ptzCmdStop = getPTZCmd({type: PTZ_TYPE.stop});
+                this.ajax
+                    .get("/gb28181/control", {
+                        id: this.context.id,
+                        channel: this.context.channel,
+                        ptzcmd: ptzCmd,
+                    })
+                    .then((x) => {
+                        if (
+                            options.type === PTZ_TYPE.stop ||
+                            options.cycle === true
+                        ) {
+                            return;
+                        }
+                        setTimeout(() => {
+                            this.ajax.get("/gb28181/control", {
+                                id: this.context.id,
+                                channel: this.context.channel,
+                                ptzcmd: ptzCmdStop,
+                            });
+                        }, 500);
+                    });
+            },
+
+
+            sendQueryRecords(options) {
+
+            },
+
+            handlePageChange(page) {
+                let showList = [];
+                const onePageSize = this.pageInfo.onePageSize;
+                const firstIndex = page * onePageSize - onePageSize;
+                const lastIndex = page * onePageSize - 1;
+                showList = this.channelList.filter((item, index) => {
+                    return index >= firstIndex && index <= lastIndex;
                 });
-                if (channelList.length > 0) {
-                    this.channelList = channelList;
-                    this.updatePageInfo(channelList.length);
+
+                this.channelShowList = showList;
+                if (showList.length > 0) {
+                    this.pageInfo.currentPage = page;
                 }
-            };
-            this.$once("hook:destroyed", () => listES.close());
-        },
-        ptz(id, channel, item) {
-            this.context = {
-                id,
-                channel,
-                item,
-            };
-            this.previewStreamPath = true;
-            this.$nextTick(() =>
-                this.$refs.player.play("gb28181/" + item.DeviceID)
-            );
-        },
-        sendPtz(options) {
-            const ptzCmd = getPTZCmd(options);
-            const ptzCmdStop = getPTZCmd({ type: PTZ_TYPE.stop });
-            this.ajax
-                .get("/gb28181/control", {
-                    id: this.context.id,
-                    channel: this.context.channel,
-                    ptzcmd: ptzCmd,
-                })
-                .then((x) => {
-                    if (
-                        options.type === PTZ_TYPE.stop ||
-                        options.cycle === true
-                    ) {
-                        return;
-                    }
-                    setTimeout(() => {
-                        this.ajax.get("/gb28181/control", {
-                            id: this.context.id,
-                            channel: this.context.channel,
-                            ptzcmd: ptzCmdStop,
-                        });
-                    }, 500);
+            },
+            updatePageInfo(totalSize) {
+                const onePageSize = this.pageInfo.onePageSize;
+                let totalPage = totalSize / onePageSize;
+
+                if (totalSize % onePageSize > 0) {
+                    totalPage = totalPage + 1;
+                }
+                this.pageInfo.totalPage = totalPage;
+                if (this.pageInfo.currentPage === 0) {
+                    this.handlePageChange(1)
+                }
+            },
+            invite(id, channel, item) {
+                this.ajax.get("/gb28181/invite", {id, channel}).then((x) => {
+                    item.Connected = true;
                 });
-        },
+            },
+            bye(id, channel, item) {
+                this.ajax.get("/gb28181/bye", {id, channel}).then((x) => {
+                    item.Connected = false;
+                });
+            },
 
-        handlePageChange(page){
-            let showList = [];
-            const onePageSize = this.pageInfo.onePageSize;
-            const firstIndex = page * onePageSize - onePageSize;
-            const lastIndex = page * onePageSize - 1 ;
-            showList = this.channelList.filter((item, index) => {
-                return index >= firstIndex && index <= lastIndex;
-            });
+            getRecords(id, channel, item) {
+                this.recordSearch.id = id;
+                this.recordSearch.channel = channel;
+                this.recordSearch.deviceId = item.DeviceID;
+                this.recordModal = true;
+                this.$nextTick(() =>
+                    this.$refs.records.getList(this.recordSearch)
+                );
+            },
 
-            this.channelShowList = showList;
-            if(showList.length > 0){
-                this.pageInfo.currentPage = page;
+            initRecordSearch() {
+                this.recordModal = false;
+                this.recordSearch.id = null;
+                this.recordSearch.channel = null;
+                this.recordSearch.deviceId = null;
+                this.recordList = [];
             }
         },
-        updatePageInfo(totalSize){
-            const onePageSize = this.pageInfo.onePageSize;
-            let totalPage = totalSize / onePageSize;
-
-            if (totalSize % onePageSize > 0) {
-                totalPage = totalPage + 1;
-            }
-            this.pageInfo.totalPage = totalPage;
-            if(this.pageInfo.currentPage === 0){
-                this.handlePageChange(1)
-            }
-        },
-        invite(id, channel, item) {
-            this.ajax.get("/gb28181/invite", { id, channel }).then((x) => {
-                item.Connected = true;
-            });
-        },
-        bye(id, channel, item) {
-            this.ajax.get("/gb28181/bye", { id, channel }).then((x) => {
-                item.Connected = false;
-            });
-        },
-    },
-};
+    };
 </script>
 <style scoped>
-.flex-box {
-    display: flex;
-    flex-flow: row wrap;
-    align-content: flex-start;
-}
+    .flex-box {
+        display: flex;
+        flex-flow: row wrap;
+        align-content: flex-start;
+    }
 
-.flex-item {
-    flex: 0 0 33.3333%;
-    height: 275px;
-    box-sizing: border-box;
-    padding: 10px;
-}
+    .flex-item {
+        flex: 0 0 33.3333%;
+        height: 275px;
+        box-sizing: border-box;
+        padding: 10px;
+    }
 </style>

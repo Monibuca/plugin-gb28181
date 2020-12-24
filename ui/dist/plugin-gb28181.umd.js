@@ -238,7 +238,9 @@ function fromByteArray (uint8) {
 
   // go through the array every three bytes, we'll deal with trailing stuff later
   for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
-    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+    parts.push(encodeChunk(
+      uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)
+    ))
   }
 
   // pad the end with zeros, but make sure to not forget the extra bytes
@@ -262,13 +264,6 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-
-/***/ }),
-
-/***/ "2ece":
-/***/ (function(module, exports, __webpack_require__) {
-
-// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -537,6 +532,17 @@ function bytes2HexString(byte) {
 
 /***/ }),
 
+/***/ "8fd7":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_59b6c9a0_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("fb17");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_59b6c9a0_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_59b6c9a0_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
+
+
+/***/ }),
+
 /***/ "9152":
 /***/ (function(module, exports) {
 
@@ -625,6 +631,17 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 
   buffer[offset + i - d] |= s * 128
 }
+
+
+/***/ }),
+
+/***/ "a1e1":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_Records_vue_vue_type_style_index_0_id_72d12ba2_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("bbd2");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_Records_vue_vue_type_style_index_0_id_72d12ba2_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_Records_vue_vue_type_style_index_0_id_72d12ba2_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
 
 
 /***/ }),
@@ -2427,14 +2444,10 @@ function isnan (val) {
 
 /***/ }),
 
-/***/ "bf9c":
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
+/***/ "bbd2":
+/***/ (function(module, exports, __webpack_require__) {
 
-"use strict";
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_31458ad7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("2ece");
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_31458ad7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_App_vue_vue_type_style_index_0_id_31458ad7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
-/* unused harmony reexport * */
-
+// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -2533,19 +2546,19 @@ if (typeof window !== 'undefined') {
 // Indicate to webpack that this file can be concatenated
 /* harmony default export */ var setPublicPath = (null);
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"1dab9bb8-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=31458ad7&scoped=true&
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"d776bd7c-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=template&id=59b6c9a0&scoped=true&
 var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',[(_vm.$parent.titleTabActive === 0)?_c('div',{staticClass:"tabpanel"},[_c('mu-data-table',{attrs:{"data":_vm.Devices,"columns":_vm.columns},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('mu-data-table',{attrs:{"data":prop.row.Channels,"columns":_vm.columns2},scopedSlots:_vm._u([{key:"default",fn:function(ref){
 var item = ref.row;
 var $index = ref.$index;
-return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.ptz(prop.row.ID, $index, item)}}},[_vm._v("云台 ")]):_vm._e(),(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.bye(prop.row.ID, $index)}}},[_vm._v("断开")]):_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index, item)}}},[_vm._v("连接 ")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
+return [_c('td',[_vm._v(_vm._s(item.DeviceID))]),_c('td',[_vm._v(_vm._s(item.Name))]),_c('td',[_vm._v(_vm._s(item.Manufacturer))]),_c('td',[_vm._v(_vm._s(item.Address))]),_c('td',[_vm._v(_vm._s(item.Status))]),_c('td',[(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.ptz(prop.row.ID, $index, item)}}},[_vm._v("云台 ")]):_vm._e(),(item.Connected)?_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.bye(prop.row.ID, $index)}}},[_vm._v("断开 ")]):_c('mu-button',{attrs:{"flat":""},on:{"click":function($event){return _vm.invite(prop.row.ID, $index, item)}}},[_vm._v("连接 ")]),_c('mu-button',{on:{"click":function($event){return _vm.getRecords(prop.row.ID, $index,item)}}},[_vm._v("录像")])],1)]}}],null,true)})]}},{key:"default",fn:function(ref){
 var item = ref.row;
-return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Addr))]),_c('td',[_vm._v(_vm._s(item.Channels ? item.Channels.length : 0))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}],null,false,2809573184)})],1):_vm._e(),(_vm.$parent.titleTabActive === 1)?_c('div',{staticClass:"tabpanel"},[_c('div',{staticClass:"flex-box"},[_vm._l((_vm.channelShowList),function(channel,index){return [(channel.DeviceID)?_c('div',{key:index,staticClass:"flex-item"},[_c('webrtc-player2',{attrs:{"stream-path":'gb28181/'+channel.DeviceID}})],1):_vm._e()]})],2),(_vm.channelList.length > 0)?[_c('Page',{attrs:{"total":_vm.channelList.length,"page-size":_vm.pageInfo.onePageSize},on:{"on-change":_vm.handlePageChange}})]:_vm._e()],2):_vm._e(),_c('webrtc-player',{ref:"player",attrs:{"PublicIP":_vm.PublicIP},on:{"ptz":_vm.sendPtz},model:{value:(_vm.previewStreamPath),callback:function ($$v) {_vm.previewStreamPath=$$v},expression:"previewStreamPath"}})],1)}
+return [_c('td',[_vm._v(_vm._s(item.ID))]),_c('td',[_vm._v(_vm._s(item.Addr))]),_c('td',[_vm._v(_vm._s(item.Channels ? item.Channels.length : 0))]),_c('td',[_c('StartTime',{attrs:{"value":item.RegisterTime}})],1),_c('td',[_c('StartTime',{attrs:{"value":item.UpdateTime}})],1),_c('td',[_vm._v(_vm._s(item.Status))])]}}],null,false,2462345042)})],1):_vm._e(),(_vm.$parent.titleTabActive === 1)?_c('div',{staticClass:"tabpanel"},[_c('div',{staticClass:"flex-box"},[_vm._l((_vm.channelShowList),function(channel,index){return [(channel.DeviceID)?_c('div',{key:index,staticClass:"flex-item"},[_c('webrtc-player2',{attrs:{"stream-path":'gb28181/'+channel.DeviceID}})],1):_vm._e()]})],2),(_vm.channelList.length > 0)?[_c('Page',{attrs:{"total":_vm.channelList.length,"page-size":_vm.pageInfo.onePageSize},on:{"on-change":_vm.handlePageChange}})]:_vm._e()],2):_vm._e(),_c('webrtc-player',{ref:"player",attrs:{"PublicIP":_vm.PublicIP},on:{"ptz":_vm.sendPtz},model:{value:(_vm.previewStreamPath),callback:function ($$v) {_vm.previewStreamPath=$$v},expression:"previewStreamPath"}}),_c('records',{ref:"records",attrs:{"records":_vm.recordList},on:{"close":_vm.initRecordSearch},model:{value:(_vm.recordModal),callback:function ($$v) {_vm.recordModal=$$v},expression:"recordModal"}})],1)}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=31458ad7&scoped=true&
+// CONCATENATED MODULE: ./src/App.vue?vue&type=template&id=59b6c9a0&scoped=true&
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"1dab9bb8-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Player.vue?vue&type=template&id=76558468&scoped=true&
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"d776bd7c-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Player.vue?vue&type=template&id=76558468&scoped=true&
 var Playervue_type_template_id_76558468_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('Modal',_vm._g(_vm._b({attrs:{"draggable":"","width":"750","title":_vm.streamPath},on:{"on-ok":_vm.onClosePreview,"on-cancel":_vm.onClosePreview}},'Modal',_vm.$attrs,false),_vm.$listeners),[_c('div',{staticClass:"container"},[_c('video',{ref:"webrtc",attrs:{"width":"488","height":"275","autoplay":"","muted":"","controls":""},domProps:{"srcObject":_vm.stream,"muted":true}}),_c('div',{staticClass:"control"},[_vm._l((8),function(n){return _c('svg',{class:'arrow'+n,attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg","xmlns:xlink":"http://www.w3.org/1999/xlink","width":"64","height":"64"},on:{"click":function($event){return _vm.ptzCmdDirection(n)}}},[_c('defs'),_c('path',{attrs:{"d":"M682.666667 955.733333H341.333333a17.066667 17.066667 0 0 1-17.066666-17.066666V529.066667H85.333333a17.066667 17.066667 0 0 1-12.066133-29.1328l426.666667-426.666667a17.0496 17.0496 0 0 1 24.132266 0l426.666667 426.666667A17.066667 17.066667 0 0 1 938.666667 529.066667H699.733333v409.6a17.066667 17.066667 0 0 1-17.066666 17.066666z m-324.266667-34.133333h307.2V512a17.066667 17.066667 0 0 1 17.066667-17.066667h214.801066L512 109.4656 126.532267 494.933333H341.333333a17.066667 17.066667 0 0 1 17.066667 17.066667v409.6z","p-id":"6849"}})])}),_c('svg',{staticClass:"arrow9",attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"mousedown":_vm.startPtzCmdCycle,"mouseup":_vm.stopPtzCmdCycle}},[_c('path',{attrs:{"d":"M512 960c-210.96 0-395.36-149.68-438.47-355.91-2.98-14.24 6.16-28.21 20.4-31.19 14.22-2.93 28.21 6.15 31.18 20.41C163.15 775.25 325.86 907.29 512 907.29s348.85-132.05 386.89-313.98c2.99-14.26 16.97-23.35 31.19-20.41 14.24 2.99 23.38 16.95 20.41 31.19C907.36 810.32 722.95 960 512 960zM927.48 466.94c-12.61 0-23.75-9.07-25.95-21.91C869.06 254.78 705.24 116.71 512 116.71c-193.23 0-357.05 138.07-389.52 328.32-2.45 14.35-16.08 24.01-30.41 21.54-14.35-2.46-23.99-16.07-21.55-30.42C107.33 220.51 293 64 512 64c219.01 0 404.68 156.51 441.48 372.15 2.44 14.35-7.21 27.97-21.54 30.42-1.5 0.25-3 0.37-4.46 0.37z"}}),_c('path',{attrs:{"d":"M96.52 466.94c-9.11 0-17.97-4.72-22.85-13.18-7.28-12.61-2.96-28.72 9.64-36l131.76-76.07c12.6-7.26 28.73-2.96 36 9.65 7.28 12.61 2.96 28.72-9.64 36l-131.76 76.07a26.18 26.18 0 0 1-13.15 3.53zM792.95 701.14c-9.11 0-17.96-4.72-22.85-13.18-7.28-12.6-2.96-28.72 9.64-36l131.76-76.09c12.58-7.28 28.72-2.95 36 9.65 7.27 12.6 2.96 28.72-9.65 36l-131.75 76.1a26.271 26.271 0 0 1-13.15 3.52z"}})])],2),_c('div',{staticClass:"control control2"},[_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.zoomFar)}}},[_c('path',{attrs:{"d":"M994.990643 859.352971L713.884166 578.246494A381.208198 381.208198 0 0 0 767.307984 383.653992C767.307984 171.765089 595.542895 0 383.653992 0S0 171.765089 0 383.653992s171.765089 383.653992 383.653992 383.653992c71.119859 0 137.507985-19.694238 194.592502-53.423818l281.106477 281.090491a95.913498 95.913498 0 1 0 135.637672-135.621686zM383.653992 671.394486c-158.912681 0-287.740494-128.827813-287.740494-287.740494S224.741311 95.913498 383.653992 95.913498s287.740494 128.827813 287.740494 287.740494-128.827813 287.740494-287.740494 287.740494z m159.85583-335.697243h-111.899081v-111.899081a47.956749 47.956749 0 1 0-95.913498 0v111.899081h-111.899081a47.956749 47.956749 0 1 0 0 95.913498h111.899081v111.899081a47.956749 47.956749 0 1 0 95.913498 0v-111.899081h111.899081a47.956749 47.956749 0 1 0 0-95.913498z"}})]),_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.zoomNear)}}},[_c('path',{attrs:{"d":"M994.990643 859.352971L713.884166 578.246494A381.208198 381.208198 0 0 0 767.307984 383.653992C767.307984 171.765089 595.542895 0 383.653992 0S0 171.765089 0 383.653992s171.765089 383.653992 383.653992 383.653992c71.119859 0 137.507985-19.694238 194.592502-53.423818l281.106477 281.090491a95.913498 95.913498 0 1 0 135.637672-135.621686zM383.653992 671.394486c-158.912681 0-287.740494-128.827813-287.740494-287.740494S224.741311 95.913498 383.653992 95.913498s287.740494 128.827813 287.740494 287.740494-128.827813 287.740494-287.740494 287.740494z m159.85583-335.697243H223.798162a47.956749 47.956749 0 1 0 0 95.913498h319.71166a47.956749 47.956749 0 1 0 0-95.913498z"}})])]),_c('div',{staticClass:"control control3"},[_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.apertureFar)}}},[_c('path',{attrs:{"d":"M956.39 400.827C922.164 266.675 828.186 155.703 701.502 99.874l94.522 443.782L956.39 400.827zM206.208 189.167C106.183 286.191 56.845 424.181 72.696 562.659l351.347-309.096-217.835-64.396zM643.118 78.847a446.363 446.363 0 0 0-138.947-16.775 448.047 448.047 0 0 0-250.583 86.934l437.868 146.949-48.338-217.108zM83.786 623.979c34.443 133.772 128.248 244.407 254.583 300.291l-95.915-426.55L83.786 623.979zM969.893 496.089a372.746 372.746 0 0 0-2.37-34.138l-329.972 303.78 196.157 69.256c91.522-88.456 141.056-211.704 136.185-338.898zM396.862 945.166a447.857 447.857 0 0 0 139.077 16.766 447.784 447.784 0 0 0 250.322-86.718L349.286 733.05l47.576 212.116z"}}),_c('path',{attrs:{"fill":"#333333","d":"M397.253 471.171h245.668c22.593 0 40.923 18.32 40.923 40.913 0 22.592-18.33 40.922-40.923 40.922H397.253c-22.592 0-40.922-18.33-40.922-40.922 0-22.593 18.33-40.913 40.922-40.913z"}}),_c('path',{attrs:{"fill":"#333333","d":"M479.17 634.879V389.21c0-22.593 18.32-40.923 40.913-40.923s40.923 18.33 40.923 40.923v245.668c0 22.592-18.33 40.922-40.923 40.922s-40.913-18.329-40.913-40.921z"}})]),_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.apertureNear)}}},[_c('path',{attrs:{"d":"M956.39 400.827C922.164 266.675 828.186 155.703 701.502 99.874l94.522 443.782L956.39 400.827z m-750.182-211.66C106.183 286.191 56.845 424.181 72.696 562.659l351.347-309.096-217.835-64.396z m436.91-110.32a446.363 446.363 0 0 0-138.947-16.775 448.047 448.047 0 0 0-250.583 86.934l437.868 146.949-48.338-217.108zM83.786 623.979c34.443 133.772 128.248 244.407 254.583 300.291l-95.915-426.55L83.786 623.979z m886.107-127.89a372.746 372.746 0 0 0-2.37-34.138l-329.972 303.78 196.157 69.256c91.522-88.456 141.056-211.704 136.185-338.898zM396.862 945.166a447.857 447.857 0 0 0 139.077 16.766 447.784 447.784 0 0 0 250.322-86.718L349.286 733.05l47.576 212.116z m0.391-474.039h245.668c22.593 0 40.923 18.32 40.923 40.912 0 22.593-18.33 40.923-40.923 40.923H397.253c-22.592 0-40.922-18.33-40.922-40.923 0-22.592 18.33-40.912 40.922-40.912z"}})])]),_c('div',{staticClass:"control control4"},[_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.focusFar)}}},[_c('path',{attrs:{"d":"M849.07153297 646.81872559c9.30432153 0 17.26391602 3.30249 23.82934617 9.88769507 6.60992408 6.59509253 9.88769508 14.52502465 9.88769508 23.79473901v101.14617896c0 27.90801978-9.87780761 51.70275879-29.61364722 71.47814965-19.75067115 19.77539086-43.56518578 29.66308594-71.48803711 29.66308594h-101.1165166c-9.32409644 0-17.25402856-3.29754663-23.83428954-9.9865725-6.59509253-6.49127173-9.90252662-14.52502465-9.90252662-23.7947383 0-9.26971435 3.30743408-17.20458984 9.90252662-23.79473901 6.58026099-6.59014916 14.51019311-9.88769508 23.83428954-9.88769507h101.1165166c9.29937744 0 17.26391602-3.29754663 23.82440137-9.88769579 6.61486816-6.59014916 9.88769508-14.52008057 9.88769579-23.89361573v-101.04235815c0-9.36859107 3.28765845-17.30346656 9.89758254-23.78979493 6.57531762-6.69396997 14.52502465-9.99151587 23.83923363-9.99151587l-0.06427025 0.09887671zM242.38726782 141.3103025h101.10168506c9.30432153 0 17.2688601 3.29754663 23.819458 9.88769578 6.62475562 6.59509253 9.89758325 14.52502465 9.89758254 23.7947383 0 9.37353516-3.27282691 17.30346656-9.89758254 23.79473901-6.5505979 6.69396997-14.51513648 9.9865725-23.81451463 9.9865725h-101.10168433c-9.31915307 0-17.2688601 3.19372583-23.82934547 9.88769508-6.62475562 6.49127173-9.91241479 14.52502465-9.91241479 23.794739v101.04235816c0 9.36859107-3.28271508 17.30346656-9.89758324 23.89361573-6.57531762 6.59014916-14.51513648 9.88769508-23.81451392 9.88769507-9.31420898 0-17.25402856-3.29754663-23.82934547-9.88769507C144.49908423 360.80230689 141.21142578 352.86743141 141.21142578 343.49884033V242.45648217c0-27.91296386 9.86792016-51.70275879 29.62353539-71.47814965 19.75067115-19.77539086 43.57507324-29.66308594 71.48803711-29.66308594h0.06426954zM174.9877932 646.81872559c9.30432153 0 17.24414039 3.30249 23.81451393 9.88769507 6.62475562 6.59509253 9.90252662 14.52502465 9.90252662 23.79473901v101.14617896c0 9.26971435 3.27282691 17.19964576 9.89758324 23.78979492 6.57531762 6.59014916 14.51513648 9.88769508 23.81451393 9.88769579h101.12640404c9.29937744 0 17.25402856 3.29754663 23.82934547 9.88769507 6.60992408 6.59014916 9.88769508 14.52502465 9.88769579 23.89361572 0 9.26971435-3.27777099 17.20458984-9.88769579 23.79473901-6.57531762 6.59014916-14.52996803 9.88769508-23.82934547 9.88769508H242.41693092c-27.91296386 0-51.71264625-9.88769508-71.47814895-29.66308594-19.75561523-19.67651344-29.62353539-43.57012915-29.62353539-71.47814965v-101.04235816c0-9.26971435 3.27282691-17.30346656 9.88769507-23.89361573 6.58026099-6.59509253 14.52502465-9.88769508 23.81451464-9.88769507h-0.02966309zM680.57037329 141.3103025h101.1165166c27.92285133 0 51.73736596 9.88769508 71.48803711 29.56420922 19.73583961 19.77539086 29.61364722 43.57012915 29.61364722 71.47814965v101.14617896c0 9.26971435-3.27777099 17.30346656-9.88769508 23.78979493-6.56542945 6.69396997-14.52502465 9.88769508-23.82934617 9.88769506-9.29937744 0-17.26391602-3.19372583-23.82440139-9.88769506-6.61486816-6.48632836-9.88769508-14.52008057-9.88769579-23.78979493V242.35266137c0-9.26971435-3.28765845-17.19964576-9.90252661-23.78979492-6.57037354-6.59509253-14.52008057-9.88769508-23.83428955-9.88769579h-101.10168433c-9.31420898 0-17.2688601-3.29754663-23.82934618-9.88769507-6.60992408-6.59509253-9.89758325-14.52502465-9.89758254-23.79473902 0-9.37353516 3.28765845-17.30346656 9.89758254-23.89361571 6.56048608-6.59014916 14.51513648-9.88769508 23.82934618-9.88769508l0.04943799 0.09887672z"}})]),_c('svg',{attrs:{"viewBox":"0 0 1024 1024","version":"1.1","xmlns":"http://www.w3.org/2000/svg"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.focusNear)}}},[_c('path',{attrs:{"d":"M512 170.666667A341.333333 341.333333 0 1 1 170.666667 512 341.333333 341.333333 0 0 1 512 170.666667m0-42.666667a384 384 0 1 0 384 384A384 384 0 0 0 512 128z"}}),_c('path',{attrs:{"fill":"#333333","d":"M298.666667 533.333333H170.666667a21.333333 21.333333 0 0 1 0-42.666666h128a21.333333 21.333333 0 0 1 0 42.666666zM853.333333 533.333333h-128a21.333333 21.333333 0 0 1 0-42.666666h128a21.333333 21.333333 0 0 1 0 42.666666zM512 320a21.333333 21.333333 0 0 1-21.333333-21.333333V170.666667a21.333333 21.333333 0 0 1 42.666666 0v128a21.333333 21.333333 0 0 1-21.333333 21.333333zM512 874.666667a21.333333 21.333333 0 0 1-21.333333-21.333334v-128a21.333333 21.333333 0 0 1 42.666666 0v128a21.333333 21.333333 0 0 1-21.333333 21.333334z"}})])]),_c('div',{staticClass:"control5"},[_c('i-select',{staticStyle:{"width":"100px"},model:{value:(_vm.ptzPositionIndex),callback:function ($$v) {_vm.ptzPositionIndex=$$v},expression:"ptzPositionIndex"}},_vm._l((10),function(n){return _c('Option',{key:n,attrs:{"value":n}},[_vm._v("预置点"+_vm._s(n))])}),1),_c('i-button',{attrs:{"type":"primary"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.setPos)}}},[_vm._v("设置")]),_c('i-button',{attrs:{"type":"success"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.calPos)}}},[_vm._v("调用")]),_c('i-button',{attrs:{"type":"error"},on:{"click":function($event){return _vm.ptzCmd(_vm.ptzType.delPos)}}},[_vm._v("删除")]),_vm._v(" 速度： "),_c('InputNumber',{attrs:{"max":10,"min":1},model:{value:(_vm.ptzSpeed),callback:function ($$v) {_vm.ptzSpeed=$$v},expression:"ptzSpeed"}})],1)]),_c('div',{attrs:{"slot":"footer"},slot:"footer"},[(_vm.remoteSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.remoteSDPURL,"download":"remoteSDP.txt"},slot:"content"},[_vm._v("remoteSDP")])]):_vm._e(),(_vm.localSDP)?_c('mu-badge',[_c('a',{attrs:{"slot":"content","href":_vm.localSDPURL,"download":"localSDP.txt"},slot:"content"},[_vm._v("localSDP")])]):_vm._e()],1)])}
 var Playervue_type_template_id_76558468_scoped_true_staticRenderFns = []
 
@@ -2815,7 +2828,7 @@ var component = normalizeComponent(
 )
 
 /* harmony default export */ var Player = (component.exports);
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"1dab9bb8-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Player2.vue?vue&type=template&id=3d23233a&scoped=true&
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"d776bd7c-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Player2.vue?vue&type=template&id=3d23233a&scoped=true&
 var Player2vue_type_template_id_3d23233a_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"player-wrap"},[(_vm.rtcStream)?[_c('video',{attrs:{"autoplay":"","muted":"","controls":""},domProps:{"srcObject":_vm.rtcStream,"muted":true}})]:_vm._e()],2)}
 var Player2vue_type_template_id_3d23233a_scoped_true_staticRenderFns = []
 
@@ -2946,6 +2959,304 @@ var Player2_component = normalizeComponent(
 )
 
 /* harmony default export */ var Player2 = (Player2_component.exports);
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"d776bd7c-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Records.vue?vue&type=template&id=72d12ba2&scoped=true&
+var Recordsvue_type_template_id_72d12ba2_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('Modal',_vm._g(_vm._b({attrs:{"draggable":"","width":"900","title":"Records"},on:{"on-ok":_vm.onClosePreview,"on-cancel":_vm.onClosePreview}},'Modal',_vm.$attrs,false),_vm.$listeners),[_c('div',{staticClass:"container"},[_c('div',{staticClass:"search"},[_c('DatePicker',{staticStyle:{"width":"200px"},attrs:{"type":"date","options":_vm.timeOptions,"value":_vm.search.time,"placeholder":"请选择时间","clearable":false},on:{"change":_vm.handleTimeChange}})],1),_c('div',[_c('mu-data-table',{attrs:{"columns":_vm.columns,"data":_vm.recordList},scopedSlots:_vm._u([{key:"expand",fn:function(prop){return [_c('div',[_c('m-button',{on:{"click":function($event){return _vm.play(prop.row)}}},[_vm._v("播放")])],1)]}},{key:"default",fn:function(scope){return [_c('td',[_vm._v(_vm._s(scope.row.DeviceID))]),_c('td',[_vm._v(_vm._s(scope.row.Name))]),_c('td',[_vm._v(_vm._s(scope.row.time))]),_c('td',[_vm._v(_vm._s(scope.row.length))]),_c('td',[_vm._v(_vm._s(scope.row.FilePath))]),_c('td',[_vm._v(_vm._s(scope.row.Address))]),_c('td',[_vm._v(_vm._s(scope.row.Type))])]}}])})],1)])])}
+var Recordsvue_type_template_id_72d12ba2_scoped_true_staticRenderFns = []
+
+
+// CONCATENATED MODULE: ./src/components/Records.vue?vue&type=template&id=72d12ba2&scoped=true&
+
+// CONCATENATED MODULE: ./src/utils/index.js
+/**
+ * Date:2020/12/24
+ * Desc:
+ */
+
+function getOneTimeRange(time, options) {
+    let date;
+
+    // 都为空的时候
+    if (!time && !options) {
+        date = new Date();
+    } else if (Object.prototype.toString.call(time) !== '[object Date]' && time !== null && typeof time === 'object') {
+        // time 为 options 参数。
+        options = time;
+        date = new Date();
+    } else if (Object.prototype.toString.call(time) === '[object Date]') {
+        // time 是时间格式
+        date = time;
+    } else {
+        // time 是 int 格式。
+        if (('' + time).length === 10) time = parseInt(time) * 1000;
+        time = +time; // 转成int 型
+        date = new Date(time);
+    }
+
+    options = options || {};
+
+    let result = {
+        start: 0,
+        end: 0
+    };
+
+    let _startTime = new Date(date).setHours(options.startHour || 0, options.startMin || 0, 0, 0);
+    let _endTime = new Date(date).setHours(options.endHour || 23, options.endMin || 59, 59, 0);
+    result.start = new Date(_startTime).getTime();
+    result.end = new Date(_endTime).getTime();
+
+    return result;
+};
+
+
+function formatTimestamp(t) {
+    var d = 0,
+        h = 0,
+        m = 0,
+        s = 0;
+    if (t > 0) {
+        d = Math.floor(t / 1000 / 3600 / 24)
+        h = Math.floor(t / 1000 / 60 / 60 % 24)
+        m = Math.floor(t / 1000 / 60 % 60)
+        s = Math.floor(t / 1000 % 60)
+    }
+
+    return `${d}天${h}时${m}分${s}秒`
+}
+
+function formatTimeTips(timestamp) {
+    let result;
+
+    //
+    if (time > -1) {
+        let hour = Math.floor(timestamp / 3600);
+        let min = Math.floor(timestamp / 60) % 60;
+        let sec = timestamp % 60;
+
+        sec = Math.round(sec);
+
+        if (hour < 10) {
+            result = '0' + hour + ":";
+        } else {
+            result = hour + ":";
+        }
+
+        if (min < 10) {
+            result += "0";
+        }
+        result += min + ":";
+        if (sec < 10) {
+            result += "0";
+        }
+        result += sec.toFixed(0);
+    }
+
+    return result;
+}
+
+
+function parseTime(time, cFormat) {
+    if (arguments.length === 0) {
+        return null
+    }
+    var format = cFormat || '{y}-{m}-{d} {h}:{i}:{s}'
+    var date;
+    if (typeof time === 'object') {
+        date = time
+    } else {
+        if (('' + time).length === 10) time = parseInt(time) * 1000;
+        time = +time; // 转成int 型
+        date = new Date(time)
+    }
+    var formatObj = {
+        y: date.getFullYear(),
+        m: date.getMonth() + 1,
+        d: date.getDate(),
+        h: date.getHours(),
+        i: date.getMinutes(),
+        s: date.getSeconds(),
+        a: date.getDay()
+    };
+    var time_str = format.replace(/{(y|m|d|h|i|s|a)+}/g, (result, key) => {
+        var value = formatObj[key]
+        if (key === 'a') return ['一', '二', '三', '四', '五', '六', '日'][value - 1]
+        if (result.length > 0 && value < 10) {
+            value = '0' + value
+        }
+        return value || 0
+    });
+    return time_str
+}
+
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/Records.vue?vue&type=script&lang=js&
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
+
+const _now = new Date();
+
+/* harmony default export */ var Recordsvue_type_script_lang_js_ = ({
+    name: "Records",
+    props: {
+        records: Array
+    },
+    data() {
+        return {
+            timeOptions: {
+                disabledDate(date) {
+                    return date && date.valueOf() > Date.now();
+                }
+            },
+            search: {
+                id: null,
+                channel: 0,
+                deviceId: null,
+                time: _now
+            },
+            columns: Object.freeze(
+                [
+                    '设备ID',
+                    '名称',
+                    '时间',
+                    '时长',
+                    '文件路径',
+                    '地址',
+                    '类型'
+                ].map((title) => ({
+                    title,
+                }))
+            )
+        }
+    },
+    computed: {
+        startTime() {
+            if (!this.search.time) {
+                return ''
+            }
+            const start = getOneTimeRange(this.search.time).start;
+            return new Date(start).toISOString();
+        },
+        endTime() {
+
+            if (!this.search.time) {
+                return ''
+            }
+
+            const end = getOneTimeRange(this.search.time).end;
+            return new Date(end).toISOString();
+        },
+        recordList() {
+            const list = this.records.map((record) => {
+                const startTime = new Date(record.StartTime).getTime();
+                const endTime = new Date(record.EndTime).getTime();
+                const timestamp = endTime - startTime;
+                const timeLength = formatTimeTips(timestamp);
+
+                const _startTime = parseTime(startTime);
+
+                record.length = timeLength;
+                record.time = _startTime;
+                return record;
+            });
+            return list;
+        }
+    },
+
+    methods: {
+        getList(options) {
+            this.search.id = options.id;
+            this.search.channel = options.channel;
+            this.search.deviceId = options.deviceId;
+            this._fetchList();
+        },
+
+        _fetchList() {
+            if (this.search.id && this.search.channel && this.startTime && this.endTime) {
+                const query = {
+                    id: this.search.id,
+                    channel: this.search.channel,
+                    startTime: this.search.startTime,
+                    endTime: this.search.endTime
+                };
+
+                this.ajax.get("/gb28181/query/records", query).then((x) => {
+
+                });
+            }
+        },
+        onClosePreview() {
+            this.$emit('close');
+        },
+        handleTimeChange(date) {
+            this.search.time = date;
+            this._fetchList();
+        },
+        play() {
+
+        }
+    }
+});
+
+// CONCATENATED MODULE: ./src/components/Records.vue?vue&type=script&lang=js&
+ /* harmony default export */ var components_Recordsvue_type_script_lang_js_ = (Recordsvue_type_script_lang_js_); 
+// EXTERNAL MODULE: ./src/components/Records.vue?vue&type=style&index=0&id=72d12ba2&scoped=true&lang=css&
+var Recordsvue_type_style_index_0_id_72d12ba2_scoped_true_lang_css_ = __webpack_require__("a1e1");
+
+// CONCATENATED MODULE: ./src/components/Records.vue
+
+
+
+
+
+
+/* normalize component */
+
+var Records_component = normalizeComponent(
+  components_Recordsvue_type_script_lang_js_,
+  Recordsvue_type_template_id_72d12ba2_scoped_true_render,
+  Recordsvue_type_template_id_72d12ba2_scoped_true_staticRenderFns,
+  false,
+  null,
+  "72d12ba2",
+  null
+  
+)
+
+/* harmony default export */ var Records = (Records_component.exports);
 // CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js&
 //
 //
@@ -3019,6 +3330,13 @@ var Player2_component = normalizeComponent(
 //
 //
 //
+//
+//
+//
+//
+
+
+
 
 
 
@@ -3028,6 +3346,7 @@ var Player2_component = normalizeComponent(
     components: {
         WebrtcPlayer: Player,
         WebrtcPlayer2: Player2,
+        Records: Records
     },
     props: {
         ListenAddr: String,
@@ -3047,6 +3366,13 @@ var Player2_component = normalizeComponent(
                 onePageSize: 9,
                 totalPage: 0,
                 currentPage: 0
+            },
+            recordList: [],
+            recordModal: false,
+            recordSearch: {
+                id: null,
+                channel: 0,
+                deviceId: null
             },
             context: {
                 id: null,
@@ -3072,7 +3398,7 @@ var Player2_component = normalizeComponent(
                 "地址",
                 "状态",
                 "操作",
-            ]).map((title) => ({ title })),
+            ]).map((title) => ({title})),
         };
     },
     created() {
@@ -3089,10 +3415,21 @@ var Player2_component = normalizeComponent(
                 this.Devices = JSON.parse(evt.data) || [];
                 this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
                 let channelList = [];
+                let recordList = [];
                 this.Devices.forEach((device) => {
                     const channels = device.Channels || [];
                     if (channels.length > 0) {
                         channelList = channelList.concat(channels);
+                    }
+
+                    if (this.recordSearch.id && this.recordSearch.deviceId) {
+                        const channel = channels.filter((i) => {
+                            return i.DeviceID === this.recordSearch.deviceId && this.recordSearch.id === device.ID;
+                        });
+
+                        if (channel) {
+                            this.recordList = channel.Records || [];
+                        }
                     }
                 });
                 if (channelList.length > 0) {
@@ -3115,7 +3452,7 @@ var Player2_component = normalizeComponent(
         },
         sendPtz(options) {
             const ptzCmd = Object(ptz_cmd["b" /* getPTZCmd */])(options);
-            const ptzCmdStop = Object(ptz_cmd["b" /* getPTZCmd */])({ type: ptz_cmd["a" /* PTZ_TYPE */].stop });
+            const ptzCmdStop = Object(ptz_cmd["b" /* getPTZCmd */])({type: ptz_cmd["a" /* PTZ_TYPE */].stop});
             this.ajax
                 .get("/gb28181/control", {
                     id: this.context.id,
@@ -3139,21 +3476,26 @@ var Player2_component = normalizeComponent(
                 });
         },
 
-        handlePageChange(page){
+
+        sendQueryRecords(options) {
+
+        },
+
+        handlePageChange(page) {
             let showList = [];
             const onePageSize = this.pageInfo.onePageSize;
             const firstIndex = page * onePageSize - onePageSize;
-            const lastIndex = page * onePageSize - 1 ;
+            const lastIndex = page * onePageSize - 1;
             showList = this.channelList.filter((item, index) => {
                 return index >= firstIndex && index <= lastIndex;
             });
 
             this.channelShowList = showList;
-            if(showList.length > 0){
+            if (showList.length > 0) {
                 this.pageInfo.currentPage = page;
             }
         },
-        updatePageInfo(totalSize){
+        updatePageInfo(totalSize) {
             const onePageSize = this.pageInfo.onePageSize;
             let totalPage = totalSize / onePageSize;
 
@@ -3161,27 +3503,45 @@ var Player2_component = normalizeComponent(
                 totalPage = totalPage + 1;
             }
             this.pageInfo.totalPage = totalPage;
-            if(this.pageInfo.currentPage === 0){
+            if (this.pageInfo.currentPage === 0) {
                 this.handlePageChange(1)
             }
         },
         invite(id, channel, item) {
-            this.ajax.get("/gb28181/invite", { id, channel }).then((x) => {
+            this.ajax.get("/gb28181/invite", {id, channel}).then((x) => {
                 item.Connected = true;
             });
         },
         bye(id, channel, item) {
-            this.ajax.get("/gb28181/bye", { id, channel }).then((x) => {
+            this.ajax.get("/gb28181/bye", {id, channel}).then((x) => {
                 item.Connected = false;
             });
         },
+
+        getRecords(id, channel, item) {
+            this.recordSearch.id = id;
+            this.recordSearch.channel = channel;
+            this.recordSearch.deviceId = item.DeviceID;
+            this.recordModal = true;
+            this.$nextTick(() =>
+                this.$refs.records.getList(this.recordSearch)
+            );
+        },
+
+        initRecordSearch() {
+            this.recordModal = false;
+            this.recordSearch.id = null;
+            this.recordSearch.channel = null;
+            this.recordSearch.deviceId = null;
+            this.recordList = [];
+        }
     },
 });
 
 // CONCATENATED MODULE: ./src/App.vue?vue&type=script&lang=js&
  /* harmony default export */ var src_Appvue_type_script_lang_js_ = (Appvue_type_script_lang_js_); 
-// EXTERNAL MODULE: ./src/App.vue?vue&type=style&index=0&id=31458ad7&scoped=true&lang=css&
-var Appvue_type_style_index_0_id_31458ad7_scoped_true_lang_css_ = __webpack_require__("bf9c");
+// EXTERNAL MODULE: ./src/App.vue?vue&type=style&index=0&id=59b6c9a0&scoped=true&lang=css&
+var Appvue_type_style_index_0_id_59b6c9a0_scoped_true_lang_css_ = __webpack_require__("8fd7");
 
 // CONCATENATED MODULE: ./src/App.vue
 
@@ -3198,7 +3558,7 @@ var App_component = normalizeComponent(
   staticRenderFns,
   false,
   null,
-  "31458ad7",
+  "59b6c9a0",
   null
   
 )
@@ -3210,6 +3570,13 @@ var App_component = normalizeComponent(
 /* harmony default export */ var entry_lib = __webpack_exports__["default"] = (App);
 
 
+
+/***/ }),
+
+/***/ "fb17":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
 
 /***/ })
 
