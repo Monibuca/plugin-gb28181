@@ -10,7 +10,7 @@
             <div class="search">
                 <DatePicker type="date" :options="timeOptions" :value="search.time" placeholder="请选择时间"
                             style="width: 200px" :clearable="false"
-                            @change="handleTimeChange"></DatePicker>
+                            @on-change="handleTimeChange"></DatePicker>
             </div>
             <div>
                 <mu-data-table :columns="columns" :data="recordList">
@@ -119,8 +119,8 @@
                     const query = {
                         id: this.search.id,
                         channel: this.search.channel,
-                        startTime: this.search.startTime,
-                        endTime: this.search.endTime
+                        startTime: this.startTime,
+                        endTime: this.endTime
                     };
 
                     this.ajax.get("/gb28181/query/records", query).then((x) => {
@@ -132,7 +132,7 @@
                 this.$emit('close');
             },
             handleTimeChange(date) {
-                this.search.time = date;
+                this.search.time = new Date(date);
                 this._fetchList();
             },
             play() {
