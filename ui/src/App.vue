@@ -33,7 +33,7 @@
                                         @click="invite(prop.row.ID, $index, item)"
                                 >连接
                                 </mu-button>
-                                <mu-button @click="getRecords(prop.row.ID, $index,item)">录像</mu-button>
+                                <mu-button flat @click="getRecords(prop.row.ID, $index,item)">录像</mu-button>
                             </td>
                         </template>
                     </mu-data-table>
