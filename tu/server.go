@@ -15,7 +15,7 @@ type Server struct {
 //提供config参数
 func NewServer(config *transaction.Config) *Server {
 	return &Server{
-		Core:      transaction.NewCore(config),
+		Core: transaction.NewCore(config),
 	}
 }
 

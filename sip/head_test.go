@@ -6,7 +6,7 @@ import (
 )
 
 func TestContact(t *testing.T) {
-	str1 := "\"Mr.Watson\" <sip:watson@worcester.bell-telephone.com>;q=0.7; expires=3600,\"Mr.Watson\" <mailto:watson@bell-telephone.com>";
+	str1 := "\"Mr.Watson\" <sip:watson@worcester.bell-telephone.com>;q=0.7; expires=3600,\"Mr.Watson\" <mailto:watson@bell-telephone.com>"
 	//str1 := `"Mr.Watson" <sip:watson@worcester.bell-telephone.com>;q=0.7;`
 	c := &Contact{}
 	err := c.Parse(str1)

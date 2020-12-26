@@ -26,7 +26,7 @@ type Channel struct {
 	device       *Device
 	inviteRes    *sip.Message
 	Connected    bool
-	Records      []Record
+	Records      []*Record
 }
 
 // Record 录像
@@ -45,7 +45,7 @@ type Device struct {
 	RegisterTime time.Time
 	UpdateTime   time.Time
 	Status       string
-	Channels     []Channel
+	Channels     []*Channel
 	core         *Core
 	sn           int
 	from         *sip.Contact
@@ -63,7 +63,7 @@ func (c *Core) RemoveDead() {
 		return true
 	})
 }
-func (d *Device) UpdateChannels(list []Channel) {
+func (d *Device) UpdateChannels(list []*Channel) {
 	for _, c := range list {
 		c.device = d
 		have := false
@@ -81,7 +81,7 @@ func (d *Device) UpdateChannels(list []Channel) {
 		}
 	}
 }
-func (d *Device) UpdateRecord(channelId string, list []Record) {
+func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	for _, c := range d.Channels {
 		if c.DeviceID == channelId {
 			c.Records = list
@@ -145,7 +145,7 @@ func (d *Device) Query() int {
 	return response.Code
 }
 func (d *Device) QueryRecord(channelIndex int, startTime, endTime string) int {
-	channel := &d.Channels[channelIndex]
+	channel := d.Channels[channelIndex]
 	requestMsg := channel.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
@@ -162,7 +162,7 @@ func (d *Device) QueryRecord(channelIndex int, startTime, endTime string) int {
 	return d.core.SendMessage(requestMsg).Code
 }
 func (d *Device) Control(channelIndex int, PTZCmd string) int {
-	channel := &d.Channels[channelIndex]
+	channel := d.Channels[channelIndex]
 	requestMsg := channel.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
@@ -176,7 +176,7 @@ func (d *Device) Control(channelIndex int, PTZCmd string) int {
 	return d.core.SendMessage(requestMsg).Code
 }
 func (d *Device) Invite(channelIndex int) int {
-	channel := &d.Channels[channelIndex]
+	channel := d.Channels[channelIndex]
 	port := d.core.OnInvite(channel)
 	if port == 0 {
 		channel.Connected = true
@@ -217,7 +217,7 @@ y=0200000001
 	return response.Code
 }
 func (d *Device) Bye(channelIndex int) int {
-	channel := &d.Channels[channelIndex]
+	channel := d.Channels[channelIndex]
 	defer func() {
 		channel.inviteRes = nil
 		channel.Connected = false

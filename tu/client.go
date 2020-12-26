@@ -45,7 +45,6 @@ func NewClient(config *transaction.Config, static *ClientStatic) *Client {
 	}
 }
 
-
 //TODO：对于一个TU，开启之后
 //运行一个sip client
 func RunClient() {
@@ -82,7 +81,7 @@ func RunClient() {
 	//TODO：先发起注册
 	//TODO:build sip message
 	msg := BuildMessageRequest("", "", "", "", "", "",
-		0, 0, 0,"")
+		0, 0, 0, "")
 	resp := c.SendMessage(msg)
 	if resp.Code != 0 {
 		fmt.Println("request failed")

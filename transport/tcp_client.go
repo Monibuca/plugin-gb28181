@@ -48,7 +48,7 @@ func (c *TCPClient) Start() error {
 	if err != nil {
 		fmt.Println("dial tcp server failed :", err.Error())
 		return err
-	}else{
+	} else {
 		fmt.Println("start tcp client")
 	}
 
