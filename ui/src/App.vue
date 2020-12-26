@@ -71,7 +71,7 @@
                 v-model="previewStreamPath"
                 :PublicIP="PublicIP"
         ></webrtc-player>
-        <records ref="records" v-model="recordModal" :records="recordList" @close="initRecordSearch"></records>
+        <records ref="records" v-model="recordModal" :records.sync="recordList" @close="initRecordSearch"></records>
     </div>
 </template>
 <script>
@@ -163,7 +163,7 @@
                         }
 
                         if (this.recordSearch.id && this.recordSearch.deviceId) {
-                            const channel = channels.filter((i) => {
+                            const channel = channels.find((i) => {
                                 return i.DeviceID === this.recordSearch.deviceId && this.recordSearch.id === device.ID;
                             });
 
