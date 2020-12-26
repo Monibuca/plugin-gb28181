@@ -117,3 +117,8 @@ export function parseTime(time, cFormat) {
     });
     return time_str
 }
+
+
+export function isDef(v) {
+    return v !== undefined && v !== null;
+}
