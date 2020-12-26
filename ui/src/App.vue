@@ -111,7 +111,7 @@
                 recordModal: false,
                 recordSearch: {
                     id: null,
-                    channel: 0,
+                    channel: null,
                     deviceId: null
                 },
                 context: {
