@@ -35,7 +35,7 @@
 </template>
 
 <script>
-    import {getOneTimeRange, formatTimeTips, parseTime} from "../utils";
+    import {getOneTimeRange, formatTimeTips, parseTime, isDef} from "../utils";
 
     const _now = new Date();
 
@@ -78,16 +78,16 @@
                     return ''
                 }
                 const start = getOneTimeRange(this.search.time).start;
-                return new Date(start).toISOString();
+                const isoString = new Date(start).toISOString();
+                return isoString.repeat('.000Z', '');
             },
             endTime() {
-
                 if (!this.search.time) {
                     return ''
                 }
-
                 const end = getOneTimeRange(this.search.time).end;
-                return new Date(end).toISOString();
+                const isoString = new Date(end).toISOString();
+                return isoString.repeat('.000Z', '');
             },
             recordList() {
                 const list = this.records.map((record) => {
@@ -115,7 +115,7 @@
             },
 
             _fetchList() {
-                if (this.search.id && this.search.channel && this.startTime && this.endTime) {
+                if (isDef(this.search.id) && isDef(this.search.channel) && this.startTime && this.endTime) {
                     const query = {
                         id: this.search.id,
                         channel: this.search.channel,
