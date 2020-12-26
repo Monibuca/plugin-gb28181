@@ -88,9 +88,8 @@ var errorMap = map[int]string{
 }
 
 func DumpError(code int) string {
-	if code == 0{
+	if code == 0 {
 		return "invalid status reason for request"
 	}
 	return fmt.Sprintf("%d %s", code, errorMap[code])
 }
-

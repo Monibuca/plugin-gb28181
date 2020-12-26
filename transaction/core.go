@@ -355,8 +355,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 					XMLName    xml.Name
 					CmdType    string
 					DeviceID   string
-					DeviceList []Channel `xml:"DeviceList>Item"`
-					RecordList []Record  `xml:"RecordList>Item"`
+					DeviceList []*Channel `xml:"DeviceList>Item"`
+					RecordList []*Record  `xml:"RecordList>Item"`
 				}{}
 				decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
 				decoder.CharsetReader = func(c string, i io.Reader) (io.Reader, error) {

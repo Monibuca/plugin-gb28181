@@ -20,7 +20,7 @@ expires: 过期时间
 cseq：消息序列号，当前对话递增
 */
 //构建消息：以客户端（可能是IPC，也可能是SIP Server）的角度
-func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, username , srcIP string, srcPort uint16, expires, cseq int,body string) *sip.Message {
+func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, username, srcIP string, srcPort uint16, expires, cseq int, body string) *sip.Message {
 	server := fmt.Sprintf("%s@%s", sipSerial, sipRealm)
 	client := fmt.Sprintf("%s@%s", username, sipRealm)
 
@@ -62,7 +62,7 @@ func BuildMessageRequest(method sip.Method, transport, sipSerial, sipRealm, user
 	msg.Contact = &sip.Contact{
 		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", username, srcIP, srcPort)),
 	}
-	if len(body)>0{
+	if len(body) > 0 {
 		msg.ContentLength = len(body)
 		msg.Body = body
 	}
