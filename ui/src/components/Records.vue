@@ -53,7 +53,7 @@
                 },
                 search: {
                     id: null,
-                    channel: 0,
+                    channel: null,
                     deviceId: null,
                     time: _now
                 },
@@ -79,7 +79,7 @@
                 }
                 const start = getOneTimeRange(this.search.time).start;
                 const isoString = new Date(start).toISOString();
-                return isoString.repeat('.000Z', '');
+                return isoString.replace('.000Z', '');
             },
             endTime() {
                 if (!this.search.time) {
@@ -87,7 +87,7 @@
                 }
                 const end = getOneTimeRange(this.search.time).end;
                 const isoString = new Date(end).toISOString();
-                return isoString.repeat('.000Z', '');
+                return isoString.replace('.000Z', '');
             },
             recordList() {
                 const list = this.records.map((record) => {
@@ -129,6 +129,9 @@
                 }
             },
             onClosePreview() {
+                this.search.channel = null;
+                this.search.deviceId = null;
+                this.search.id = null;
                 this.$emit('close');
             },
             handleTimeChange(date) {
