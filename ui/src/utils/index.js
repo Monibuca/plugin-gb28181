@@ -58,7 +58,7 @@ export function formatTimeTips(timestamp) {
     let result;
 
     //
-    if (time > -1) {
+    if (timestamp > -1) {
         let hour = Math.floor(timestamp / 3600);
         let min = Math.floor(timestamp / 60) % 60;
         let sec = timestamp % 60;

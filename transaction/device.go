@@ -71,6 +71,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			if o.DeviceID == c.DeviceID {
 				c.inviteRes = o.inviteRes
 				c.Connected = o.inviteRes != nil
+				c.Records = o.Records
 				d.Channels[i] = c
 				have = true
 				break
