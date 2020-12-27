@@ -54,6 +54,7 @@ export function formatTimestamp(t) {
     return `${d}天${h}时${m}分${s}秒`
 }
 
+// 单位秒
 export function formatTimeTips(timestamp) {
     let result;
 

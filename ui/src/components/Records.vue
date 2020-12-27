@@ -22,11 +22,9 @@
                     <template #default="scope">
                         <td>{{scope.row.DeviceID}}</td>
                         <td>{{scope.row.Name}}</td>
-                        <td>{{scope.row.time}}</td>
+                        <td>{{scope.row.startTime}}</td>
+                        <td>{{scope.row.endTime}}</td>
                         <td>{{scope.row.length}}</td>
-                        <td>{{scope.row.FilePath}}</td>
-                        <td>{{scope.row.Address}}</td>
-                        <td>{{scope.row.Type}}</td>
                     </template>
                 </mu-data-table>
             </div>
@@ -61,11 +59,9 @@
                     [
                         '设备ID',
                         '名称',
-                        '时间',
+                        '开始时间',
+                        '结束时间',
                         '时长',
-                        '文件路径',
-                        '地址',
-                        '类型'
                     ].map((title) => ({
                         title,
                     }))
@@ -94,12 +90,14 @@
                     const startTime = new Date(record.StartTime).getTime();
                     const endTime = new Date(record.EndTime).getTime();
                     const timestamp = endTime - startTime;
-                    const timeLength = formatTimeTips(timestamp);
+                    const timeLength = formatTimeTips(timestamp / 1000);
 
                     const _startTime = parseTime(startTime);
+                    const _endTime = parseTime(endTime);
 
                     record.length = timeLength;
-                    record.time = _startTime;
+                    record.startTime = _startTime;
+                    record.endTime = _endTime;
                     return record;
                 });
                 return list;
