@@ -3,8 +3,6 @@ package gb28181
 import (
 	"bytes"
 	"encoding/xml"
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"golang.org/x/net/html/charset"
 	"io"
 	"log"
 	"math/rand"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/sip"
+	"golang.org/x/net/html/charset"
 
 	. "github.com/Monibuca/engine/v2"
 	"github.com/Monibuca/engine/v2/util"
@@ -84,6 +85,7 @@ func run() {
 		}
 	})
 	http.HandleFunc("/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		sse := util.NewSSE(w, r.Context())
 		for {
 			var list []*Device
@@ -91,8 +93,9 @@ func run() {
 				device := value.(*Device)
 				if device.UpdateTime.Sub(device.RegisterTime) > time.Duration(config.RegisterValidity)*time.Second {
 					Devices.Delete(key)
+				} else {
+					list = append(list, device)
 				}
-				list = append(list, device)
 				return true
 			})
 			sse.WriteJSON(list)
@@ -153,7 +156,7 @@ func run() {
 	})
 	s := transaction.NewCore(config)
 	s.OnRegister = func(msg *sip.Message) {
-		v := &Device{
+		Devices.Store(msg.From.Uri.UserInfo(), &Device{
 			ID:           msg.From.Uri.UserInfo(),
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
@@ -163,8 +166,7 @@ func run() {
 			to:           msg.To,
 			Addr:         msg.Via.GetSendBy(),
 			SipIP:        config.MediaIP,
-		}
-		Devices.Store(msg.From.Uri.UserInfo(), v)
+		})
 	}
 	s.OnMessage = func(msg *sip.Message) bool {
 		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
@@ -266,6 +268,16 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 			} else {
 				Println("udp server read video pack error", err)
 				publisher.Close()
+				if !publisher.AutoUnPublish {
+					for _, channel := range d.Channels {
+						if channel.LiveSP == name {
+							channel.LiveSP = ""
+							channel.Connected = false
+							channel.Bye(channel.inviteRes)
+							break
+						}
+					}
+				}
 			}
 		}
 		conn.Close()
@@ -274,6 +286,7 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 				if channel.RecordSP == name {
 					channel.RecordSP = ""
 					channel.Bye(channel.recordInviteRes)
+					break
 				}
 			}
 		}

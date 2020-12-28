@@ -426,6 +426,12 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString(CRLF)
 	}
 
+	if msg.Subject != "" {
+		sb.WriteString("Subject: ")
+		sb.WriteString(msg.Subject)
+		sb.WriteString(CRLF)
+	}
+
 	if msg.IsRequest() {
 		//request only
 

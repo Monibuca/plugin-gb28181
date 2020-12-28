@@ -1,10 +1,12 @@
 package gb28181
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/transaction"
 	"strings"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/transaction"
 
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/utils"
@@ -15,6 +17,7 @@ type ChannelEx struct {
 	inviteRes       *sip.Message
 	recordInviteRes *sip.Message
 	RecordSP        string //正在播放录像的StreamPath
+	LiveSP          string //实时StreamPath
 	Connected       bool
 	Records         []*Record
 }
@@ -36,6 +39,21 @@ type Channel struct {
 	ChannelEx    //自定义属性
 }
 
+func (c *Channel) MarshalJSON() ([]byte, error) {
+	var data = map[string]interface{}{
+		"DeviceID":     c.DeviceID,
+		"Name":         c.Name,
+		"Manufacturer": c.Manufacturer,
+		"Address":      c.Address,
+		"Status":       c.Status,
+		"RecordSP":     c.RecordSP,
+		"LiveSP":       c.LiveSP,
+		"Records":      c.Records,
+		"Connected":    c.Connected,
+	}
+	return json.Marshal(data)
+}
+
 // Record 录像
 type Record struct {
 	//channel   *Channel
@@ -54,17 +72,17 @@ func (r *Record) GetPublishStreamPath() string {
 }
 
 type Device struct {
-	*transaction.Core
-	ID           string
-	RegisterTime time.Time
-	UpdateTime   time.Time
-	Status       string
-	Channels     []*Channel
-	sn           int
-	from         *sip.Contact
-	to           *sip.Contact
-	Addr         string
-	SipIP        string //暴露的IP
+	*transaction.Core `json:"-"`
+	ID                string
+	RegisterTime      time.Time
+	UpdateTime        time.Time
+	Status            string
+	Channels          []*Channel
+	sn                int
+	from              *sip.Contact
+	to                *sip.Contact
+	Addr              string
+	SipIP             string //暴露的IP
 }
 
 func (d *Device) UpdateChannels(list []*Channel) {
@@ -108,7 +126,7 @@ func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	return
 }
 func (c *Channel) GetPublishStreamPath(start string) string {
-	if start == "" {
+	if start == "0" {
 		return fmt.Sprintf("%s/%s", c.device.ID, c.DeviceID)
 	}
 	return fmt.Sprintf("%s/%s", c.DeviceID, start)
@@ -124,7 +142,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			Uri:    d.to.Uri,
 		}, Via: &sip.Via{
 			Transport: "UDP",
-			Host:      d.SipIP,
+			Host:      d.Core.SipIP,
 			Port:      fmt.Sprintf("%d", d.SipPort),
 			Params: map[string]string{
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
@@ -151,7 +169,7 @@ func (d *Device) Query() int {
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
 	response := d.SendMessage(requestMsg)
-	if response.Data != nil {
+	if response.Data != nil && response.Data.Via.Params["received"] != "" {
 		d.SipIP = response.Data.Via.Params["received"]
 	}
 	return response.Code
@@ -199,13 +217,15 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		sdpInfo[2] = "s=Playback"
 		publisher.AutoUnPublish = true
 		channel.RecordSP = publisher.StreamPath
+	} else {
+		channel.LiveSP = publisher.StreamPath
 	}
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
 		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
 	}
-	invite.Body = strings.Join(sdpInfo, "\r\n")
+	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\n"
 	invite.ContentLength = len(invite.Body)
 	invite.Subject = fmt.Sprintf("%s:0200000001,34020000002020000001:0", channel.DeviceID)
 	response := d.SendMessage(invite)

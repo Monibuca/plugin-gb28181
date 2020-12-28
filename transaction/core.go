@@ -243,8 +243,9 @@ func (c *Core) Handler() {
 //发送之后，就开启timer，超时重传，还要记录和修改每次超时时间。不超时的话，记得删掉timer
 //发送 register 消息
 func (c *Core) SendMessage(msg *sip.Message) *Response {
-	methond := msg.GetMethod()
-	fmt.Println("send message:", methond)
+	method := msg.GetMethod()
+	// data, _ := sip.Encode(msg)
+	fmt.Println("send message:", method)
 
 	e := c.NewOutGoingMessageEvent(msg)
 
@@ -259,7 +260,7 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 		//如果是sip 消息事件，则将消息缓存，填充typo和state
 		if msg.IsRequest() {
 			//as uac
-			if msg.GetMethod() == sip.INVITE || msg.GetMethod() == sip.ACK {
+			if method == sip.INVITE || method == sip.ACK {
 				ta.typo = FSM_ICT
 				ta.state = ICT_PRE_CALLING
 			} else {
@@ -296,7 +297,7 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 //响应消息则需要匹配到请求，让请求的transaction来处理。
 //TODO：参考srs和osip的流程，以及文档，做最终处理。需要将逻辑分成两层：TU 层和 transaction 层
 func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
-	//fmt.Println("packet content:", string(p.Data))
+	// fmt.Println("packet content:", string(p.Data))
 	var msg *sip.Message
 	msg, err = sip.Decode(p.Data)
 	if err != nil {
