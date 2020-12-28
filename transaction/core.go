@@ -1,11 +1,8 @@
 package transaction
 
 import (
-	"bytes"
 	"context"
-	"encoding/xml"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"sync"
@@ -14,7 +11,6 @@ import (
 	"github.com/Monibuca/plugin-gb28181/sip"
 	"github.com/Monibuca/plugin-gb28181/transport"
 	"github.com/Monibuca/plugin-gb28181/utils"
-	"golang.org/x/net/html/charset"
 )
 
 //Core: transactions manager
@@ -26,9 +22,9 @@ type Core struct {
 	mutex        sync.RWMutex                //transactions的锁
 	removeTa     chan string                 //要删除transaction的时候，通过chan传递tid
 	tp           transport.ITransport        //transport
-	config       *Config                     //sip server配置信息
-	Devices      sync.Map
-	OnInvite     func(*Channel) int
+	*Config                                  //sip server配置信息
+	OnRegister   func(*sip.Message)
+	OnMessage    func(*sip.Message) bool
 }
 
 //初始化一个 Core，需要能响应请求，也要能发起请求
@@ -42,7 +38,7 @@ func NewCore(config *Config) *Core {
 		handlers:     make(map[State]map[Event]Handler),
 		transactions: make(map[string]*Transaction),
 		removeTa:     make(chan string, 10),
-		config:       config,
+		Config:       config,
 		ctx:          context.Background(),
 	}
 	if config.SipNetwork == "TCP" {
@@ -221,9 +217,7 @@ func (c *Core) Handler() {
 			os.Exit(1)
 		}
 	}()
-
 	ch := c.tp.ReadPacketChan()
-	timer := time.Tick(time.Second * 5)
 	//阻塞读取消息
 	for {
 		//fmt.Println("PacketHandler ========== SIP Client")
@@ -236,8 +230,6 @@ func (c *Core) Handler() {
 				fmt.Println("handler sip response message failed:", err.Error())
 				continue
 			}
-		case <-timer:
-			c.RemoveDead()
 		}
 	}
 }
@@ -345,38 +337,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			c.Send(msg.BuildResponse(200))
 			return
 		case sip.MESSAGE:
-			if v, ok := c.Devices.Load(msg.From.Uri.UserInfo()); ok {
-				d := v.(*Device)
-				if d.Status == string(sip.REGISTER) {
-					d.Status = "ONLINE"
-				}
-				d.UpdateTime = time.Now()
-				temp := &struct {
-					XMLName    xml.Name
-					CmdType    string
-					DeviceID   string
-					DeviceList []*Channel `xml:"DeviceList>Item"`
-					RecordList []*Record  `xml:"RecordList>Item"`
-				}{}
-				decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
-				decoder.CharsetReader = func(c string, i io.Reader) (io.Reader, error) {
-					return charset.NewReaderLabel(c, i)
-				}
-				decoder.Decode(temp)
-				switch temp.XMLName.Local {
-				case "Notify":
-					go d.Query()
-				case "Response":
-					switch temp.CmdType {
-					case "Catalog":
-						d.UpdateChannels(temp.DeviceList)
-					case "RecordInfo":
-						d.UpdateRecord(temp.DeviceID, temp.RecordList)
-					}
-				}
-				if ta == nil {
-					c.Send(msg.BuildResponse(200))
-				}
+			if c.OnMessage(msg) && ta == nil {
+				c.Send(msg.BuildResponse(200))
 			}
 			if ta != nil {
 				ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
@@ -388,7 +350,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				ta.state = NIST_PROCEEDING
 				c.AddTransaction(ta)
 			}
-			c.AddDevice(msg)
+			c.OnRegister(msg)
 			ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
 		//case sip.INVITE:
 		//	ta.typo = FSM_IST
@@ -454,18 +416,4 @@ func (c *Core) Send(msg *sip.Message) error {
 	}
 	c.tp.WritePacket(pkt)
 	return nil
-}
-func (c *Core) AddDevice(msg *sip.Message) *Device {
-	v := &Device{
-		ID:           msg.From.Uri.UserInfo(),
-		RegisterTime: time.Now(),
-		UpdateTime:   time.Now(),
-		Status:       string(sip.REGISTER),
-		core:         c,
-		from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
-		to:           msg.To,
-		Addr:         msg.Via.GetSendBy(),
-	}
-	c.Devices.Store(msg.From.Uri.UserInfo(), v)
-	return v
 }

@@ -135,8 +135,25 @@ func ict_rcv_3456xx(t *Transaction, e *EventObj) error {
 }
 
 func ict_create_ack(t *Transaction, resp *sip.Message) *sip.Message {
-
-	return nil
+	return &sip.Message{
+		Mode: t.origRequest.Mode,
+		Addr: t.origRequest.Addr,
+		StartLine: &sip.StartLine{
+			Method: sip.ACK,
+			Uri:    t.origRequest.StartLine.Uri,
+		},
+		MaxForwards: t.origRequest.MaxForwards,
+		CallID:      t.callID,
+		Contact:     t.origRequest.Contact,
+		UserAgent:   t.origRequest.UserAgent,
+		Via:         t.via,
+		From:        t.from,
+		To:          t.to,
+		CSeq: &sip.CSeq{
+			ID:     1,
+			Method: sip.ACK,
+		},
+	}
 }
 
 func ict_retransmit_ack(t *Transaction, e *EventObj) error {

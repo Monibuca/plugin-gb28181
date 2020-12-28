@@ -69,9 +69,8 @@
                 ref="player"
                 @ptz="sendPtz"
                 v-model="previewStreamPath"
-                :PublicIP="PublicIP"
         ></webrtc-player>
-        <records ref="records" v-model="recordModal" :records.sync="recordList" @close="initRecordSearch"></records>
+        <records ref="records" v-model="recordModal" :search="recordSearch" :channel="currentChannel" @close="initRecordSearch"></records>
     </div>
 </template>
 <script>
@@ -107,7 +106,7 @@
                     totalPage: 0,
                     currentPage: 0
                 },
-                recordList: [],
+                currentChannel:null,
                 recordModal: false,
                 recordSearch: {
                     id: null,
@@ -155,21 +154,15 @@
                     this.Devices = JSON.parse(evt.data) || [];
                     this.Devices.sort((a, b) => (a.ID > b.ID ? 1 : -1));
                     let channelList = [];
-                    let recordList = [];
                     this.Devices.forEach((device) => {
                         const channels = device.Channels || [];
                         if (channels.length > 0) {
                             channelList = channelList.concat(channels);
                         }
-
                         if (this.recordSearch.id && this.recordSearch.deviceId) {
-                            const channel = channels.find((i) => {
+                            this.currentChannel = channels.find((i) => {
                                 return i.DeviceID === this.recordSearch.deviceId && this.recordSearch.id === device.ID;
                             });
-
-                            if (channel) {
-                                this.recordList = channel.Records || [];
-                            }
                         }
                     });
                     if (channelList.length > 0) {
@@ -263,9 +256,6 @@
                 this.recordSearch.channel = channel;
                 this.recordSearch.deviceId = item.DeviceID;
                 this.recordModal = true;
-                this.$nextTick(() =>
-                    this.$refs.records.getList(this.recordSearch)
-                );
             },
 
             initRecordSearch() {
@@ -273,7 +263,6 @@
                 this.recordSearch.id = null;
                 this.recordSearch.channel = null;
                 this.recordSearch.deviceId = null;
-                this.recordList = [];
             }
         },
     };
