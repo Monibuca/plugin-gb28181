@@ -251,15 +251,24 @@ func (d *Device) Bye(channelIndex int) int {
 }
 func (c *Channel) Ack(res *sip.Message) {
 	ack := c.device.CreateMessage(sip.ACK)
-	ack.StartLine = res.StartLine
+	ack.StartLine = &sip.StartLine{
+		Uri:    sip.NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain()),
+		Method: sip.ACK,
+	}
 	ack.From = res.From
 	ack.To = res.To
 	ack.CallID = res.CallID
 	go c.device.Send(ack)
 }
 func (c *Channel) Bye(res *sip.Message) *transaction.Response {
+	if res == nil {
+		return nil
+	}
 	bye := c.device.CreateMessage(sip.BYE)
-	bye.StartLine = res.StartLine
+	bye.StartLine = &sip.StartLine{
+		Uri:    sip.NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain()),
+		Method: sip.BYE,
+	}
 	bye.From = res.From
 	bye.To = res.To
 	bye.CallID = res.CallID

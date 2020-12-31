@@ -175,12 +175,13 @@ export default {
                         channelList = channelList.concat(channels);
                     }
                     if (this.recordSearch.id && this.recordSearch.deviceId) {
-                        this.currentChannel = channels.find((i) => {
+                        const channel = channels.find((i) => {
                             return (
                                 i.DeviceID === this.recordSearch.deviceId &&
                                 this.recordSearch.id === device.ID
                             );
                         });
+                        if (channel) this.currentChannel = channel;
                     }
                 });
                 if (channelList.length > 0) {
