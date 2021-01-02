@@ -7,7 +7,11 @@
         title="录像列表"
         @on-ok="$emit('close')"
     >
-        <div class="container">
+        <webrtc-player2
+            v-if="channel && channel.RecordSP && player"
+            :streamPath="channel.RecordSP"
+        ></webrtc-player2>
+        <div class="container" v-else-if="!player">
             <div class="search">
                 <DatePicker
                     type="date"
@@ -21,28 +25,23 @@
             </div>
             <div>
                 <mu-data-table :columns="columns" :data="recordList">
-                    <template #expand="prop">
-                        <div>
-                            <m-button @click="play(prop.row)">播放</m-button>
-                        </div>
-                    </template>
                     <template #default="scope">
                         <td>{{ scope.row.DeviceID }}</td>
                         <td>{{ scope.row.Name }}</td>
                         <td>{{ scope.row.startTime }}</td>
                         <td>{{ scope.row.endTime }}</td>
                         <td>{{ scope.row.length }}</td>
-                        <td>{{ scope.row.RecordSP ? "Y" : "" }}</td>
+                        <td>
+                            <m-button @click="play(scope.row)">播放</m-button>
+                        </td>
                     </template>
                 </mu-data-table>
             </div>
         </div>
-        <Modal title="录像回放" draggable v-model="player" v-if="player">
-            <webrtc-player2
-                v-if="channel && channel.RecordSP"
-                :streamPath="channel.RecordSP"
-            ></webrtc-player2>
-        </Modal>
+        <div v-else>正在连接，请稍后</div>
+        <div slot="footer" v-if="player">
+            <mu-button @click="back">返回</mu-button>
+        </div>
     </Modal>
 </template>
 
@@ -66,16 +65,11 @@ export default {
                 },
             },
             columns: Object.freeze(
-                [
-                    "设备ID",
-                    "名称",
-                    "开始时间",
-                    "结束时间",
-                    "时长",
-                    "正在播放",
-                ].map((title) => ({
-                    title,
-                }))
+                ["设备ID", "名称", "开始时间", "结束时间", "时长", "操作"].map(
+                    (title) => ({
+                        title,
+                    })
+                )
             ),
         };
     },
@@ -153,6 +147,10 @@ export default {
 
             this.ajax.get("/gb28181/invite", query).then((x) => {});
             this.player = true;
+        },
+        back() {
+            fetch("/api/stop?stream=" + this.streamPath);
+            this.player = false;
         },
     },
 };

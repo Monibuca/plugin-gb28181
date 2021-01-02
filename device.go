@@ -150,7 +150,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			},
 		}, From: d.from,
 		To: d.to, CSeq: &sip.CSeq{
-			ID:     1,
+			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
 		Addr: d.Addr,
@@ -212,7 +212,8 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		channel.Connected = true
 		return 304
 	}
-	sdpInfo := []string{"v=0", fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP), "s=Play", "c=IN IP4 " + d.SipIP, fmt.Sprintf("t=%s %s", start, end), fmt.Sprintf("m=video %d RTP/AVP 96 98 97", port), "a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000", "y=0200000001"}
+	ssrc := "0200000001"
+	sdpInfo := []string{"v=0", fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP), "s=Play", "c=IN IP4 " + d.SipIP, fmt.Sprintf("t=%s %s", start, end), fmt.Sprintf("m=video %d RTP/AVP 96 98 97", port), "a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000", "y=" + ssrc}
 	if start != "0" {
 		sdpInfo[2] = "s=Playback"
 		publisher.AutoUnPublish = true
@@ -227,7 +228,7 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	}
 	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\n"
 	invite.ContentLength = len(invite.Body)
-	invite.Subject = fmt.Sprintf("%s:0200000001,34020000002020000001:0", channel.DeviceID)
+	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
 	response := d.SendMessage(invite)
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
@@ -237,7 +238,16 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		} else {
 			channel.recordInviteRes = response.Data
 		}
-		channel.Ack(response.Data)
+		ack := d.CreateMessage(sip.ACK)
+		ack.StartLine = &sip.StartLine{
+			Uri:    sip.NewURI(channel.DeviceID + "@" + d.to.Uri.Domain()),
+			Method: sip.ACK,
+		}
+		ack.From = response.Data.From
+		ack.To = response.Data.To
+		ack.CallID = response.Data.CallID
+		ack.CSeq.ID = invite.CSeq.ID
+		go d.Send(ack)
 	}
 	return response.Code
 }
@@ -248,17 +258,6 @@ func (d *Device) Bye(channelIndex int) int {
 		channel.Connected = false
 	}()
 	return channel.Bye(channel.inviteRes).Code
-}
-func (c *Channel) Ack(res *sip.Message) {
-	ack := c.device.CreateMessage(sip.ACK)
-	ack.StartLine = &sip.StartLine{
-		Uri:    sip.NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain()),
-		Method: sip.ACK,
-	}
-	ack.From = res.From
-	ack.To = res.To
-	ack.CallID = res.CallID
-	go c.device.Send(ack)
 }
 func (c *Channel) Bye(res *sip.Message) *transaction.Response {
 	if res == nil {

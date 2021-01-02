@@ -23,7 +23,7 @@
                                 <mu-button
                                     flat
                                     v-if="item.Connected"
-                                    @click="bye(prop.row.ID, $index)"
+                                    @click="bye(prop.row.ID, $index, item)"
                                     >断开
                                 </mu-button>
                                 <mu-button
