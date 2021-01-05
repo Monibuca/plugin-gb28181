@@ -3,7 +3,6 @@ package gb28181
 import (
 	"bytes"
 	"encoding/xml"
-	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -183,9 +182,7 @@ func run() {
 				RecordList []*Record  `xml:"RecordList>Item"`
 			}{}
 			decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
-			decoder.CharsetReader = func(c string, i io.Reader) (io.Reader, error) {
-				return charset.NewReaderLabel(c, i)
-			}
+			decoder.CharsetReader = charset.NewReaderLabel
 			decoder.Decode(temp)
 			switch temp.XMLName.Local {
 			case "Notify":

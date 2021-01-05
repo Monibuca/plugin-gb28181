@@ -213,7 +213,7 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		return 304
 	}
 	ssrc := "0200000001"
-	sdpInfo := []string{"v=0", fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP), "s=Play", "c=IN IP4 " + d.SipIP, fmt.Sprintf("t=%s %s", start, end), fmt.Sprintf("m=video %d RTP/AVP 96 98 97", port), "a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000", "y=" + ssrc}
+	sdpInfo := []string{"v=0", fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP), "s=Play", "u=" + channel.DeviceID + ":0", "c=IN IP4 " + d.SipIP, fmt.Sprintf("t=%s %s", start, end), fmt.Sprintf("m=video %d RTP/AVP 96 97 98", port), "a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000", "y=" + ssrc}
 	if start != "0" {
 		sdpInfo[2] = "s=Playback"
 		publisher.AutoUnPublish = true
