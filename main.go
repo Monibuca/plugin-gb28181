@@ -90,7 +90,7 @@ func run() {
 			var list []*Device
 			Devices.Range(func(key, value interface{}) bool {
 				device := value.(*Device)
-				if device.UpdateTime.Sub(device.RegisterTime) > time.Duration(config.RegisterValidity)*time.Second {
+				if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
 					Devices.Delete(key)
 				} else {
 					list = append(list, device)
