@@ -39,20 +39,20 @@ type Channel struct {
 	ChannelEx    //自定义属性
 }
 
-func (c *Channel) MarshalJSON() ([]byte, error) {
-	var data = map[string]interface{}{
-		"DeviceID":     c.DeviceID,
-		"Name":         c.Name,
-		"Manufacturer": c.Manufacturer,
-		"Address":      c.Address,
-		"Status":       c.Status,
-		"RecordSP":     c.RecordSP,
-		"LiveSP":       c.LiveSP,
-		"Records":      c.Records,
-		"Connected":    c.Connected,
-	}
-	return json.Marshal(data)
-}
+// func (c *Channel) MarshalJSON() ([]byte, error) {
+// 	var data = map[string]interface{}{
+// 		"DeviceID":     c.DeviceID,
+// 		"Name":         c.Name,
+// 		"Manufacturer": c.Manufacturer,
+// 		"Address":      c.Address,
+// 		"Status":       c.Status,
+// 		"RecordSP":     c.RecordSP,
+// 		"LiveSP":       c.LiveSP,
+// 		"Records":      c.Records,
+// 		"Connected":    c.Connected,
+// 	}
+// 	return json.Marshal(data)
+// }
 
 // Record 录像
 type Record struct {
@@ -205,7 +205,52 @@ func (d *Device) Control(channelIndex int, PTZCmd string) int {
 	requestMsg.ContentLength = len(requestMsg.Body)
 	return d.SendMessage(requestMsg).Code
 }
-func (d *Device) Invite(channelIndex int, start, end string) int {
+
+/*
+f字段： f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
+各项具体含义：
+    v：后续参数为视频的参数；各参数间以 “/”分割；
+编码格式：十进制整数字符串表示
+1 –MPEG-4 2 –H.264 3 – SVAC 4 –3GP
+    分辨率：十进制整数字符串表示
+1 – QCIF 2 – CIF 3 – 4CIF 4 – D1 5 –720P 6 –1080P/I
+帧率：十进制整数字符串表示 0～99
+码率类型：十进制整数字符串表示
+1 – 固定码率（CBR）     2 – 可变码率（VBR）
+码率大小：十进制整数字符串表示 0～100000（如 1表示1kbps）
+    a：后续参数为音频的参数；各参数间以 “/”分割；
+编码格式：十进制整数字符串表示
+1 – G.711    2 – G.723.1     3 – G.729      4 – G.722.1
+码率大小：十进制整数字符串
+音频编码码率： 1 — 5.3 kbps （注：G.723.1中使用）
+   2 — 6.3 kbps （注：G.723.1中使用）
+   3 — 8 kbps （注：G.729中使用）
+   4 — 16 kbps （注：G.722.1中使用）
+   5 — 24 kbps （注：G.722.1中使用）
+   6 — 32 kbps （注：G.722.1中使用）
+   7 — 48 kbps （注：G.722.1中使用）
+   8 — 64 kbps（注：G.711中使用）
+采样率：十进制整数字符串表示
+	1 — 8 kHz（注：G.711/ G.723.1/ G.729中使用）
+	2—14 kHz（注：G.722.1中使用）
+	3—16 kHz（注：G.722.1中使用）
+	4—32 kHz（注：G.722.1中使用）
+	注1：字符串说明
+本节中使用的“十进制整数字符串”的含义为“0”～“4294967296” 之间的十进制数字字符串。
+注2：参数分割标识
+各参数间以“/”分割，参数间的分割符“/”不能省略；
+若两个分割符 “/”间的某参数为空时（即两个分割符 “/”直接将相连时）表示无该参数值；
+注3：f字段说明
+使用f字段时，应保证视频和音频参数的结构完整性，即在任何时候，f字段的结构都应是完整的结构：
+f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
+若只有视频时，音频中的各参数项可以不填写，但应保持 “a///”的结构:
+f = v/编码格式/分辨率/帧率/码率类型/码率大小a///
+若只有音频时也类似处理，视频中的各参数项可以不填写，但应保持 “v/”的结构：
+f = v/a/编码格式/码率大小/采样率
+f字段中视、音频参数段之间不需空格分割。
+可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
+*/
+func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	channel := d.Channels[channelIndex]
 	port, publisher := d.publish(channel.GetPublishStreamPath(start))
 	if port == 0 {
@@ -213,14 +258,34 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		return 304
 	}
 	ssrc := "0200000001"
-	sdpInfo := []string{"v=0", fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP), "s=Play", "u=" + channel.DeviceID + ":0", "c=IN IP4 " + d.SipIP, fmt.Sprintf("t=%s %s", start, end), fmt.Sprintf("m=video %d RTP/AVP 96 97 98", port), "a=recvonly", "a=rtpmap:96 PS/90000", "a=rtpmap:97 MPEG4/90000", "a=rtpmap:98 H264/90000", "y=" + ssrc}
+	// size := 1
+	// fps := 15
+	// bitrate := 200
+	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
+	s := "Play"
 	if start != "0" {
-		sdpInfo[2] = "s=Playback"
+		s = "Playback"
 		publisher.AutoUnPublish = true
 		channel.RecordSP = publisher.StreamPath
 	} else {
 		channel.LiveSP = publisher.StreamPath
 	}
+	sdpInfo := []string{
+		"v=0",
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
+		"s=" + s,
+		"u=" + channel.DeviceID + ":0",
+		"c=IN IP4 " + d.SipIP,
+		fmt.Sprintf("t=%s %s", start, end),
+		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", port),
+		"a=recvonly",
+		"a=rtpmap:96 PS/90000",
+		"a=rtpmap:97 MPEG4/90000",
+		"a=rtpmap:98 H264/90000",
+		"y=" + ssrc,
+		"f=" + f,
+	}
+
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{

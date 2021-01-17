@@ -20,7 +20,7 @@
                                     @click="ptz(prop.row.ID, $index, item)"
                                     >云台
                                 </mu-button>
-                                <mu-button
+                                <!-- <mu-button
                                     flat
                                     v-if="item.Connected"
                                     @click="bye(prop.row.ID, $index, item)"
@@ -31,7 +31,7 @@
                                     flat
                                     @click="invite(prop.row.ID, $index, item)"
                                     >连接
-                                </mu-button>
+                                </mu-button> -->
                                 <mu-button
                                     flat
                                     @click="
@@ -62,7 +62,7 @@
                 <template v-for="(channel, index) in channelShowList">
                     <div class="flex-item" :key="index" v-if="channel.DeviceID">
                         <webrtc-player2
-                            :stream-path="'gb28181/' + channel.DeviceID"
+                            :stream-path="channel.LiveSP"
                         ></webrtc-player2>
                     </div>
                 </template>
@@ -172,7 +172,9 @@ export default {
                 this.Devices.forEach((device) => {
                     const channels = device.Channels || [];
                     if (channels.length > 0) {
-                        channelList = channelList.concat(channels);
+                        channelList = channelList.concat(
+                            channels.map((x) => ((x.device = device), x))
+                        );
                     }
                     if (this.recordSearch.id && this.recordSearch.deviceId) {
                         const channel = channels.find((i) => {
@@ -192,12 +194,20 @@ export default {
             this.$once("hook:destroyed", () => listES.close());
         },
         ptz(id, channel, item) {
+            this.invite(id, channel, item);
             this.context = {
                 id,
                 channel,
                 item,
             };
             this.previewStreamPath = true;
+            const unwatch = this.$watch(
+                "previewStreamPath",
+                (newValue, oldValue) => {
+                    this.bye(id, channel, item);
+                    unwatch();
+                }
+            );
             this.$nextTick(() => this.$refs.player.play(item.LiveSP));
         },
         sendPtz(options) {
@@ -238,6 +248,16 @@ export default {
             });
 
             this.channelShowList = showList;
+            if (this.$parent.titleTabActive == 1) {
+                this.channelShowList.forEach((channel) => {
+                    this.invite(
+                        channel.device.ID,
+                        channel.device.indexOf(channel),
+                        channel,
+                        "f=v/2/1/15/1/200a///"
+                    );
+                });
+            }
             if (showList.length > 0) {
                 this.pageInfo.currentPage = page;
             }
@@ -254,8 +274,8 @@ export default {
                 this.handlePageChange(1);
             }
         },
-        invite(id, channel, item) {
-            this.ajax.get("/gb28181/invite", { id, channel }).then((x) => {
+        invite(id, channel, item, f = "") {
+            this.ajax.get("/gb28181/invite", { id, channel, f }).then((x) => {
                 item.Connected = true;
             });
         },

@@ -121,10 +121,12 @@ func run() {
 	})
 	http.HandleFunc("/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		id := r.URL.Query().Get("id")
-		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
-		startTime := r.URL.Query().Get("startTime")
-		endTime := r.URL.Query().Get("endTime")
+		query := r.URL.Query()
+		id := query.Get("id")
+		channel, err := strconv.Atoi(query.Get("channel"))
+		startTime := query.Get("startTime")
+		endTime := query.Get("endTime")
+		f := query.Get("f")
 		if startTime == "" {
 			startTime = "0"
 		}
@@ -135,7 +137,7 @@ func run() {
 			w.WriteHeader(404)
 		}
 		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).Invite(channel, startTime, endTime))
+			w.WriteHeader(v.(*Device).Invite(channel, startTime, endTime, f))
 		} else {
 			w.WriteHeader(404)
 		}
