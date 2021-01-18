@@ -16,7 +16,6 @@
                             <td>
                                 <mu-button
                                     flat
-                                    v-if="item.Connected"
                                     @click="ptz(prop.row.ID, $index, item)"
                                     >云台
                                 </mu-button>
@@ -60,9 +59,19 @@
         <div class="tabpanel" v-if="$parent.titleTabActive === 1">
             <div class="flex-box">
                 <template v-for="(channel, index) in channelShowList">
-                    <div class="flex-item" :key="index" v-if="channel.DeviceID">
+                    <div class="flex-item" :key="index">
                         <webrtc-player2
-                            :stream-path="channel.LiveSP"
+                            @hook:mounted="
+                                invite(
+                                    channel.device.ID,
+                                    channel.device.Channels.indexOf(channel),
+                                    channel,
+                                    'v/2/1/15/1/200a///'
+                                )
+                            "
+                            :stream-path="
+                                channel.device.ID + '/' + channel.DeviceID
+                            "
                         ></webrtc-player2>
                     </div>
                 </template>
@@ -193,8 +202,8 @@ export default {
             };
             this.$once("hook:destroyed", () => listES.close());
         },
-        ptz(id, channel, item) {
-            this.invite(id, channel, item);
+        async ptz(id, channel, item) {
+            await this.invite(id, channel, item);
             this.context = {
                 id,
                 channel,
@@ -208,7 +217,9 @@ export default {
                     unwatch();
                 }
             );
-            this.$nextTick(() => this.$refs.player.play(item.LiveSP));
+            this.$nextTick(() =>
+                this.$refs.player.play(id + "/" + item.DeviceID)
+            );
         },
         sendPtz(options) {
             const ptzCmd = getPTZCmd(options);
@@ -248,16 +259,7 @@ export default {
             });
 
             this.channelShowList = showList;
-            if (this.$parent.titleTabActive == 1) {
-                this.channelShowList.forEach((channel) => {
-                    this.invite(
-                        channel.device.ID,
-                        channel.device.indexOf(channel),
-                        channel,
-                        "f=v/2/1/15/1/200a///"
-                    );
-                });
-            }
+
             if (showList.length > 0) {
                 this.pageInfo.currentPage = page;
             }
@@ -275,12 +277,14 @@ export default {
             }
         },
         invite(id, channel, item, f = "") {
-            this.ajax.get("/gb28181/invite", { id, channel, f }).then((x) => {
-                item.Connected = true;
-            });
+            return this.ajax
+                .get("/gb28181/invite", { id, channel, f })
+                .then((x) => {
+                    item.Connected = true;
+                });
         },
         bye(id, channel, item) {
-            this.ajax.get("/gb28181/bye", { id, channel }).then((x) => {
+            return this.ajax.get("/gb28181/bye", { id, channel }).then((x) => {
                 item.Connected = false;
             });
         },
