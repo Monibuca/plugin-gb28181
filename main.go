@@ -225,6 +225,7 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 		}
 	}()
 	publisher.Type = "GB28181"
+	publisher.AutoUnPublish = true
 	var conn *net.UDPConn
 	var err error
 	rang := int(config.MediaPortMax - config.MediaPortMin)
