@@ -219,13 +219,12 @@ func Decode(data []byte) (msg *Message, err error) {
 	}
 
 	headStr := strings.TrimSpace(msgArr[0])
-	msgArrLen := len(msgArr)
-	if msgArrLen > 1 {
+	if msgArrLen := len(msgArr); msgArrLen > 1 {
 		for i := 1; i < msgArrLen; i++ {
 			msg.Body += strings.TrimSpace(msgArr[i])
 		}
 	}
-	
+
 	headStr = strings.Trim(headStr, CRLF)
 	headArr := strings.Split(headStr, CRLF)
 	for i, line := range headArr {
