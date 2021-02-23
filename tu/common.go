@@ -2,8 +2,8 @@ package tu
 
 import (
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/utils"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/utils"
 )
 
 //根据参数构建各种消息

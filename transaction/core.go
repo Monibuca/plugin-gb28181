@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/transport"
-	"github.com/Monibuca/plugin-gb28181/utils"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/transport"
+	"github.com/Monibuca/plugin-gb28181/v3/utils"
 )
 
 //Core: transactions manager

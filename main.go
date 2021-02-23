@@ -12,14 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"golang.org/x/net/html/charset"
-
-	. "github.com/Monibuca/engine/v2"
-	"github.com/Monibuca/engine/v2/util"
-	"github.com/Monibuca/plugin-gb28181/transaction"
-	rtp "github.com/Monibuca/plugin-rtp"
+	. "github.com/Monibuca/engine/v3"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/transaction"
+	"github.com/Monibuca/plugin-gb28181/v3/utils"
+	. "github.com/Monibuca/utils/v3"
+	"github.com/Monibuca/utils/v3/codec"
 	. "github.com/logrusorgru/aurora"
+	"github.com/pion/rtp"
+	"golang.org/x/net/html/charset"
 )
 
 var Devices sync.Map
@@ -37,7 +38,6 @@ func init() {
 	InstallPlugin(&PluginConfig{
 		Name:   "GB28181",
 		Config: &config,
-		Type:   PLUGIN_PUBLISHER,
 		Run:    run,
 	})
 }
@@ -85,7 +85,7 @@ func run() {
 	})
 	http.HandleFunc("/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		sse := util.NewSSE(w, r.Context())
+		sse := NewSSE(w, r.Context())
 		for {
 			var list []*Device
 			Devices.Range(func(key, value interface{}) bool {
@@ -214,8 +214,8 @@ func run() {
 	s.Start()
 }
 
-func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
-	publisher = new(rtp.RTP_PS)
+func (d *Device) publish(name string) (port int, publisher *Publisher) {
+	publisher = new(Publisher)
 	if !publisher.Publish(name) {
 		return
 	}
@@ -228,6 +228,10 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 	publisher.AutoUnPublish = true
 	var conn *net.UDPConn
 	var err error
+	var rtpPacket rtp.Packet
+	var psPacket []byte
+	var parser utils.DecPSPackage
+	vt := NewVideoTrack()
 	rang := int(config.MediaPortMax - config.MediaPortMin)
 	for count := rang; count > 0; count-- {
 		randNum := rand.Intn(rang)
@@ -264,7 +268,38 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 				return
 			}
 			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
-				publisher.PushPS(bufUDP[:n])
+				ps := bufUDP[:n]
+
+				if err := rtpPacket.Unmarshal(ps); err != nil {
+					Println(err)
+				}
+				if len(rtpPacket.Payload) >= 4 && BigEndian.Uint32(rtpPacket.Payload) == utils.StartCodePS {
+					if psPacket != nil {
+						if err := parser.Read(psPacket); err == nil {
+							for _, payload := range codec.SplitH264(parser.VideoPayload) {
+								vt.Push(VideoPack{Timestamp: rtpPacket.Timestamp / 90, Payload: payload})
+							}
+							if parser.AudioPayload != nil {
+								// switch parser.AudioStreamType {
+								// case G711A:
+								// 	rtp.AudioInfo.SoundFormat = 7
+								// 	rtp.AudioInfo.SoundRate = 8000
+								// 	rtp.AudioInfo.SoundSize = 16
+								// 	asc := rtp.AudioInfo.SoundFormat << 4
+								// 	asc = asc + 1<<1
+								// 	rtp.PushAudio(rtp.Timestamp, append([]byte{asc}, parser.AudioPayload...))
+								// }
+							}
+						} else {
+							Print(err)
+						}
+						psPacket = nil
+					}
+					psPacket = append(psPacket, rtpPacket.Payload...)
+				} else if psPacket != nil {
+					psPacket = append(psPacket, rtpPacket.Payload...)
+				}
+				//publisher.PushPS(bufUDP[:n])
 			} else {
 				Println("udp server read video pack error", err)
 				publisher.Close()

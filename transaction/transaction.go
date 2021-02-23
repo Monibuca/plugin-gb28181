@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/Monibuca/plugin-gb28181/sip"
-	"github.com/Monibuca/plugin-gb28181/transport"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/transport"
 )
 
 //状态机之状态

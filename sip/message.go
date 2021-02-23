@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Monibuca/plugin-gb28181/utils"
+	"github.com/Monibuca/plugin-gb28181/v3/utils"
 )
 
 //Content-Type: Application/MANSCDP+xml

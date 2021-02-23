@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Monibuca/plugin-gb28181/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
 
 /*
