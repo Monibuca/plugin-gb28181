@@ -59,7 +59,7 @@
         <div class="tabpanel" v-if="$parent.titleTabActive === 1">
             <div class="flex-box">
                 <template v-for="(channel, index) in channelShowList">
-                    <div class="flex-item" :key="index">
+                    <div class="flex-item" :key="channel.DeviceID">
                         <webrtc-player2
                             @hook:mounted="
                                 invite(
@@ -196,8 +196,8 @@ export default {
                     }
                 });
                 if (channelList.length > 0) {
-                    this.channelList = channelList;
-                    this.updatePageInfo(channelList.length);
+                    this.channelList = channelList.filter((channel)=> !!channel.DeviceID);
+                    this.updatePageInfo(this.channelList.length);
                 }
             };
             this.$once("hook:destroyed", () => listES.close());
