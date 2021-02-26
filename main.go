@@ -68,8 +68,8 @@ func run() {
 		MediaIdleTimeout: 30,
 	}
 
-	http.HandleFunc("/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
 		id := r.URL.Query().Get("id")
 		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
@@ -83,8 +83,8 @@ func run() {
 			w.WriteHeader(404)
 		}
 	})
-	http.HandleFunc("/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	http.HandleFunc("/api/gb28181/list", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
 		sse := NewSSE(w, r.Context())
 		for {
 			var list []*Device
@@ -105,8 +105,8 @@ func run() {
 			}
 		}
 	})
-	http.HandleFunc("/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	http.HandleFunc("/api/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
 		id := r.URL.Query().Get("id")
 		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
@@ -119,8 +119,8 @@ func run() {
 			w.WriteHeader(404)
 		}
 	})
-	http.HandleFunc("/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	http.HandleFunc("/api/gb28181/invite", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
 		query := r.URL.Query()
 		id := query.Get("id")
 		channel, err := strconv.Atoi(query.Get("channel"))
@@ -142,8 +142,8 @@ func run() {
 			w.WriteHeader(404)
 		}
 	})
-	http.HandleFunc("/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	http.HandleFunc("/api/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
 		id := r.URL.Query().Get("id")
 		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
 		if err != nil {
