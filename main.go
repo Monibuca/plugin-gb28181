@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"bytes"
+	"embed"
 	"encoding/xml"
 	"log"
 	"math/rand"
@@ -33,12 +34,17 @@ var config = struct {
 	MediaPortMax uint16
 }{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, 58300}
 
+//go:embed ui/*
+//go:embed README.md
+var ui embed.FS
+
 func init() {
 	InstallPlugin(&PluginConfig{
 		Name:   "GB28181",
 		Config: &config,
 		Type:   PLUGIN_PUBLISHER,
 		Run:    run,
+		UIFile: &ui,
 	})
 }
 
