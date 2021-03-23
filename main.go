@@ -163,8 +163,12 @@ func run() {
 	})
 	s := transaction.NewCore(config)
 	s.OnRegister = func(msg *sip.Message) {
-		Devices.Store(msg.From.Uri.UserInfo(), &Device{
-			ID:           msg.From.Uri.UserInfo(),
+		id := msg.From.Uri.UserInfo()
+		if len(id) != len(config.Serial) {
+			return
+		}
+		Devices.Store(id, &Device{
+			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
 			Status:       string(sip.REGISTER),
