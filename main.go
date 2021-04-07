@@ -259,6 +259,8 @@ func (d *Device) publish(name string) (port int, publisher *Publisher) {
 	if port, err = strconv.Atoi(strPort); err != nil {
 		return
 	}
+	vt.CodecID = 7
+	publisher.SetOriginVT(vt)
 	go func() {
 		bufUDP := make([]byte, 1048576)
 		Printf("udp server start listen video port[%d]", port)
