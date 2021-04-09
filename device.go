@@ -1,6 +1,7 @@
 package gb28181
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -130,6 +131,29 @@ func (c *Channel) GetPublishStreamPath(start string) string {
 	}
 	return fmt.Sprintf("%s/%s", c.DeviceID, start)
 }
+
+func parseStreamPath(streamPath string) (parentID string, deviceID string, start string, err error) {
+	s := strings.Split(streamPath, "/")
+	if len(s) < 2 {
+		err = errors.New("bad stream path")
+		return
+	}
+	// 国标历史回放时间戳
+	// Invite点播时SDP中t=使用Unix时间戳
+	// 录像查询时返回消息体中使用2006-01-02T15:04:05时间戳, 19位
+	// 不等于国标定义的18位或者20位编码
+	if len(s[1]) == len(config.Serial) {
+		// 实时预览
+		parentID = s[0]
+		deviceID = s[1]
+	} else {
+		// 历史回放
+		deviceID = s[0]
+		start = s[1]
+	}
+	return
+}
+
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	d.sn++
 	requestMsg = &sip.Message{

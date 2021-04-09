@@ -30,9 +30,10 @@ var config = struct {
 	ListenAddr   string
 	Expires      int
 	AutoInvite   bool
+	AutoPull     bool
 	MediaPortMin uint16
 	MediaPortMax uint16
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, 58300}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, false, 58200, 58300}
 
 //go:embed ui/*
 //go:embed README.md
@@ -49,6 +50,7 @@ func init() {
 }
 
 func run() {
+	OnSubscribeHooks.AddHook(onSubscribe)
 	ipAddr, err := net.ResolveUDPAddr("", config.ListenAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -302,4 +304,27 @@ func (d *Device) publish(name string) (port int, publisher *rtp.RTP_PS) {
 		}
 	}()
 	return
+}
+
+func onSubscribe(s *Subscriber) {
+	if config.AutoPull && s.Publisher == nil {
+		parentID, deviceID, _, err := parseStreamPath(s.StreamPath)
+		if err != nil {
+			Print(Red("parse stream path error:"), err)
+			return
+		}
+		if parentID == "" {
+			Print(Red("unsupport record auto pull yet"))
+			return
+		}
+		if v, ok := Devices.Load(parentID); ok {
+			device := v.(*Device)
+			for i, channel := range device.Channels {
+				if channel.DeviceID == deviceID {
+					v.(*Device).Invite(i, "0", "0", "")
+					break
+				}
+			}
+		}
+	}
 }
