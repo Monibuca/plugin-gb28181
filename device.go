@@ -2,12 +2,13 @@ package gb28181
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 )
 
@@ -17,7 +18,6 @@ type ChannelEx struct {
 	recordInviteRes *sip.Message
 	RecordSP        string //正在播放录像的StreamPath
 	LiveSP          string //实时StreamPath
-	Connected       bool
 	Records         []*Record
 }
 
@@ -87,19 +87,14 @@ type Device struct {
 func (d *Device) UpdateChannels(list []*Channel) {
 	for _, c := range list {
 		c.device = d
-		have := false
-		for i, o := range d.Channels {
+		for _, o := range d.Channels {
 			if o.DeviceID == c.DeviceID {
 				c.ChannelEx = o.ChannelEx
-				d.Channels[i] = c
-				have = true
 				break
 			}
 		}
-		if !have {
-			d.Channels = append(d.Channels, c)
-		}
 	}
+	d.Channels = list
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	for _, c := range d.Channels {
@@ -124,12 +119,7 @@ func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	}
 	return
 }
-func (c *Channel) GetPublishStreamPath(start string) string {
-	if start == "0" {
-		return fmt.Sprintf("%s/%s", c.device.ID, c.DeviceID)
-	}
-	return fmt.Sprintf("%s/%s", c.DeviceID, start)
-}
+
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	d.sn++
 	requestMsg = &sip.Message{
@@ -251,12 +241,11 @@ f字段中视、音频参数段之间不需空格分割。
 */
 func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	channel := d.Channels[channelIndex]
-	port, publisher := d.publish(channel.GetPublishStreamPath(start))
-	if port == 0 {
-		channel.Connected = true
-		return 304
+	publisher := NewPublisher()
+	if !publisher.Publish(channel,start) {
+		return 403
 	}
-	ssrc := "0200000001"
+	ssrc := make([]byte, 10)
 	// size := 1
 	// fps := 15
 	// bitrate := 200
@@ -264,11 +253,15 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	s := "Play"
 	if start != "0" {
 		s = "Playback"
-		publisher.AutoUnPublish = true
-		channel.RecordSP = publisher.StreamPath
+
+		ssrc[0] = '1'
 	} else {
-		channel.LiveSP = publisher.StreamPath
+
+		ssrc[0] = '0'
 	}
+	copy(ssrc[1:6], []byte(config.Serial[3:8]))
+	randNum := rand.Intn(10000)
+	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
@@ -276,15 +269,17 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
 		fmt.Sprintf("t=%s %s", start, end),
-		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", port),
+		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", config.MediaPort),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 		"a=rtpmap:97 MPEG4/90000",
 		"a=rtpmap:98 H264/90000",
-		"y=" + ssrc,
-		"f=" + f,
+		"y=" + string(ssrc),
 	}
-
+	SSRC, _ := strconv.Atoi(string(ssrc[1:]))
+	PublishersRW.Lock()
+	Publishers[uint32(SSRC)] = publisher
+	PublishersRW.Unlock()
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
@@ -298,9 +293,24 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	if response.Code == 200 {
 		if start == "0" {
 			channel.inviteRes = response.Data
-			channel.Connected = true
+			channel.LiveSP = publisher.StreamPath
+			go func() {
+				<-publisher.Done()
+				channel.LiveSP = ""
+				if channel.inviteRes != nil {
+					channel.Bye(channel.inviteRes)
+				}
+			}()
 		} else {
+			channel.RecordSP = publisher.StreamPath
 			channel.recordInviteRes = response.Data
+			go func() {
+				<-publisher.Done()
+				channel.RecordSP = ""
+				if channel.recordInviteRes != nil {
+					channel.Bye(channel.recordInviteRes)
+				}
+			}()
 		}
 		ack := d.CreateMessage(sip.ACK)
 		ack.StartLine = &sip.StartLine{
@@ -317,11 +327,19 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 }
 func (d *Device) Bye(channelIndex int) int {
 	channel := d.Channels[channelIndex]
-	defer func() {
-		channel.inviteRes = nil
-		channel.Connected = false
-	}()
-	return channel.Bye(channel.inviteRes).Code
+	if channel.inviteRes != nil {
+		defer func() {
+			channel.inviteRes = nil
+		}()
+		return channel.Bye(channel.inviteRes).Code
+	} 
+	if channel.recordInviteRes != nil {
+		defer func() {
+			channel.recordInviteRes = nil
+		}()
+		return channel.Bye(channel.recordInviteRes).Code
+	}
+	return 404
 }
 func (c *Channel) Bye(res *sip.Message) *transaction.Response {
 	if res == nil {

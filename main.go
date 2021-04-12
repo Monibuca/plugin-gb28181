@@ -4,38 +4,36 @@ import (
 	"bytes"
 	"encoding/xml"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	. "github.com/Monibuca/engine/v3"
+	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	. "github.com/Monibuca/utils/v3"
-	"github.com/Monibuca/utils/v3/codec"
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
 	"golang.org/x/net/html/charset"
 )
 
 var Devices sync.Map
+var Publishers = make(map[uint32]*Publisher)
+var PublishersRW sync.RWMutex
+
 var config = struct {
-	Serial       string
-	Realm        string
-	ListenAddr   string
-	Expires      int
-	AutoInvite   bool
-	MediaPortMin uint16
-	MediaPortMax uint16
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, 58300}
+	Serial     string
+	Realm      string
+	ListenAddr string
+	Expires    int
+	AutoInvite bool
+	MediaPort  uint16
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200}
 
 func init() {
-	InstallPlugin(&PluginConfig{
+	engine.InstallPlugin(&engine.PluginConfig{
 		Name:   "GB28181",
 		Config: &config,
 		Run:    run,
@@ -63,8 +61,6 @@ func run() {
 
 		AudioEnable:      true,
 		WaitKeyFrame:     true,
-		MediaPortMin:     config.MediaPortMin,
-		MediaPortMax:     config.MediaPortMax,
 		MediaIdleTimeout: 30,
 	}
 
@@ -211,122 +207,37 @@ func run() {
 	//		}
 	//	})
 	//})
+	go listenMedia()
 	s.Start()
 }
-
-func (d *Device) publish(name string) (port int, publisher *Publisher) {
-	publisher = new(Publisher)
-	if !publisher.Publish(name) {
-		return
-	}
-	defer func() {
-		if port == 0 {
-			publisher.Close()
-		}
-	}()
-	publisher.Type = "GB28181"
-	publisher.AutoUnPublish = true
-	var conn *net.UDPConn
-	var err error
-	var rtpPacket rtp.Packet
-	var psPacket []byte
-	var parser utils.DecPSPackage
-	vt := NewVideoTrack()
-	rang := int(config.MediaPortMax - config.MediaPortMin)
-	for count := rang; count > 0; count-- {
-		randNum := rand.Intn(rang)
-		port = int(config.MediaPortMin) + randNum
-		addr, _ := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(port))
-		conn, err = net.ListenUDP("udp", addr)
-		if err != nil {
-			continue
-		} else {
-			break
-		}
-	}
-	if err != nil {
-		return
-	}
+func listenMedia() {
 	networkBuffer := 1048576
+	var rtpPacket rtp.Packet
+	addr, _ := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(config.MediaPort)))
+	conn, err := net.ListenUDP("udp", addr)
 	if err = conn.SetReadBuffer(networkBuffer); err != nil {
 		Printf("udp server video conn set read buffer error, %v", err)
 	}
 	if err = conn.SetWriteBuffer(networkBuffer); err != nil {
 		Printf("udp server video conn set write buffer error, %v", err)
 	}
-	la := conn.LocalAddr().String()
-	strPort := la[strings.LastIndex(la, ":")+1:]
-	if port, err = strconv.Atoi(strPort); err != nil {
-		return
+	bufUDP := make([]byte, 1048576)
+	Printf("udp server start listen video port[%d]", config.MediaPort)
+	defer Printf("udp server stop listen video port[%d]", config.MediaPort)
+	for  n, _, err := conn.ReadFromUDP(bufUDP);err == nil; n, _, err = conn.ReadFromUDP(bufUDP){
+		ps := bufUDP[:n];
+		if err := rtpPacket.Unmarshal(ps); err != nil {
+			Println(err)
+		}
+		PublishersRW.RLock()
+		publisher := Publishers[rtpPacket.SSRC]
+		PublishersRW.RUnlock()
+		if publisher == nil {
+			continue
+		}
+		if publisher.OriginVideoTrack == nil {
+			publisher.OriginVideoTrack = engine.NewVideoTrack()
+		}
+		publisher.PushPS(rtpPacket.Payload,rtpPacket.Timestamp)
 	}
-	vt.CodecID = 7
-	publisher.SetOriginVT(vt)
-	go func() {
-		bufUDP := make([]byte, 1048576)
-		Printf("udp server start listen video port[%d]", port)
-		defer Printf("udp server stop listen video port[%d]", port)
-		for publisher.Err() == nil {
-			if err = conn.SetReadDeadline(time.Now().Add(time.Second * 30)); err != nil {
-				return
-			}
-			if n, _, err := conn.ReadFromUDP(bufUDP); err == nil {
-				ps := bufUDP[:n]
-
-				if err := rtpPacket.Unmarshal(ps); err != nil {
-					Println(err)
-				}
-				if len(rtpPacket.Payload) >= 4 && BigEndian.Uint32(rtpPacket.Payload) == utils.StartCodePS {
-					if psPacket != nil {
-						if err := parser.Read(psPacket); err == nil {
-							for _, payload := range codec.SplitH264(parser.VideoPayload) {
-								vt.Push(VideoPack{Timestamp: rtpPacket.Timestamp / 90, Payload: payload})
-							}
-							if parser.AudioPayload != nil {
-								// switch parser.AudioStreamType {
-								// case G711A:
-								// 	rtp.AudioInfo.SoundFormat = 7
-								// 	rtp.AudioInfo.SoundRate = 8000
-								// 	rtp.AudioInfo.SoundSize = 16
-								// 	asc := rtp.AudioInfo.SoundFormat << 4
-								// 	asc = asc + 1<<1
-								// 	rtp.PushAudio(rtp.Timestamp, append([]byte{asc}, parser.AudioPayload...))
-								// }
-							}
-						} else {
-							Print(err)
-						}
-						psPacket = nil
-					}
-					psPacket = append(psPacket, rtpPacket.Payload...)
-				} else if psPacket != nil {
-					psPacket = append(psPacket, rtpPacket.Payload...)
-				}
-				//publisher.PushPS(bufUDP[:n])
-			} else {
-				Println("udp server read video pack error", err)
-				publisher.Close()
-				if !publisher.AutoUnPublish {
-					for _, channel := range d.Channels {
-						if channel.LiveSP == name {
-							channel.LiveSP = ""
-							channel.Connected = false
-							channel.Bye(channel.inviteRes)
-							break
-						}
-					}
-				}
-			}
-		}
-		conn.Close()
-		if publisher.AutoUnPublish {
-			for _, channel := range d.Channels {
-				if channel.RecordSP == name {
-					channel.RecordSP = ""
-					channel.Bye(channel.recordInviteRes)
-					break
-				}
-			}
-		}
-	}()
-	return
 }
