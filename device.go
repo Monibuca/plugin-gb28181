@@ -242,7 +242,7 @@ f字段中视、音频参数段之间不需空格分割。
 func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	channel := d.Channels[channelIndex]
 	publisher := NewPublisher()
-	if !publisher.Publish(channel,start) {
+	if !publisher.Publish(channel, start) {
 		return 403
 	}
 	ssrc := make([]byte, 10)
@@ -276,10 +276,8 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 		"a=rtpmap:98 H264/90000",
 		"y=" + string(ssrc),
 	}
-	SSRC, _ := strconv.Atoi(string(ssrc[1:]))
-	PublishersRW.Lock()
-	Publishers[uint32(SSRC)] = publisher
-	PublishersRW.Unlock()
+	_ssrc := string(ssrc[1:])
+	SSRC, _ := strconv.Atoi(_ssrc)
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
@@ -291,9 +289,12 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	response := d.SendMessage(invite)
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
+		PublishersRW.Lock()
+		Publishers[uint32(SSRC)] = publisher
+		PublishersRW.Unlock()
 		if start == "0" {
 			channel.inviteRes = response.Data
-			channel.LiveSP = publisher.StreamPath
+			channel.LiveSP = _ssrc
 			go func() {
 				<-publisher.Done()
 				channel.LiveSP = ""
@@ -302,7 +303,7 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 				}
 			}()
 		} else {
-			channel.RecordSP = publisher.StreamPath
+			channel.RecordSP = _ssrc
 			channel.recordInviteRes = response.Data
 			go func() {
 				<-publisher.Done()
@@ -322,6 +323,8 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 		ack.CallID = response.Data.CallID
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
+	} else {
+		publisher.Close()
 	}
 	return response.Code
 }
@@ -330,12 +333,24 @@ func (d *Device) Bye(channelIndex int) int {
 	if channel.inviteRes != nil {
 		defer func() {
 			channel.inviteRes = nil
+			SSRC, _ := strconv.Atoi(channel.LiveSP)
+			PublishersRW.Lock()
+			ssrc := uint32(SSRC)
+			Publishers[ssrc].Close()
+			delete(Publishers, ssrc)
+			PublishersRW.Unlock()
 		}()
 		return channel.Bye(channel.inviteRes).Code
-	} 
+	}
 	if channel.recordInviteRes != nil {
 		defer func() {
 			channel.recordInviteRes = nil
+			SSRC, _ := strconv.Atoi(channel.RecordSP)
+			PublishersRW.Lock()
+			ssrc := uint32(SSRC)
+			Publishers[ssrc].Close()
+			delete(Publishers, ssrc)
+			PublishersRW.Unlock()
 		}()
 		return channel.Bye(channel.recordInviteRes).Code
 	}
