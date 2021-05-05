@@ -224,8 +224,8 @@ func listenMedia() {
 	bufUDP := make([]byte, 1048576)
 	Printf("udp server start listen video port[%d]", config.MediaPort)
 	defer Printf("udp server stop listen video port[%d]", config.MediaPort)
-	for  n, _, err := conn.ReadFromUDP(bufUDP);err == nil; n, _, err = conn.ReadFromUDP(bufUDP){
-		ps := bufUDP[:n];
+	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
+		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			Println(err)
 		}
@@ -235,9 +235,15 @@ func listenMedia() {
 		if publisher == nil {
 			continue
 		}
+		if publisher.Err() != nil {
+			PublishersRW.Lock()
+			delete(Publishers, rtpPacket.SSRC)
+			PublishersRW.Unlock()
+			continue
+		}
 		if publisher.OriginVideoTrack == nil {
 			publisher.OriginVideoTrack = engine.NewVideoTrack()
 		}
-		publisher.PushPS(rtpPacket.Payload,rtpPacket.Timestamp)
+		publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)
 	}
 }
