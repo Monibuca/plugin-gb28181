@@ -239,35 +239,34 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (d *Device) Invite(channelIndex int, start, end string, f string) int {
+func (d *Device) Invite(channelIndex int, start, end string) int {
 	channel := d.Channels[channelIndex]
 	var publisher Publisher
 	publisher.Type = "GB28181"
 	publisher.AutoUnPublish = true
-
+	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
+	s := "Play"
 	ssrc := make([]byte, 10)
+	if start != "" {
+		s = "Playback"
+		ssrc[0] = '1'
+		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, start, end)
+	} else {
+		ssrc[0] = '0'
+	}
+	if !publisher.Publish(streamPath) {
+		return 403
+	}
 	// size := 1
 	// fps := 15
 	// bitrate := 200
 	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
-	s := "Play"
-	if start != "0" {
-		s = "Playback"
-
-		ssrc[0] = '1'
-	} else {
-
-		ssrc[0] = '0'
-	}
 	copy(ssrc[1:6], []byte(config.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
 	_ssrc := string(ssrc[1:])
 	_SSRC, _ := strconv.Atoi(_ssrc)
 	SSRC := uint32(_SSRC)
-	if !publisher.Publish(_ssrc) {
-		return 403
-	}
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
@@ -294,7 +293,7 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
 		publishers.Add(SSRC, &publisher)
-		if start == "0" {
+		if start == "" {
 			channel.inviteRes = response.Data
 			channel.LiveSP = _ssrc
 			go func() {

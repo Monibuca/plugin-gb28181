@@ -144,18 +144,11 @@ func run() {
 		channel, err := strconv.Atoi(query.Get("channel"))
 		startTime := query.Get("startTime")
 		endTime := query.Get("endTime")
-		f := query.Get("f")
-		if startTime == "" {
-			startTime = "0"
-		}
-		if endTime == "" {
-			endTime = "0"
-		}
 		if err != nil {
 			w.WriteHeader(404)
 		}
 		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).Invite(channel, startTime, endTime, f))
+			w.WriteHeader(v.(*Device).Invite(channel, startTime, endTime))
 		} else {
 			w.WriteHeader(404)
 		}

@@ -1,8 +1,6 @@
 package gb28181
 
 import (
-	"fmt"
-
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	. "github.com/Monibuca/utils/v3"
@@ -17,8 +15,8 @@ type Publisher struct {
 	pushAudio func(uint32, []byte)
 }
 
-func (p *Publisher) Publish(ssrc string) (result bool) {
-	if result = p.Publisher.Publish(fmt.Sprintf("gb28181/%s", ssrc)); result {
+func (p *Publisher) Publish(streamPath string) (result bool) {
+	if result = p.Publisher.Publish(streamPath); result {
 		vt := engine.NewVideoTrack()
 		p.pushVideo = func(pack engine.VideoPack) {
 			vt.Push(pack)
