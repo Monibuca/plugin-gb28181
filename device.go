@@ -264,7 +264,7 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	copy(ssrc[1:6], []byte(config.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
-	_ssrc := string(ssrc[1:])
+	_ssrc := string(ssrc)
 	_SSRC, _ := strconv.Atoi(_ssrc)
 	SSRC := uint32(_SSRC)
 	sdpInfo := []string{
@@ -279,7 +279,7 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		"a=rtpmap:96 PS/90000",
 		"a=rtpmap:97 MPEG4/90000",
 		"a=rtpmap:98 H264/90000",
-		"y=" + string(ssrc),
+		"y=" + _ssrc,
 	}
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
