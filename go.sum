@@ -2,6 +2,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Monibuca/engine/v3 v3.0.0-alpha11 h1:Z/ViugwmK+ECBK5MS9bUltrUU1UlcDjFTuJh4nxouK0=
 github.com/Monibuca/engine/v3 v3.0.0-alpha11/go.mod h1:eonu3UFn3W7NpHzSrACipxdAyOBCUwzlFUe1R7JjttE=
+github.com/Monibuca/engine/v3 v3.0.0-beta h1:Nquu3/ByNsZtnIJHG1LUWuaZkKNMLnh+uBuGvN0gCDE=
+github.com/Monibuca/engine/v3 v3.0.0-beta/go.mod h1:eonu3UFn3W7NpHzSrACipxdAyOBCUwzlFUe1R7JjttE=
 github.com/Monibuca/utils/v3 v3.0.0-alpha5 h1:IOyW/KJSRdRg+TPcgwkHLBynqfNQOV6p3iP7LgXEMFc=
 github.com/Monibuca/utils/v3 v3.0.0-alpha5/go.mod h1:3xYmhQbgAZBHLyIMteUCd1va+1z/xnd72B585mCaT3c=
 github.com/funny/slab v0.0.0-20180511031532-b1fad5e5d478 h1:Db9StoJ6RZN3YttC0Pm0I4Y5izITRYch3RMbT59BYN0=

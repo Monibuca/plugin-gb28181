@@ -244,9 +244,7 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	var publisher Publisher
 	publisher.Type = "GB28181"
 	publisher.AutoUnPublish = true
-	if !publisher.Publish(channel, start) {
-		return 403
-	}
+
 	ssrc := make([]byte, 10)
 	// size := 1
 	// fps := 15
@@ -264,6 +262,12 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	copy(ssrc[1:6], []byte(config.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
+	_ssrc := string(ssrc[1:])
+	_SSRC, _ := strconv.Atoi(_ssrc)
+	SSRC := uint32(_SSRC)
+	if !publisher.Publish(_ssrc) {
+		return 403
+	}
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
@@ -278,9 +282,6 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 		"a=rtpmap:98 H264/90000",
 		"y=" + string(ssrc),
 	}
-	_ssrc := string(ssrc[1:])
-	_SSRC, _ := strconv.Atoi(_ssrc)
-	SSRC := uint32(_SSRC)
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
