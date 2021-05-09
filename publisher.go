@@ -11,50 +11,72 @@ import (
 
 type Publisher struct {
 	engine.Publisher
-	psPacket []byte
-	parser utils.DecPSPackage
+	psPacket  []byte
+	parser    utils.DecPSPackage
+	pushVideo func(engine.VideoPack)
+	pushAudio func(uint32, []byte)
 }
 
-func NewPublisher() *Publisher {
-	var p Publisher
-	p.Type = "GB28181"
-	p.AutoUnPublish = true
-
-	return &p
-}
-func (p *Publisher) Publish(c *Channel, start string) bool {
-	if start == "0" {
-		return p.Publisher.Publish(fmt.Sprintf("%s/%s", c.device.ID, c.DeviceID))
-	}
-	return p.Publisher.Publish(fmt.Sprintf("%s/%s", c.DeviceID, start))
-}
-func (p *Publisher)PushPS(ps []byte,ts uint32) {
-	p.Update()
-	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
-		if p.psPacket != nil{
-			if err := p.parser.Read(p.psPacket); err == nil {
-					for _, payload := range codec.SplitH264(p.parser.VideoPayload) {
-						p.OriginVideoTrack.Push(engine.VideoPack{Timestamp:ts / 90, Payload: payload})
-						if p.OriginVideoTrack.CodecID == 0 && p.OriginVideoTrack.RtmpTag != nil {
-							p.OriginVideoTrack.CodecID = 7
-							p.SetOriginVT(p.OriginVideoTrack)
-						}
-					}
-					if p.parser.AudioPayload != nil {
-						// switch parser.AudioStreamType {
-						// case G711A:
-						// 	rtp.AudioInfo.SoundFormat = 7
-						// 	rtp.AudioInfo.SoundRate = 8000
-						// 	rtp.AudioInfo.SoundSize = 16
-						// 	asc := rtp.AudioInfo.SoundFormat << 4
-						// 	asc = asc + 1<<1
-						// 	rtp.PushAudio(rtp.Timestamp, append([]byte{asc}, parser.AudioPayload...))
-						// }
-					}
-				} else {
-					Print(err)
+func (p *Publisher) Publish(c *Channel, start string) (result bool) {
+	defer func() {
+		if result {
+			vt := engine.NewVideoTrack()
+			p.pushVideo = func(pack engine.VideoPack) {
+				vt.Push(pack)
+				if vt.CodecID == 0 && vt.RtmpTag != nil {
+					vt.CodecID = 7
+					p.SetOriginVT(vt)
+					p.pushVideo = vt.Push
 				}
-				p.psPacket = nil
+			}
+			at := engine.NewAudioTrack()
+			p.pushAudio = func(ts uint32, payload []byte) {
+				switch p.parser.AudioStreamType {
+				case utils.G711A:
+					at.SoundFormat = 7
+					at.SoundRate = 8000
+					at.SoundSize = 16
+					asc := at.SoundFormat << 4
+					asc = asc + 1<<1
+					at.RtmpTag = []byte{asc}
+					at.Push(ts, payload)
+					p.SetOriginAT(at)
+					p.pushAudio = at.Push
+				// case utils.G711U:
+				// 	at.SoundFormat = 8
+				// 	at.SoundRate = 8000
+				// 	at.SoundSize = 16
+				// 	asc := at.SoundFormat << 4
+				// 	asc = asc + 1<<1
+				// 	at.RtmpTag = []byte{asc}
+				// 	at.Push(ts, payload)
+				// 	p.SetOriginAT(at)
+				// 	p.pushAudio = at.Push
+				}
+			}
+		}
+	}()
+	if start == "0" {
+		result = p.Publisher.Publish(fmt.Sprintf("%s/%s", c.device.ID, c.DeviceID))
+	} else {
+		result = p.Publisher.Publish(fmt.Sprintf("%s/%s", c.DeviceID, start))
+	}
+	return
+}
+func (p *Publisher) PushPS(ps []byte, ts uint32) {
+	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
+		if p.psPacket != nil {
+			if err := p.parser.Read(p.psPacket); err == nil {
+				for _, payload := range codec.SplitH264(p.parser.VideoPayload) {
+					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: payload})
+				}
+				if p.parser.AudioPayload != nil {
+					p.pushAudio(ts / 90, p.parser.AudioPayload)
+				}
+			} else {
+				Print(err)
+			}
+			p.psPacket = nil
 		}
 		p.psPacket = append(p.psPacket, ps...)
 	} else if p.psPacket != nil {

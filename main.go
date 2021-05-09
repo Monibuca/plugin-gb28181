@@ -20,8 +20,29 @@ import (
 )
 
 var Devices sync.Map
-var Publishers = make(map[uint32]*Publisher)
-var PublishersRW sync.RWMutex
+
+type Publishers struct {
+	data map[uint32]*Publisher
+	sync.RWMutex
+}
+
+var publishers Publishers
+
+func (p *Publishers) Add(key uint32, pp *Publisher) {
+	p.Lock()
+	p.data[key] = pp
+	p.Unlock()
+}
+func (p *Publishers) Remove(key uint32) {
+	p.Lock()
+	delete(p.data, key)
+	p.Unlock()
+}
+func (p *Publishers) Get(key uint32) *Publisher {
+	p.RLock()
+	defer p.RUnlock()
+	return p.data[key]
+}
 
 var config = struct {
 	Serial     string
@@ -38,6 +59,7 @@ func init() {
 		Config: &config,
 		Run:    run,
 	})
+	publishers.data = make(map[uint32]*Publisher)
 }
 
 func run() {
@@ -229,21 +251,8 @@ func listenMedia() {
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			Println(err)
 		}
-		PublishersRW.RLock()
-		publisher := Publishers[rtpPacket.SSRC]
-		PublishersRW.RUnlock()
-		if publisher == nil {
-			continue
+		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+			publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)
 		}
-		if publisher.Err() != nil {
-			PublishersRW.Lock()
-			delete(Publishers, rtpPacket.SSRC)
-			PublishersRW.Unlock()
-			continue
-		}
-		if publisher.OriginVideoTrack == nil {
-			publisher.OriginVideoTrack = engine.NewVideoTrack()
-		}
-		publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)
 	}
 }

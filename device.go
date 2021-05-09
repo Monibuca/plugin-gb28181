@@ -241,7 +241,9 @@ f字段中视、音频参数段之间不需空格分割。
 */
 func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	channel := d.Channels[channelIndex]
-	publisher := NewPublisher()
+	var publisher Publisher
+	publisher.Type = "GB28181"
+	publisher.AutoUnPublish = true
 	if !publisher.Publish(channel, start) {
 		return 403
 	}
@@ -277,7 +279,8 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 		"y=" + string(ssrc),
 	}
 	_ssrc := string(ssrc[1:])
-	SSRC, _ := strconv.Atoi(_ssrc)
+	_SSRC, _ := strconv.Atoi(_ssrc)
+	SSRC := uint32(_SSRC)
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
@@ -289,14 +292,13 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 	response := d.SendMessage(invite)
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
-		PublishersRW.Lock()
-		Publishers[uint32(SSRC)] = publisher
-		PublishersRW.Unlock()
+		publishers.Add(SSRC, &publisher)
 		if start == "0" {
 			channel.inviteRes = response.Data
 			channel.LiveSP = _ssrc
 			go func() {
 				<-publisher.Done()
+				publishers.Remove(SSRC)
 				channel.LiveSP = ""
 				if channel.inviteRes != nil {
 					channel.Bye(channel.inviteRes)
@@ -307,6 +309,7 @@ func (d *Device) Invite(channelIndex int, start, end string, f string) int {
 			channel.recordInviteRes = response.Data
 			go func() {
 				<-publisher.Done()
+				publishers.Remove(SSRC)
 				channel.RecordSP = ""
 				if channel.recordInviteRes != nil {
 					channel.Bye(channel.recordInviteRes)
@@ -334,11 +337,9 @@ func (d *Device) Bye(channelIndex int) int {
 		defer func() {
 			channel.inviteRes = nil
 			SSRC, _ := strconv.Atoi(channel.LiveSP)
-			PublishersRW.Lock()
-			ssrc := uint32(SSRC)
-			Publishers[ssrc].Close()
-			delete(Publishers, ssrc)
-			PublishersRW.Unlock()
+			if p := publishers.Get(uint32(SSRC)); p != nil {
+				p.Close()
+			}
 		}()
 		return channel.Bye(channel.inviteRes).Code
 	}
@@ -346,11 +347,9 @@ func (d *Device) Bye(channelIndex int) int {
 		defer func() {
 			channel.recordInviteRes = nil
 			SSRC, _ := strconv.Atoi(channel.RecordSP)
-			PublishersRW.Lock()
-			ssrc := uint32(SSRC)
-			Publishers[ssrc].Close()
-			delete(Publishers, ssrc)
-			PublishersRW.Unlock()
+			if p := publishers.Get(uint32(SSRC)); p != nil {
+				p.Close()
+			}
 		}()
 		return channel.Bye(channel.recordInviteRes).Code
 	}
