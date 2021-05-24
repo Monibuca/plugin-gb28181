@@ -95,11 +95,19 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 	}
 	d.Channels = list
-	for i := range d.Channels {
-		if config.AutoInvite {
-			go d.Invite(i, "", "")
+
+	//单通道代码
+	if config.AutoInvite {
+		if len(d.Channels) > 0 {
+			go d.Invite(0, "", "")
 		}
 	}
+	//多通道代码
+	//for i := range d.Channels {
+	//	if config.AutoInvite {
+	//		go d.Invite(i, "", "")
+	//	}
+	//}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	for _, c := range d.Channels {
