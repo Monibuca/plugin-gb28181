@@ -95,6 +95,11 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 	}
 	d.Channels = list
+	for i := range d.Channels {
+		if config.AutoInvite {
+			go d.Invite(i, "", "")
+		}
+	}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	for _, c := range d.Channels {
@@ -138,11 +143,11 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 				"rport":  "-1", //only key,no-value
 			},
 		}, From: d.from,
-		To: d.to, CSeq: &sip.CSeq{
+		To:      d.to, CSeq: &sip.CSeq{
 			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr: d.Addr,
+		Addr:      d.Addr,
 	}
 	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
