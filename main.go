@@ -45,13 +45,14 @@ func (p *Publishers) Get(key uint32) *Publisher {
 }
 
 var config = struct {
-	Serial     string
-	Realm      string
-	ListenAddr string
-	Expires    int
-	AutoInvite bool
-	MediaPort  uint16
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200}
+	Serial        string
+	Realm         string
+	ListenAddr    string
+	Expires       int
+	AutoInvite    bool
+	MediaPort     uint16
+	AutoUnPublish bool
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, false}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{

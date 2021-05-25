@@ -256,7 +256,7 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	channel := d.Channels[channelIndex]
 	var publisher Publisher
 	publisher.Type = "GB28181"
-	publisher.AutoUnPublish = true
+	publisher.AutoUnPublish = config.AutoUnPublish
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
 	ssrc := make([]byte, 10)
