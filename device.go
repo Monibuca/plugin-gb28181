@@ -84,6 +84,8 @@ type Device struct {
 	SipIP             string //暴露的IP
 }
 
+var firstChannel = true
+
 func (d *Device) UpdateChannels(list []*Channel) {
 	for _, c := range list {
 		c.device = d
@@ -98,9 +100,12 @@ func (d *Device) UpdateChannels(list []*Channel) {
 
 	//单通道代码
 	if config.AutoInvite {
-		if len(d.Channels) > 0 {
-			go d.Invite(0, "", "")
+		if firstChannel {
+			if len(d.Channels) > 0 {
+				go d.Invite(0, "", "")
+			}
 		}
+		firstChannel = false
 	}
 	//多通道代码
 	//for i := range d.Channels {
