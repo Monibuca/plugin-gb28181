@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
@@ -83,8 +84,13 @@ type Device struct {
 	Addr              string
 	SipIP             string //暴露的IP
 }
+type FirstChannel struct {
+	firstChannel bool
+	channelMutex sync.Mutex
+}
 
-var firstChannel = true
+var firstChannel = FirstChannel{firstChannel: true}
+var once sync.Once
 
 func (d *Device) UpdateChannels(list []*Channel) {
 	for _, c := range list {
@@ -99,14 +105,28 @@ func (d *Device) UpdateChannels(list []*Channel) {
 	d.Channels = list
 
 	//单通道代码
-	if config.AutoInvite {
-		if firstChannel {
-			if len(d.Channels) > 0 {
-				go d.Invite(0, "", "")
+	inviteFunc := func() {
+		if config.AutoInvite {
+			clen := len(d.Channels)
+			for i := 0; i < clen; i++ {
+				resultCode := d.Invite(i, "", "")
+				if resultCode == 200 {
+					break
+				}
 			}
 		}
-		firstChannel = false
 	}
+	once.Do(inviteFunc)
+	//firstChannel.channelMutex.Lock()
+	//if firstChannel.firstChannel {
+	//	firstChannel.firstChannel = false
+	//	firstChannel.channelMutex.Unlock()
+	//	if len(d.Channels) > 0 {
+	//		go d.Invite(0, "", "")
+	//	}
+	//} else {
+	//	firstChannel.channelMutex.Unlock()
+	//}
 	//多通道代码
 	//for i := range d.Channels {
 	//	if config.AutoInvite {
@@ -261,9 +281,6 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	sint, _ := strconv.Atoi(start)
 	eint, _ := strconv.Atoi(end)
 	channel := d.Channels[channelIndex]
-	var publisher Publisher
-	publisher.Type = "GB28181"
-	publisher.AutoUnPublish = config.AutoUnPublish
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
 	ssrc := make([]byte, 10)
@@ -274,9 +291,9 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	} else {
 		ssrc[0] = '0'
 	}
-	if !publisher.Publish(streamPath) {
-		return 403
-	}
+	var publisher Publisher
+	publisher.Type = "GB28181"
+	publisher.AutoUnPublish = config.AutoUnPublish
 	// size := 1
 	// fps := 15
 	// bitrate := 200
@@ -312,6 +329,12 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 	response := d.SendMessage(invite)
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
+		if !publisher.Publish(streamPath) {
+			return 403
+		}
+		firstChannel.channelMutex.Lock()
+		firstChannel.firstChannel = false
+		firstChannel.channelMutex.Unlock()
 		publishers.Add(SSRC, &publisher)
 		if start == "" {
 			channel.inviteRes = response.Data
@@ -347,6 +370,9 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
 	} else {
+		firstChannel.channelMutex.Lock()
+		firstChannel.firstChannel = true
+		firstChannel.channelMutex.Unlock()
 		publisher.Close()
 	}
 	return response.Code
