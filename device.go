@@ -11,6 +11,8 @@ import (
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
+	. "github.com/Monibuca/utils/v3"
+	. "github.com/logrusorgru/aurora"
 )
 
 type ChannelEx struct {
@@ -89,7 +91,6 @@ type FirstChannel struct {
 	channelMutex sync.Mutex
 }
 
-var firstChannel = FirstChannel{firstChannel: true}
 var once sync.Once
 
 func (d *Device) UpdateChannels(list []*Channel) {
@@ -103,20 +104,21 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 	}
 	d.Channels = list
-
 	//单通道代码
 	inviteFunc := func() {
+		Print(Green("total count of channels is"), BrightBlue(len(d.Channels)))
 		if config.AutoInvite {
 			clen := len(d.Channels)
 			for i := 0; i < clen; i++ {
 				resultCode := d.Invite(i, "", "")
+				Print(Green("invite result is"), resultCode, Green("current index is "), i)
 				if resultCode == 200 {
 					break
 				}
 			}
 		}
 	}
-	once.Do(inviteFunc)
+	go once.Do(inviteFunc)
 	//firstChannel.channelMutex.Lock()
 	//if firstChannel.firstChannel {
 	//	firstChannel.firstChannel = false
@@ -278,6 +280,7 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (d *Device) Invite(channelIndex int, start, end string) int {
+	fmt.Sprintf("%s", "111111111111111")
 	sint, _ := strconv.Atoi(start)
 	eint, _ := strconv.Atoi(end)
 	channel := d.Channels[channelIndex]
@@ -332,9 +335,6 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		if !publisher.Publish(streamPath) {
 			return 403
 		}
-		firstChannel.channelMutex.Lock()
-		firstChannel.firstChannel = false
-		firstChannel.channelMutex.Unlock()
 		publishers.Add(SSRC, &publisher)
 		if start == "" {
 			channel.inviteRes = response.Data
@@ -370,9 +370,6 @@ func (d *Device) Invite(channelIndex int, start, end string) int {
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
 	} else {
-		firstChannel.channelMutex.Lock()
-		firstChannel.firstChannel = true
-		firstChannel.channelMutex.Unlock()
 		publisher.Close()
 	}
 	return response.Code
