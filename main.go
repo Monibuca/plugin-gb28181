@@ -179,6 +179,7 @@ func run() {
 			to:           msg.To,
 			Addr:         msg.Via.GetSendBy(),
 			SipIP:        config.MediaIP,
+			channelMap:   make(map[string]*Channel),
 		})
 	}
 	s.OnMessage = func(msg *sip.Message) bool {

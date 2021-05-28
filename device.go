@@ -27,6 +27,7 @@ type ChannelEx struct {
 // Channel 通道
 type Channel struct {
 	DeviceID     string
+	ParentID     string
 	Name         string
 	Manufacturer string
 	Model        string
@@ -38,6 +39,7 @@ type Channel struct {
 	RegisterWay  int
 	Secrecy      int
 	Status       string
+	Children     []*Channel
 	ChannelEx    //自定义属性
 }
 
@@ -85,6 +87,7 @@ type Device struct {
 	to                *sip.Contact
 	Addr              string
 	SipIP             string //暴露的IP
+	channelMap        map[string]*Channel
 }
 type FirstChannel struct {
 	firstChannel bool
@@ -96,29 +99,42 @@ var once sync.Once
 func (d *Device) UpdateChannels(list []*Channel) {
 	for _, c := range list {
 		c.device = d
-		for _, o := range d.Channels {
-			if o.DeviceID == c.DeviceID {
-				c.ChannelEx = o.ChannelEx
-				break
+		var oldList []*Channel
+		if c.ParentID != "" {
+			if parent,ok := d.channelMap[c.ParentID];ok{
+				oldList = parent.Children
+				parent.Children = list
 			}
+		} else {
+			oldList = d.Channels
+			d.Channels = list
 		}
-	}
-	d.Channels = list
-	//单通道代码
-	inviteFunc := func() {
-		Print(Green("total count of channels is"), BrightBlue(len(d.Channels)))
-		if config.AutoInvite {
-			clen := len(d.Channels)
-			for i := 0; i < clen; i++ {
-				resultCode := d.Invite(i, "", "")
-				Print(Green("invite result is"), resultCode, Green("current index is "), i)
-				if resultCode == 200 {
+		if len(oldList) > 0{
+			for _, o := range oldList {
+				if o.DeviceID == c.DeviceID {
+					c.ChannelEx = o.ChannelEx
 					break
 				}
 			}
 		}
+		d.channelMap[c.DeviceID] = c
 	}
-	go once.Do(inviteFunc)
+	
+	//单通道代码
+	// inviteFunc := func() {
+	// 	Print(Green("total count of channels is"), BrightBlue(len(d.Channels)))
+	// 	if config.AutoInvite {
+	// 		clen := len(d.Channels)
+	// 		for i := 0; i < clen; i++ {
+	// 			resultCode := d.Invite(i, "", "")
+	// 			Print(Green("invite result is"), resultCode, Green("current index is "), i)
+	// 			if resultCode == 200 {
+	// 				break
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// go once.Do(inviteFunc)
 	//firstChannel.channelMutex.Lock()
 	//if firstChannel.firstChannel {
 	//	firstChannel.firstChannel = false
@@ -178,11 +194,11 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 				"rport":  "-1", //only key,no-value
 			},
 		}, From: d.from,
-		To:      d.to, CSeq: &sip.CSeq{
+		To: d.to, CSeq: &sip.CSeq{
 			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr:      d.Addr,
+		Addr: d.Addr,
 	}
 	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
