@@ -21,6 +21,16 @@ import (
 
 var Devices sync.Map
 
+func FindChannel(deviceId string, channelId string) (c *Channel) {
+	if v, ok := Devices.Load(deviceId); ok {
+		d := v.(*Device)
+		d.channelMutex.RLock()
+		c, ok = d.channelMap[channelId]
+		d.channelMutex.RUnlock()
+	}
+	return
+}
+
 type Publishers struct {
 	data map[uint32]*Publisher
 	sync.RWMutex
@@ -90,14 +100,11 @@ func run() {
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
-		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
-		if err != nil {
-			w.WriteHeader(404)
-		}
+		channel := r.URL.Query().Get("channel")
 		startTime := r.URL.Query().Get("startTime")
 		endTime := r.URL.Query().Get("endTime")
-		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).QueryRecord(channel, startTime, endTime))
+		if c := FindChannel(id, channel); c != nil {
+			w.WriteHeader(c.QueryRecord(startTime, endTime))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -127,13 +134,10 @@ func run() {
 	http.HandleFunc("/api/gb28181/control", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
-		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
-		if err != nil {
-			w.WriteHeader(404)
-		}
+		channel := r.URL.Query().Get("channel")
 		ptzcmd := r.URL.Query().Get("ptzcmd")
-		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).Control(channel, ptzcmd))
+		if c := FindChannel(id, channel); c != nil {
+			w.WriteHeader(c.Control(ptzcmd))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -142,14 +146,11 @@ func run() {
 		CORS(w, r)
 		query := r.URL.Query()
 		id := query.Get("id")
-		channel, err := strconv.Atoi(query.Get("channel"))
+		channel := r.URL.Query().Get("channel")
 		startTime := query.Get("startTime")
 		endTime := query.Get("endTime")
-		if err != nil {
-			w.WriteHeader(404)
-		}
-		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).Invite(channel, startTime, endTime))
+		if c := FindChannel(id, channel); c != nil {
+			w.WriteHeader(c.Invite(startTime, endTime))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -157,12 +158,9 @@ func run() {
 	http.HandleFunc("/api/gb28181/bye", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
-		channel, err := strconv.Atoi(r.URL.Query().Get("channel"))
-		if err != nil {
-			w.WriteHeader(404)
-		}
-		if v, ok := Devices.Load(id); ok {
-			w.WriteHeader(v.(*Device).Bye(channel))
+		channel := r.URL.Query().Get("channel")
+		if c := FindChannel(id, channel); c != nil {
+			w.WriteHeader(c.Bye())
 		} else {
 			w.WriteHeader(404)
 		}
