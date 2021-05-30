@@ -64,44 +64,15 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			for _, o := range oldList {
 				if o.DeviceID == c.DeviceID {
 					c.ChannelEx = o.ChannelEx
+					if config.AutoInvite && c.LiveSP == "" && len(c.Children) == 0 {
+						go c.Invite("", "")
+					}
 					break
 				}
 			}
 		}
 		d.channelMap[c.DeviceID] = c
 	}
-
-	//单通道代码
-	// inviteFunc := func() {
-	// 	Print(Green("total count of channels is"), BrightBlue(len(d.Channels)))
-	// 	if config.AutoInvite {
-	// 		clen := len(d.Channels)
-	// 		for i := 0; i < clen; i++ {
-	// 			resultCode := d.Invite(i, "", "")
-	// 			Print(Green("invite result is"), resultCode, Green("current index is "), i)
-	// 			if resultCode == 200 {
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// go once.Do(inviteFunc)
-	//firstChannel.channelMutex.Lock()
-	//if firstChannel.firstChannel {
-	//	firstChannel.firstChannel = false
-	//	firstChannel.channelMutex.Unlock()
-	//	if len(d.Channels) > 0 {
-	//		go d.Invite(0, "", "")
-	//	}
-	//} else {
-	//	firstChannel.channelMutex.Unlock()
-	//}
-	//多通道代码
-	//for i := range d.Channels {
-	//	if config.AutoInvite {
-	//		go d.Invite(i, "", "")
-	//	}
-	//}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	for _, c := range d.Channels {
@@ -158,4 +129,3 @@ func (d *Device) Query() int {
 	}
 	return response.Code
 }
-
