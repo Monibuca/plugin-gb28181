@@ -25,7 +25,7 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 	if v, ok := Devices.Load(deviceId); ok {
 		d := v.(*Device)
 		d.channelMutex.RLock()
-		c, ok = d.channelMap[channelId]
+		c = d.channelMap[channelId]
 		d.channelMutex.RUnlock()
 	}
 	return
@@ -62,7 +62,7 @@ var config = struct {
 	AutoInvite    bool
 	MediaPort     uint16
 	AutoUnPublish bool
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, true, 58200, false}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, false, 58200, true}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -150,7 +150,11 @@ func run() {
 		startTime := query.Get("startTime")
 		endTime := query.Get("endTime")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Invite(startTime, endTime))
+			if startTime == "" && c.LiveSP != "" {
+				w.WriteHeader(304) //直播流已存在
+			} else {
+				w.WriteHeader(c.Invite(startTime, endTime))
+			}
 		} else {
 			w.WriteHeader(404)
 		}
