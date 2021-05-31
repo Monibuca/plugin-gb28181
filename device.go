@@ -48,42 +48,33 @@ type Device struct {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
+	var child bool
 	for _, c := range list {
 		c.device = d
-		var oldList []*Channel
 		if c.ParentID != "" {
 			if parent, ok := d.channelMap[c.ParentID]; ok {
-				oldList = parent.Children
-				parent.Children = list
+				parent.Children = append(parent.Children, c)
 			}
-		} else {
-			oldList = d.Channels
-			d.Channels = list
+			child = true
 		}
-		if len(oldList) > 0 {
-			for _, o := range oldList {
-				if o.DeviceID == c.DeviceID {
-					c.ChannelEx = o.ChannelEx
-					if config.AutoInvite && c.LiveSP == "" && len(c.Children) == 0 {
-						go c.Invite("", "")
-					}
-					break
-				}
+		if old, ok := d.channelMap[c.DeviceID]; ok {
+			c.ChannelEx = old.ChannelEx
+			if config.AutoInvite && c.LiveSP == "" && len(old.Children) == 0 {
+				go c.Invite("", "")
 			}
 		}
 		d.channelMap[c.DeviceID] = c
 	}
+	if !child {
+		d.Channels = list
+	}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
-	for _, c := range d.Channels {
-		if c.DeviceID == channelId {
-			c.Records = list
-			//for _, o := range list {
-			//	o.channel = c
-			//}
-			break
-		}
+	d.channelMutex.RLock()
+	if c, ok := d.channelMap[channelId]; ok {
+		c.Records = list
 	}
+	d.channelMutex.RUnlock()
 }
 
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
