@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,20 +49,30 @@ type Device struct {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	var child bool
 	for _, c := range list {
 		c.device = d
-		if c.ParentID != "" && c.ParentID != d.ID {
-			if parent, ok := d.channelMap[c.ParentID]; ok {
-				parent.Children = append(parent.Children, c)
+		if c.ParentID != "" {
+			path := strings.Split(c.ParentID, "/")
+			parentId := path[len(path)-1]
+			if parentId != d.ID {
+				if parent, ok := d.channelMap[parentId]; ok {
+					parent.Children = append(parent.Children, c)
+				}
+			} else {
+				d.Channels = append(d.Channels, c)
 			}
-			child = true
+		} else {
+			d.Channels = append(d.Channels, c)
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
 			if len(old.Children) == 0 {
 				if len(c.Records) == 0 {
-					// go c.QueryRecord()
+					n := time.Now()
+					c.RecordStartTime = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
+					c.RecordEndTime = c.RecordStartTime + 3600*24 - 1
+					start, end := fmt.Sprintf("%d", c.RecordStartTime), fmt.Sprintf("%d", c.RecordEndTime)
+					go c.QueryRecord(start, end)
 				}
 				if config.AutoInvite && c.LiveSP == "" {
 					go c.Invite("", "")
@@ -69,9 +80,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			}
 		}
 		d.channelMap[c.DeviceID] = c
-	}
-	if !child {
-		d.Channels = list
 	}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
@@ -110,6 +118,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	return
 }
 func (d *Device) Query() int {
+	d.Channels = nil
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>

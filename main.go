@@ -232,8 +232,14 @@ func run() {
 func listenMedia() {
 	networkBuffer := 1048576
 	var rtpPacket rtp.Packet
-	addr, _ := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(config.MediaPort)))
+	addr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(config.MediaPort)))
+	if err != nil {
+		log.Fatalf("udp server ResolveUDPAddr MediaPort:%d error, %v", config.MediaPort, err)
+	}
 	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		log.Fatalf("udp server ListenUDP MediaPort:%d error, %v", config.MediaPort, err)
+	}
 	if err = conn.SetReadBuffer(networkBuffer); err != nil {
 		Printf("udp server video conn set read buffer error, %v", err)
 	}

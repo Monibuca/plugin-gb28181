@@ -18,6 +18,8 @@ type ChannelEx struct {
 	RecordSP        string //正在播放录像的StreamPath
 	LiveSP          string //实时StreamPath
 	Records         []*Record
+	RecordStartTime int64
+	RecordEndTime   int64
 }
 
 // Channel 通道
@@ -53,6 +55,8 @@ func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 }
 func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	d := channel.device
+	channel.RecordStartTime, _ = strconv.ParseInt(startTime, 10, 64)
+	channel.RecordEndTime, _ = strconv.ParseInt(endTime, 10, 64)
 	requestMsg := channel.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
