@@ -51,7 +51,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 	var child bool
 	for _, c := range list {
 		c.device = d
-		if c.ParentID != "" {
+		if c.ParentID != "" && c.ParentID != d.ID {
 			if parent, ok := d.channelMap[c.ParentID]; ok {
 				parent.Children = append(parent.Children, c)
 			}
@@ -59,8 +59,13 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
-			if config.AutoInvite && c.LiveSP == "" && len(old.Children) == 0 {
-				go c.Invite("", "")
+			if len(old.Children) == 0 {
+				if len(c.Records) == 0 {
+					// go c.QueryRecord()
+				}
+				if config.AutoInvite && c.LiveSP == "" {
+					go c.Invite("", "")
+				}
 			}
 		}
 		d.channelMap[c.DeviceID] = c
