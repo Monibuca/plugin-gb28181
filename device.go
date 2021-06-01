@@ -46,6 +46,14 @@ type Device struct {
 	channelMutex      sync.RWMutex
 }
 
+func (d *Device) addChannel(channel *Channel) {
+	for _, c := range d.Channels {
+		if c.DeviceID == channel.DeviceID {
+			return
+		}
+	}
+	d.Channels = append(d.Channels, channel)
+}
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
@@ -59,10 +67,10 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					parent.Children = append(parent.Children, c)
 				}
 			} else {
-				d.Channels = append(d.Channels, c)
+				d.addChannel(c)
 			}
 		} else {
-			d.Channels = append(d.Channels, c)
+			d.addChannel(c)
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
