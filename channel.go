@@ -183,6 +183,16 @@ func (channel *Channel) Invite(start, end string) int {
 	response := d.SendMessage(invite)
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
+		ds := strings.Split(response.Data.Body, "\r\n")
+		for _, l := range ds {
+			if ls := strings.Split(l, "="); len(ls) > 1 {
+				if ls[0] == "y" {
+					_ssrc = ls[1]
+					_SSRC, _ = strconv.Atoi(_ssrc)
+					SSRC = uint32(_SSRC)
+				}
+			}
+		}
 		if !publisher.Publish(streamPath) {
 			return 403
 		}
