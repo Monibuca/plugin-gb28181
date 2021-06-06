@@ -245,7 +245,7 @@ func (c *Core) Handler() {
 func (c *Core) SendMessage(msg *sip.Message) *Response {
 	method := msg.GetMethod()
 	// data, _ := sip.Encode(msg)
-	fmt.Println("send message:", method)
+	// fmt.Println("send message:", method)
 
 	e := c.NewOutGoingMessageEvent(msg)
 
@@ -396,8 +396,8 @@ func (c *Core) Send(msg *sip.Message) error {
 
 		addr = fmt.Sprintf("%s:%s", host, port)
 	}
-
-	fmt.Println("dest addr:", addr)
+	
+	// fmt.Println("dest addr:", addr)
 	var err1, err2 error
 	pkt := &transport.Packet{}
 	pkt.Data, err1 = sip.Encode(msg)

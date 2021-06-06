@@ -57,4 +57,5 @@ type Config struct {
 	MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 	AudioEnable      bool   //是否开启音频
 	WaitKeyFrame     bool   //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
+	Debug            bool   //是否打印调试信息
 }

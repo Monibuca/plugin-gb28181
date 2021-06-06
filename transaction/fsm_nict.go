@@ -1,7 +1,7 @@
 package transaction
 
 import (
-	"fmt"
+	// "fmt"
 	"time"
 )
 
@@ -53,7 +53,7 @@ import (
 */
 func nict_snd_request(t *Transaction, e *EventObj) error {
 	msg := e.msg
-	fmt.Println("nict request:", msg.GetMethod())
+	//fmt.Println("nict request:", msg.GetMethod())
 
 	t.origRequest = msg
 	t.state = NICT_TRYING
@@ -67,9 +67,9 @@ func nict_snd_request(t *Transaction, e *EventObj) error {
 	//发送出去之后，开启 timer
 	if msg.IsReliable() {
 		//stop timer E in reliable transport
-		fmt.Println("Reliabel")
+		//fmt.Println("Reliabel")
 	} else {
-		fmt.Println("Not Reliable")
+		//fmt.Println("Not Reliable")
 		//发送定时器
 		t.timerE = NewSipTimer(T1, T2, func() {
 			t.event <- &EventObj{

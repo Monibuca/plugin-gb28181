@@ -1,7 +1,7 @@
 package transaction
 
 import (
-	"fmt"
+	// "fmt"
 	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
@@ -59,9 +59,9 @@ func ict_snd_invite(t *Transaction, e *EventObj) error {
 	//发送出去之后，开启 timer
 	if msg.IsReliable() {
 		//stop timer E in reliable transport
-		fmt.Println("Reliabel")
+		//fmt.Println("Reliabel")
 	} else {
-		fmt.Println("Not Reliable")
+		//fmt.Println("Not Reliable")
 		//发送定时器，每次加倍，没有上限？
 		t.timerA = NewSipTimer(T1, 0, func() {
 			t.event <- &EventObj{

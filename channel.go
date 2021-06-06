@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
@@ -18,8 +19,10 @@ type ChannelEx struct {
 	RecordSP        string //正在播放录像的StreamPath
 	LiveSP          string //实时StreamPath
 	Records         []*Record
-	RecordStartTime int64
-	RecordEndTime   int64
+	RecordStartTime string
+	RecordEndTime   string
+	recordStartTime time.Time
+	recordEndTime   time.Time
 }
 
 // Channel 通道
@@ -55,8 +58,11 @@ func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 }
 func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	d := channel.device
-	channel.RecordStartTime, _ = strconv.ParseInt(startTime, 10, 64)
-	channel.RecordEndTime, _ = strconv.ParseInt(endTime, 10, 64)
+	channel.RecordStartTime = startTime
+	channel.RecordEndTime = endTime
+	channel.recordStartTime, _ = time.Parse(TIME_LAYOUT, startTime)
+	channel.recordEndTime, _ = time.Parse(TIME_LAYOUT, endTime)
+	channel.Records = nil
 	requestMsg := channel.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>

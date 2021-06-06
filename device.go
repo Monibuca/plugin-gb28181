@@ -13,6 +13,8 @@ import (
 	// . "github.com/logrusorgru/aurora"
 )
 
+const TIME_LAYOUT = "2006-01-02T15:04:05"
+
 // Record 录像
 type Record struct {
 	//channel   *Channel
@@ -73,12 +75,10 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
 			if len(old.Children) == 0 {
-				if len(c.Records) == 0 {
-					n := time.Now()
-					c.RecordStartTime = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local).Unix()
-					c.RecordEndTime = c.RecordStartTime + 3600*24 - 1
-					start, end := fmt.Sprintf("%d", c.RecordStartTime), fmt.Sprintf("%d", c.RecordEndTime)
-					go c.QueryRecord(start, end)
+				n := time.Now()
+				n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
+				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime && n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
+					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 				if config.AutoInvite && c.LiveSP == "" {
 					go c.Invite("", "")
@@ -91,7 +91,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	d.channelMutex.RLock()
 	if c, ok := d.channelMap[channelId]; ok {
-		c.Records = list
+		c.Records = append(c.Records, list...)
 	}
 	d.channelMutex.RUnlock()
 }

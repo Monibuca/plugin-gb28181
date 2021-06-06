@@ -59,10 +59,11 @@ var config = struct {
 	Realm         string
 	ListenAddr    string
 	Expires       int
-	AutoInvite    bool
 	MediaPort     uint16
+	AutoInvite    bool
 	AutoUnPublish bool
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, false, 58200, true}
+	Debug         bool
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, false}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -91,10 +92,10 @@ func run() {
 		RegisterInterval:  60,
 		HeartbeatInterval: 60,
 		HeartbeatRetry:    3,
-
-		AudioEnable:      true,
-		WaitKeyFrame:     true,
-		MediaIdleTimeout: 30,
+		Debug:             config.Debug,
+		AudioEnable:       true,
+		WaitKeyFrame:      true,
+		MediaIdleTimeout:  30,
 	}
 
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {

@@ -338,30 +338,30 @@ func (ta *Transaction) Run() {
 		select {
 		case e := <-ta.event:
 			//根据event调用对应的handler
-			fmt.Println("fsm run event:", e.evt.String())
+			//fmt.Println("fsm run event:", e.evt.String())
 			core := ta.core
 			state := ta.state
 			evtHandlers, ok1 := core.handlers[state]
 			if !ok1 {
-				fmt.Println("invalid state:", ta.state.String())
+				//fmt.Println("invalid state:", ta.state.String())
 				break
 			}
 			f, ok2 := evtHandlers[e.evt]
 			if !ok2 {
-				fmt.Println("invalid handler for this event:", e.evt.String())
+				//fmt.Println("invalid handler for this event:", e.evt.String())
 				break
 			}
-			fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
+			//fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
 			err := f(ta, e)
 			if err != nil {
-				fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
+				//fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
 			}
 		case <-ta.done:
-			fmt.Println("fsm exit")
+			//fmt.Println("fsm exit")
 			return
 
 		case <-ta.ctx.Done():
-			fmt.Println("fsm killed")
+			//fmt.Println("fsm killed")
 			return
 		}
 	}
@@ -424,7 +424,7 @@ func (ta *Transaction) SipSend(msg *sip.Message) error {
 		addr = fmt.Sprintf("%s:%s", host, port)
 	}
 
-	fmt.Println("dest addr:", addr)
+	//fmt.Println("dest addr:", addr)
 
 	var err1, err2 error
 	pkt := &transport.Packet{}
