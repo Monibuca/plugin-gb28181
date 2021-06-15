@@ -14,12 +14,7 @@ type Publisher struct {
 	pushAudio func(engine.AudioPack)
 }
 
-func (p *Publisher) Publish(streamPath string) (result bool) {
-	p.Stream = &engine.Stream{
-		StreamPath:    streamPath,
-		Type:          "GB18181",
-		AutoUnPublish: config.AutoUnPublish,
-	}
+func (p *Publisher) Publish() (result bool) {
 	if result = p.Stream.Publish(); result {
 		p.pushVideo = func(pack engine.VideoPack) {
 			var vt *engine.VideoTrack

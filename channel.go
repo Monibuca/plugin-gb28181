@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
@@ -197,32 +198,39 @@ func (channel *Channel) Invite(start, end string) int {
 				}
 			}
 		}
-		if !publisher.Publish(streamPath) {
+		publisher.Stream = &engine.Stream{
+			StreamPath:    streamPath,
+			Type:          "GB18181",
+			AutoUnPublish: config.AutoUnPublish,
+		}
+		if start == "" {
+			publisher.Close = func() {
+				publishers.Remove(SSRC)
+				channel.LiveSP = ""
+				if channel.inviteRes != nil {
+					channel.ByeBye(channel.inviteRes)
+				}
+			}
+		} else {
+			publisher.Close = func() {
+				publishers.Remove(SSRC)
+				channel.RecordSP = ""
+				if channel.recordInviteRes != nil {
+					channel.ByeBye(channel.recordInviteRes)
+				}
+			}
+		}
+
+		if !publisher.Publish() {
 			return 403
 		}
 		publishers.Add(SSRC, &publisher)
 		if start == "" {
 			channel.inviteRes = response.Data
 			channel.LiveSP = _ssrc
-			go func() {
-				<-publisher.Done()
-				publishers.Remove(SSRC)
-				channel.LiveSP = ""
-				if channel.inviteRes != nil {
-					channel.ByeBye(channel.inviteRes)
-				}
-			}()
 		} else {
 			channel.RecordSP = _ssrc
 			channel.recordInviteRes = response.Data
-			go func() {
-				<-publisher.Done()
-				publishers.Remove(SSRC)
-				channel.RecordSP = ""
-				if channel.recordInviteRes != nil {
-					channel.ByeBye(channel.recordInviteRes)
-				}
-			}()
 		}
 		ack := d.CreateMessage(sip.ACK)
 		ack.StartLine = &sip.StartLine{
@@ -234,8 +242,6 @@ func (channel *Channel) Invite(start, end string) int {
 		ack.CallID = response.Data.CallID
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
-	} else {
-		publisher.Close()
 	}
 	return response.Code
 }
