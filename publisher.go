@@ -16,8 +16,9 @@ type Publisher struct {
 
 func (p *Publisher) Publish(streamPath string) (result bool) {
 	p.Stream = &engine.Stream{
-		StreamPath: streamPath,
-		Type:       "GB18181",
+		StreamPath:    streamPath,
+		Type:          "GB18181",
+		AutoUnPublish: config.AutoUnPublish,
 	}
 	if result = p.Stream.Publish(); result {
 		p.pushVideo = func(pack engine.VideoPack) {
@@ -44,15 +45,15 @@ func (p *Publisher) Publish(streamPath string) (result bool) {
 				at.ExtraData = []byte{asc}
 				at.PushRaw(pack)
 				p.pushAudio = at.PushRaw
-			// case utils.G711U:
-			// 	at := p.Stream.NewAudioTrack(8)
-			// 	at.SoundRate = 8000
-			// 	at.SoundSize = 16
-			// 	asc := at.CodecID << 4
-			// 	asc = asc + 1<<1
-			// 	at.ExtraData = []byte{asc}
-			// 	at.PushRaw(pack)
-			// 	p.pushAudio = at.PushRaw
+				// case utils.G711U:
+				// 	at := p.Stream.NewAudioTrack(8)
+				// 	at.SoundRate = 8000
+				// 	at.SoundSize = 16
+				// 	asc := at.CodecID << 4
+				// 	asc = asc + 1<<1
+				// 	at.ExtraData = []byte{asc}
+				// 	at.PushRaw(pack)
+				// 	p.pushAudio = at.PushRaw
 			}
 		}
 	}

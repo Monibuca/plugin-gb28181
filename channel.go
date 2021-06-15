@@ -152,8 +152,6 @@ func (channel *Channel) Invite(start, end string) int {
 		ssrc[0] = '0'
 	}
 	var publisher Publisher
-	publisher.Type = "GB28181"
-	publisher.AutoUnPublish = config.AutoUnPublish
 	// size := 1
 	// fps := 15
 	// bitrate := 200
