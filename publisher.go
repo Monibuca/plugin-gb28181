@@ -4,51 +4,55 @@ import (
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	. "github.com/Monibuca/utils/v3"
-	"github.com/Monibuca/utils/v3/codec"
 )
 
 type Publisher struct {
-	engine.Publisher
+	*engine.Stream
 	psPacket  []byte
 	parser    utils.DecPSPackage
 	pushVideo func(engine.VideoPack)
-	pushAudio func(uint32, []byte)
+	pushAudio func(engine.AudioPack)
 }
 
 func (p *Publisher) Publish(streamPath string) (result bool) {
-	if result = p.Publisher.Publish(streamPath); result {
-		vt := engine.NewVideoTrack()
+	p.Stream = &engine.Stream{
+		StreamPath: streamPath,
+		Type:       "GB18181",
+	}
+	if result = p.Stream.Publish(); result {
 		p.pushVideo = func(pack engine.VideoPack) {
-			vt.Push(pack)
-			if vt.CodecID == 0 && vt.RtmpTag != nil {
-				vt.CodecID = 7
-				p.SetOriginVT(vt)
-				p.pushVideo = vt.Push
+			var vt *engine.VideoTrack
+			switch p.parser.VideoStreamType {
+			case 0x1B:
+				vt = p.Stream.NewVideoTrack(7)
+			case 0x24:
+				vt = p.Stream.NewVideoTrack(12)
+			default:
+				return
 			}
+			vt.PushAnnexB(pack)
+			p.pushVideo = vt.PushAnnexB
 		}
-		at := engine.NewAudioTrack()
-		p.pushAudio = func(ts uint32, payload []byte) {
+		p.pushAudio = func(pack engine.AudioPack) {
 			switch p.parser.AudioStreamType {
 			case utils.G711A:
-				at.SoundFormat = 7
+				at := p.Stream.NewAudioTrack(7)
 				at.SoundRate = 8000
 				at.SoundSize = 16
-				asc := at.SoundFormat << 4
+				asc := at.CodecID << 4
 				asc = asc + 1<<1
-				at.RtmpTag = []byte{asc}
-				at.Push(ts, payload)
-				p.SetOriginAT(at)
-				p.pushAudio = at.Push
-				// case utils.G711U:
-				// 	at.SoundFormat = 8
-				// 	at.SoundRate = 8000
-				// 	at.SoundSize = 16
-				// 	asc := at.SoundFormat << 4
-				// 	asc = asc + 1<<1
-				// 	at.RtmpTag = []byte{asc}
-				// 	at.Push(ts, payload)
-				// 	p.SetOriginAT(at)
-				// 	p.pushAudio = at.Push
+				at.ExtraData = []byte{asc}
+				at.PushRaw(pack)
+				p.pushAudio = at.PushRaw
+			// case utils.G711U:
+			// 	at := p.Stream.NewAudioTrack(8)
+			// 	at.SoundRate = 8000
+			// 	at.SoundSize = 16
+			// 	asc := at.CodecID << 4
+			// 	asc = asc + 1<<1
+			// 	at.ExtraData = []byte{asc}
+			// 	at.PushRaw(pack)
+			// 	p.pushAudio = at.PushRaw
 			}
 		}
 	}
@@ -58,11 +62,9 @@ func (p *Publisher) PushPS(ps []byte, ts uint32) {
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.psPacket != nil {
 			if err := p.parser.Read(p.psPacket); err == nil {
-				for _, payload := range codec.SplitH264(p.parser.VideoPayload) {
-					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: payload})
-				}
+				p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: p.parser.VideoPayload})
 				if p.parser.AudioPayload != nil {
-					p.pushAudio(ts/90, p.parser.AudioPayload)
+					p.pushAudio(engine.AudioPack{Timestamp: ts / 90, Raw: p.parser.AudioPayload})
 				}
 			} else {
 				Print(err)
