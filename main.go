@@ -186,8 +186,10 @@ func run() {
             SipIP:        config.MediaIP,
             channelMap:   make(map[string]*Channel),
         }
+        if _,ok := Devices.Load(msg.From.Uri.UserInfo());!ok{
+            go d.Query()
+        }
         Devices.Store(msg.From.Uri.UserInfo(), d)
-        go d.Query()
 	}
 	s.OnMessage = func(msg *sip.Message) bool {
 		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
