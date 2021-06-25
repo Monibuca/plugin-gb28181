@@ -172,7 +172,7 @@ func (channel *Channel) Invite(start, end string) int {
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
-		fmt.Sprintf("t=%d %d", sint, eint),
+		fmt.Sprintf("t=%d %d", sint.Unix(), eint.Unix()),
 		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", config.MediaPort),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
