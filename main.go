@@ -210,7 +210,9 @@ func run() {
 			decoder.Decode(temp)
 			switch temp.XMLName.Local {
 			case "Notify":
-				//go d.Query()
+                if d.Channels == nil{
+                    go d.Query()
+                }
 			case "Response":
 				switch temp.CmdType {
 				case "Catalog":
