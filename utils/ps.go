@@ -291,6 +291,7 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 	}
 	ptsFlag := flag >> 7
 	dtsFlag := (flag & 0b0100_000) >> 6
+	var pts ,dts uint32
 	payloadlen -= 2
 	pesHeaderDataLen, err := dec.Uint8()
 	if err != nil {
@@ -302,19 +303,17 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 		return err
 	} else {
 		if ptsFlag == 1 {
-			pts := uint32(extraData[0]&0b0000_1110) << 29
+			pts = uint32(extraData[0]&0b0000_1110) << 29
 			pts += uint32(extraData[1]) << 22
 			pts += uint32(extraData[2]&0b1111_1110) << 14
 			pts += uint32(extraData[3]) << 7
 			pts += uint32(extraData[4]) >> 1
-			dec.PTS = pts
 			if dtsFlag == 1 {
-				dts := uint32(extraData[5]&0b0000_1110) << 29
+				dts = uint32(extraData[5]&0b0000_1110) << 29
 				dts += uint32(extraData[6]) << 22
 				dts += uint32(extraData[7]&0b1111_1110) << 14
 				dts += uint32(extraData[8]) << 7
 				dts += uint32(extraData[9]) >> 1
-				dec.DTS = dts
 			}
 		}
 	}
@@ -323,6 +322,8 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 		return err
 	} else {
 		if StartCodeVideo == t {
+			dec.PTS = pts
+			dec.DTS = dts
 			dec.VideoPayload = append(dec.VideoPayload, payload...)
 		} else {
 			dec.AudioPayload = append(dec.AudioPayload, payload...)
