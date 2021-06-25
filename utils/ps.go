@@ -115,6 +115,8 @@ type DecPSPackage struct {
 	buffer.RawBuffer
 	VideoPayload []byte
 	AudioPayload []byte
+	PTS uint32
+	DTS uint32
 }
 
 // data包含 接受到完整一帧数据后，所有的payload, 解析出去后是一阵完整的raw数据
@@ -128,6 +130,8 @@ func (dec *DecPSPackage) clean() {
 	dec.programMuxRate = 0
 	dec.VideoPayload = nil
 	dec.AudioPayload = nil
+	dec.PTS = 0
+	dec.DTS = 0
 }
 
 func (dec *DecPSPackage) decPackHeader(data []byte) error {
@@ -277,10 +281,16 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 	if err != nil {
 		return err
 	}
-	if err = dec.Skip(2); err != nil {
+
+	if err = dec.Skip(1); err != nil {
 		return err
 	}
-
+	flag, err := dec.Uint8()
+	if err != nil {
+		return err
+	}
+	ptsFlag := flag >> 7
+	dtsFlag := (flag & 0b0100_000) >> 6
 	payloadlen -= 2
 	pesHeaderDataLen, err := dec.Uint8()
 	if err != nil {
@@ -288,8 +298,25 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 	}
 	payloadlen -= uint16(pesHeaderDataLen) + 1
 
-	if err = dec.Skip(int(pesHeaderDataLen)); err != nil {
+	if extraData, err := dec.Bytes(int(pesHeaderDataLen)); err != nil {
 		return err
+	} else {
+		if ptsFlag == 1 {
+			pts := uint32(extraData[0]&0b0000_1110) << 29
+			pts += uint32(extraData[1]) << 22
+			pts += uint32(extraData[2]&0b1111_1110) << 14
+			pts += uint32(extraData[3]) << 7
+			pts += uint32(extraData[4]) >> 1
+			dec.PTS = pts
+			if dtsFlag == 1 {
+				dts := uint32(extraData[5]&0b0000_1110) << 29
+				dts += uint32(extraData[6]) << 22
+				dts += uint32(extraData[7]&0b1111_1110) << 14
+				dts += uint32(extraData[8]) << 7
+				dts += uint32(extraData[9]) >> 1
+				dec.DTS = dts
+			}
+		}
 	}
 
 	if payload, err := dec.Bytes(int(payloadlen)); err != nil {

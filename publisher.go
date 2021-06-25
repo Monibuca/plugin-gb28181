@@ -19,9 +19,9 @@ func (p *Publisher) Publish() (result bool) {
 		p.pushVideo = func(pack engine.VideoPack) {
 			var vt *engine.VideoTrack
 			switch p.parser.VideoStreamType {
-			case 0x1B:
+			case utils.StreamTypeH264:
 				vt = p.Stream.NewVideoTrack(7)
-			case 0x24:
+			case utils.StreamTypeH265:
 				vt = p.Stream.NewVideoTrack(12)
 			default:
 				return
@@ -56,9 +56,14 @@ func (p *Publisher) PushPS(ps []byte, ts uint32) {
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.psPacket != nil {
 			if err := p.parser.Read(p.psPacket); err == nil {
-				p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: p.parser.VideoPayload})
+				if p.parser.DTS != 0 {
+					ts = p.parser.DTS
+					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, CompositionTime: (p.parser.PTS/90 - p.parser.DTS/90), Payload: p.parser.VideoPayload})
+				} else {
+					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: p.parser.VideoPayload})
+				}
 				if p.parser.AudioPayload != nil {
-					p.pushAudio(engine.AudioPack{Timestamp: ts / 90, Raw: p.parser.AudioPayload})
+					p.pushAudio(engine.AudioPack{Timestamp: ts / 8, Raw: p.parser.AudioPayload})
 				}
 			} else {
 				Print(err)
