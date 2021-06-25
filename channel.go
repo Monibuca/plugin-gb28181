@@ -140,7 +140,7 @@ f字段中视、音频参数段之间不需空格分割。
 */
 func (channel *Channel) Invite(start, end string) int {
     sint, err1 := strconv.ParseInt(start,10,0)
-    eint, err2 := strconv.ParseInt(start,10,0)
+    eint, err2 := strconv.ParseInt(end,10,0)
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
