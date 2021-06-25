@@ -139,8 +139,8 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (channel *Channel) Invite(start, end string) int {
-    sint, err1 :=   time.ParseInLocation(TIME_LAYOUT,start,time.Local)
-    eint, err2 := time.ParseInLocation(TIME_LAYOUT,end,time.Local)
+    sint, err1 := strconv.ParseInt(start,10,0)
+    eint, err2 := strconv.ParseInt(end,10,0)
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
@@ -172,7 +172,7 @@ func (channel *Channel) Invite(start, end string) int {
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
-		fmt.Sprintf("t=%d %d", sint.Unix(), eint.Unix()),
+		fmt.Sprintf("t=%d %d", sint, eint),
 		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", config.MediaPort),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
