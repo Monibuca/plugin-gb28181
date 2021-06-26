@@ -1,22 +1,22 @@
 package gb28181
 
 import (
-    "bytes"
-    "encoding/xml"
-    "log"
-    "net"
-    "net/http"
-    "strconv"
-    "sync"
-    "time"
+	"bytes"
+	"encoding/xml"
+	"log"
+	"net"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
 
-    "github.com/Monibuca/engine/v3"
-    "github.com/Monibuca/plugin-gb28181/v3/sip"
-    "github.com/Monibuca/plugin-gb28181/v3/transaction"
-    . "github.com/Monibuca/utils/v3"
-    . "github.com/logrusorgru/aurora"
-    "github.com/pion/rtp"
-    "golang.org/x/net/html/charset"
+	"github.com/Monibuca/engine/v3"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
+	"github.com/Monibuca/plugin-gb28181/v3/transaction"
+	. "github.com/Monibuca/utils/v3"
+	. "github.com/logrusorgru/aurora"
+	"github.com/pion/rtp"
+	"golang.org/x/net/html/charset"
 )
 
 var Devices sync.Map
@@ -55,16 +55,16 @@ func (p *Publishers) Get(key uint32) *Publisher {
 }
 
 var config = struct {
-	Serial        string
-	Realm         string
-	ListenAddr    string
-	Expires       int
-	MediaPort     uint16
-	AutoInvite    bool
-	AutoUnPublish bool
-	Debug         bool
-    CatalogInterval   int
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, false,30}
+	Serial          string
+	Realm           string
+	ListenAddr      string
+	Expires         int
+	MediaPort       uint16
+	AutoInvite      bool
+	AutoUnPublish   bool
+	Debug           bool
+	CatalogInterval int
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, false, 30}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -174,22 +174,28 @@ func run() {
 	})
 	s := transaction.NewCore(config)
 	s.OnRegister = func(msg *sip.Message) {
-        d := &Device{
-            ID:           msg.From.Uri.UserInfo(),
-            RegisterTime: time.Now(),
-            UpdateTime:   time.Now(),
-            Status:       string(sip.REGISTER),
-            Core:         s,
-            from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
-            to:           msg.To,
-            Addr:         msg.Via.GetSendBy(),
-            SipIP:        config.MediaIP,
-            channelMap:   make(map[string]*Channel),
-        }
-        if _,ok := Devices.Load(msg.From.Uri.UserInfo());!ok{
-            go d.Query()
-        }
-        Devices.Store(msg.From.Uri.UserInfo(), d)
+		id := msg.From.Uri.UserInfo()
+		d := &Device{
+			ID:           id,
+			RegisterTime: time.Now(),
+			UpdateTime:   time.Now(),
+			Status:       string(sip.REGISTER),
+			Core:         s,
+			from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
+			to:           msg.To,
+			Addr:         msg.Via.GetSendBy(),
+			SipIP:        config.MediaIP,
+			channelMap:   make(map[string]*Channel),
+		}
+		if old, ok := Devices.Load(id); !ok {
+			go d.Query()
+		} else {
+			oldD := old.(*Device)
+			d.RegisterTime = oldD.RegisterTime
+			d.channelMap = oldD.channelMap
+			d.Status = oldD.Status
+		}
+		Devices.Store(id, d)
 	}
 	s.OnMessage = func(msg *sip.Message) bool {
 		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
@@ -210,9 +216,9 @@ func run() {
 			decoder.Decode(temp)
 			switch temp.XMLName.Local {
 			case "Notify":
-                if d.Channels == nil{
-                    go d.Query()
-                }
+				if d.Channels == nil {
+					go d.Query()
+				}
 			case "Response":
 				switch temp.CmdType {
 				case "Catalog":
@@ -236,7 +242,7 @@ func run() {
 	//	})
 	//})
 	go listenMedia()
-    go queryCatalog(config)
+	go queryCatalog(config)
 	s.Start()
 }
 func listenMedia() {
@@ -271,21 +277,21 @@ func listenMedia() {
 }
 
 func queryCatalog(config *transaction.Config) {
-    t := time.NewTicker(time.Duration(config.CatalogInterval)*time.Second)
-    for {
-        select {
-            case <-t.C:
-                Devices.Range(func(key, value interface{}) bool {
-                    device := value.(*Device)
-                    if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
-                        Devices.Delete(key)
-                    } else {
-                        go device.Query()
-                    }
-                    return true
-                })
-        default:
+	t := time.NewTicker(time.Duration(config.CatalogInterval) * time.Second)
+	for {
+		select {
+		case <-t.C:
+			Devices.Range(func(key, value interface{}) bool {
+				device := value.(*Device)
+				if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
+					Devices.Delete(key)
+				} else {
+					go device.Query()
+				}
+				return true
+			})
+		default:
 
-        }
-    }
+		}
+	}
 }
