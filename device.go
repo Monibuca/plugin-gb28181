@@ -59,6 +59,7 @@ func (d *Device) addChannel(channel *Channel) {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
+	d.Channels = nil
 	for _, c := range list {
 		c.device = d
 		if c.ParentID != "" {
@@ -123,7 +124,6 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	return
 }
 func (d *Device) Query() int {
-	d.Channels = nil
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
