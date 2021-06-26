@@ -113,14 +113,13 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 				"branch": fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8)),
 				"rport":  "-1", //only key,no-value
 			},
-		}, From: d.from,
+		}, From: &sip.Contact{Uri: d.from.Uri, Params: map[string]string{"tag": utils.RandNumString(9)}},
 		To: d.to, CSeq: &sip.CSeq{
 			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
 		Addr: d.Addr,
 	}
-	requestMsg.From.Params["tag"] = utils.RandNumString(9)
 	return
 }
 func (d *Device) Query() int {
