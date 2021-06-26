@@ -35,6 +35,7 @@ func (p *Publisher) Publish() (result bool) {
 				at := p.Stream.NewAudioTrack(7)
 				at.SoundRate = 8000
 				at.SoundSize = 16
+				at.Channels = 1
 				at.ExtraData = []byte{(at.CodecID << 4) | (1 << 1)}
 				at.PushRaw(pack)
 				p.pushAudio = at.PushRaw
