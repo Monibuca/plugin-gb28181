@@ -39,6 +39,7 @@ type Device struct {
 	UpdateTime        time.Time
 	Status            string
 	Channels          []*Channel
+	queryChannel      bool
 	sn                int
 	from              *sip.Contact
 	to                *sip.Contact
@@ -59,7 +60,10 @@ func (d *Device) addChannel(channel *Channel) {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	d.Channels = nil
+	if d.queryChannel {
+		d.Channels = nil
+		d.queryChannel = false
+	}
 	for _, c := range list {
 		c.device = d
 		if c.ParentID != "" {
@@ -124,6 +128,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	return
 }
 func (d *Device) Query() int {
+	d.queryChannel = true
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
