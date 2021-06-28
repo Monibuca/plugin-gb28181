@@ -59,7 +59,6 @@ func (d *Device) addChannel(channel *Channel) {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	d.Channels = nil
 	for _, c := range list {
 		c.device = d
 		if c.ParentID != "" {
