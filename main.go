@@ -278,20 +278,15 @@ func listenMedia() {
 
 func queryCatalog(config *transaction.Config) {
 	t := time.NewTicker(time.Duration(config.CatalogInterval) * time.Second)
-	for {
-		select {
-		case <-t.C:
-			Devices.Range(func(key, value interface{}) bool {
-				device := value.(*Device)
-				if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
-					Devices.Delete(key)
-				} else {
-					go device.Query()
-				}
-				return true
-			})
-		default:
-
-		}
+	for range t.C {
+		Devices.Range(func(key, value interface{}) bool {
+			device := value.(*Device)
+			if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
+				Devices.Delete(key)
+			} else {
+				go device.Query()
+			}
+			return true
+		})
 	}
 }
