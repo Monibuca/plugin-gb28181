@@ -10,13 +10,13 @@ type Publisher struct {
 	*engine.Stream
 	psPacket  []byte
 	parser    utils.DecPSPackage
-	pushVideo func(engine.VideoPack)
-	pushAudio func(engine.AudioPack)
+	pushVideo func(uint32, uint32, []byte)
+	pushAudio func(uint32, []byte)
 }
 
 func (p *Publisher) Publish() (result bool) {
 	if result = p.Stream.Publish(); result {
-		p.pushVideo = func(pack engine.VideoPack) {
+		p.pushVideo = func(ts uint32, cts uint32, payload []byte) {
 			var vt *engine.VideoTrack
 			switch p.parser.VideoStreamType {
 			case utils.StreamTypeH264:
@@ -26,10 +26,10 @@ func (p *Publisher) Publish() (result bool) {
 			default:
 				return
 			}
-			vt.PushAnnexB(pack)
+			vt.PushAnnexB(ts, cts, payload)
 			p.pushVideo = vt.PushAnnexB
 		}
-		p.pushAudio = func(pack engine.AudioPack) {
+		p.pushAudio = func(ts uint32, payload []byte) {
 			switch p.parser.AudioStreamType {
 			case utils.G711A:
 				at := p.Stream.NewAudioTrack(7)
@@ -37,7 +37,7 @@ func (p *Publisher) Publish() (result bool) {
 				at.SoundSize = 16
 				at.Channels = 1
 				at.ExtraData = []byte{(at.CodecID << 4) | (1 << 1)}
-				at.PushRaw(pack)
+				at.PushRaw(ts, payload)
 				p.pushAudio = at.PushRaw
 				// case utils.G711U:
 				// 	at := p.Stream.NewAudioTrack(8)
@@ -59,12 +59,12 @@ func (p *Publisher) PushPS(ps []byte, ts uint32) {
 			if err := p.parser.Read(p.psPacket); err == nil {
 				if p.parser.DTS != 0 {
 					ts = p.parser.DTS
-					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, CompositionTime: (p.parser.PTS/90 - p.parser.DTS/90), Payload: p.parser.VideoPayload})
+					p.pushVideo(ts/90, (p.parser.PTS/90 - p.parser.DTS/90), p.parser.VideoPayload)
 				} else {
-					p.pushVideo(engine.VideoPack{Timestamp: ts / 90, Payload: p.parser.VideoPayload})
+					p.pushVideo(ts/90, 0, p.parser.VideoPayload)
 				}
 				if p.parser.AudioPayload != nil {
-					p.pushAudio(engine.AudioPack{Timestamp: ts / 8, Raw: p.parser.AudioPayload})
+					p.pushAudio(ts/8, p.parser.AudioPayload)
 				}
 			} else {
 				Print(err)
