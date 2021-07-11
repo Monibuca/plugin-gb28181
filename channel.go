@@ -19,6 +19,7 @@ type ChannelEx struct {
 	recordInviteRes *sip.Message
 	RecordSP        string //正在播放录像的StreamPath
 	LiveSP          string //实时StreamPath
+	LiveSubSP       string //实时子码流
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
@@ -139,16 +140,16 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (channel *Channel) Invite(start, end string) int {
-    sint, err1 := strconv.ParseInt(start,10,0)
-    eint, err2 := strconv.ParseInt(end,10,0)
+	sint, err1 := strconv.ParseInt(start, 10, 0)
+	eint, err2 := strconv.ParseInt(end, 10, 0)
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
 	ssrc := make([]byte, 10)
 	if start != "" {
-	    if err1 != nil || err2 != nil {
-	        return 400
-        }
+		if err1 != nil || err2 != nil {
+			return 400
+		}
 		s = "Playback"
 		ssrc[0] = '1'
 		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, start, end)

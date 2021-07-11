@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
@@ -54,6 +55,9 @@ func (d *Device) addChannel(channel *Channel) {
 		if c.DeviceID == channel.DeviceID {
 			return
 		}
+	}
+	if s := engine.FindStream("sub/" + channel.DeviceID); s != nil {
+		channel.LiveSubSP = s.StreamPath
 	}
 	d.Channels = append(d.Channels, channel)
 }
