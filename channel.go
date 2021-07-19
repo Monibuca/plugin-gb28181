@@ -208,7 +208,7 @@ func (channel *Channel) Invite(start, end string) int {
 			AutoUnPublish: config.AutoUnPublish,
 		}
 		if start == "" {
-			publisher.Close = func() {
+			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.LiveSP = ""
 				if channel.inviteRes != nil {
@@ -216,7 +216,7 @@ func (channel *Channel) Invite(start, end string) int {
 				}
 			}
 		} else {
-			publisher.Close = func() {
+			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.RecordSP = ""
 				if channel.recordInviteRes != nil {
