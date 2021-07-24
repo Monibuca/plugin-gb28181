@@ -268,7 +268,7 @@ func listenMedia() {
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
-			Println(err)
+			Println("gb28181 decode rtp error:",err)
 		}
 		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
 			publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)

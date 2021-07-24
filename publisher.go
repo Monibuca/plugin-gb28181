@@ -67,11 +67,10 @@ func (p *Publisher) PushPS(ps []byte, ts uint32) {
 					p.pushAudio(ts/8, p.parser.AudioPayload)
 				}
 			} else {
-				Print(err)
+				Println("decode PS stream error:", err)
 			}
-			p.psPacket = nil
 		}
-		p.psPacket = append(p.psPacket, ps...)
+		p.psPacket = ps
 	} else if p.psPacket != nil {
 		p.psPacket = append(p.psPacket, ps...)
 	}
