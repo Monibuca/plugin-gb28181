@@ -69,8 +69,9 @@ func (p *Publisher) PushPS(ps []byte, ts uint32) {
 			} else {
 				Println("decode PS stream error:", err)
 			}
+			p.psPacket = nil
 		}
-		p.psPacket = ps
+		p.psPacket = append(p.psPacket, ps...)
 	} else if p.psPacket != nil {
 		p.psPacket = append(p.psPacket, ps...)
 	}
