@@ -19,8 +19,11 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-var Devices sync.Map
-var Ignores map[string]struct{}
+var (
+	Devices sync.Map
+	Ignores = make(map[string]struct{})
+	publishers Publishers
+)
 
 func FindChannel(deviceId string, channelId string) (c *Channel) {
 	if v, ok := Devices.Load(deviceId); ok {
@@ -36,8 +39,6 @@ type Publishers struct {
 	data map[uint32]*Publisher
 	sync.RWMutex
 }
-
-var publishers Publishers
 
 func (p *Publishers) Add(key uint32, pp *Publisher) {
 	p.Lock()
