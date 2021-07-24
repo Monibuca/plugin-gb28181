@@ -155,7 +155,7 @@ func run() {
 		startTime := query.Get("startTime")
 		endTime := query.Get("endTime")
 		if c := FindChannel(id, channel); c != nil {
-			if startTime == "" && c.LiveSP != "" {
+			if startTime == "" && c.LiveSSRC != 0 {
 				w.WriteHeader(304) //直播流已存在
 			} else {
 				w.WriteHeader(c.Invite(startTime, endTime))

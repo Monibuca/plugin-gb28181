@@ -56,9 +56,6 @@ func (d *Device) addChannel(channel *Channel) {
 			return
 		}
 	}
-	if s := engine.FindStream("sub/" + channel.DeviceID); s != nil {
-		channel.LiveSubSP = s.StreamPath
-	}
 	d.Channels = append(d.Channels, channel)
 }
 func (d *Device) UpdateChannels(list []*Channel) {
@@ -72,7 +69,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		if _, ok := Ignores[c.DeviceID]; ok {
 			continue
 		}
-		c.device = d
 		if c.ParentID != "" {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
@@ -92,10 +88,19 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime && n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
-				if config.AutoInvite && c.LiveSP == "" {
+				if config.AutoInvite && c.LivePublisher == nil {
 					go c.Invite("", "")
 				}
 			}
+		} else {
+			c.ChannelEx = &ChannelEx{
+				device: d,
+			}
+		}
+		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
+			c.LiveSubSP = s.StreamPath
+		} else {
+			c.LiveSubSP = ""
 		}
 		d.channelMap[c.DeviceID] = c
 	}

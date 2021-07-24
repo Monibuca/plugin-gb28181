@@ -17,8 +17,8 @@ type ChannelEx struct {
 	device          *Device
 	inviteRes       *sip.Message
 	recordInviteRes *sip.Message
-	RecordSP        string //正在播放录像的StreamPath
-	LiveSP          string //实时StreamPath
+	RecordPublisher *Publisher
+	LivePublisher   *Publisher
 	LiveSubSP       string //实时子码流
 	Records         []*Record
 	RecordStartTime string
@@ -43,7 +43,7 @@ type Channel struct {
 	Secrecy      int
 	Status       string
 	Children     []*Channel
-	ChannelEx    //自定义属性
+	*ChannelEx    //自定义属性
 }
 
 func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
@@ -156,7 +156,7 @@ func (channel *Channel) Invite(start, end string) int {
 	} else {
 		ssrc[0] = '0'
 	}
-	var publisher Publisher
+
 	// size := 1
 	// fps := 15
 	// bitrate := 200
@@ -164,9 +164,6 @@ func (channel *Channel) Invite(start, end string) int {
 	copy(ssrc[1:6], []byte(config.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
-	_ssrc := string(ssrc)
-	_SSRC, _ := strconv.Atoi(_ssrc)
-	SSRC := uint32(_SSRC)
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
@@ -179,7 +176,7 @@ func (channel *Channel) Invite(start, end string) int {
 		"a=rtpmap:96 PS/90000",
 		"a=rtpmap:97 MPEG4/90000",
 		"a=rtpmap:98 H264/90000",
-		"y=" + _ssrc,
+		"y=" + string(ssrc),
 	}
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
@@ -193,47 +190,48 @@ func (channel *Channel) Invite(start, end string) int {
 	fmt.Printf("invite response statuscode: %d\n", response.Code)
 	if response.Code == 200 {
 		ds := strings.Split(response.Data.Body, "\r\n")
+		_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
+		SSRC := uint32(_SSRC)
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
-				if ls[0] == "y" {
-					_ssrc = ls[1]
-					_SSRC, _ = strconv.Atoi(_ssrc)
+				if ls[0] == "y" && len(ls[1]) > 0 {
+					_SSRC, _ = strconv.ParseInt(ls[1], 10, 0)
 					SSRC = uint32(_SSRC)
+					break
 				}
 			}
 		}
-		publisher.Stream = &engine.Stream{
-			StreamPath:    streamPath,
-			Type:          "GB18181",
-			AutoUnPublish: config.AutoUnPublish,
+		publisher := &Publisher{
+			Stream: &engine.Stream{
+				StreamPath:    streamPath,
+				AutoUnPublish: config.AutoUnPublish,
+			},
 		}
 		if start == "" {
+			publisher.Type = "GB18181 Live"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
-				channel.LiveSP = ""
-				if channel.inviteRes != nil {
-					channel.ByeBye(channel.inviteRes)
-				}
+				channel.LivePublisher = nil
+				channel.ByeBye(channel.inviteRes)
 			}
 		} else {
+			publisher.Type = "GB18181 Record"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
-				channel.RecordSP = ""
-				if channel.recordInviteRes != nil {
-					channel.ByeBye(channel.recordInviteRes)
-				}
+				channel.RecordPublisher = nil
+				channel.ByeBye(channel.recordInviteRes)
 			}
 		}
 
 		if !publisher.Publish() {
 			return 403
 		}
-		publishers.Add(SSRC, &publisher)
+		publishers.Add(SSRC, publisher)
 		if start == "" {
 			channel.inviteRes = response.Data
-			channel.LiveSP = _ssrc
+			channel.LivePublisher = publisher
 		} else {
-			channel.RecordSP = _ssrc
+			channel.RecordPublisher = publisher
 			channel.recordInviteRes = response.Data
 		}
 		ack := d.CreateMessage(sip.ACK)
@@ -253,9 +251,8 @@ func (channel *Channel) Bye() int {
 	if channel.inviteRes != nil {
 		defer func() {
 			channel.inviteRes = nil
-			SSRC, _ := strconv.Atoi(channel.LiveSP)
-			if p := publishers.Get(uint32(SSRC)); p != nil {
-				p.Close()
+			if channel.LivePublisher != nil {
+				channel.LivePublisher.Close()
 			}
 		}()
 		return channel.ByeBye(channel.inviteRes).Code
@@ -263,9 +260,8 @@ func (channel *Channel) Bye() int {
 	if channel.recordInviteRes != nil {
 		defer func() {
 			channel.recordInviteRes = nil
-			SSRC, _ := strconv.Atoi(channel.RecordSP)
-			if p := publishers.Get(uint32(SSRC)); p != nil {
-				p.Close()
+			if channel.RecordPublisher != nil {
+				channel.RecordPublisher.Close()
 			}
 		}()
 		return channel.ByeBye(channel.recordInviteRes).Code
