@@ -20,6 +20,7 @@ import (
 )
 
 var Devices sync.Map
+var Ignores map[string]struct{}
 
 func FindChannel(deviceId string, channelId string) (c *Channel) {
 	if v, ok := Devices.Load(deviceId); ok {
@@ -62,9 +63,9 @@ var config = struct {
 	MediaPort       uint16
 	AutoInvite      bool
 	AutoUnPublish   bool
-	Debug           bool
+	Ignore          []string
 	CatalogInterval int
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, false, 30}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -81,6 +82,9 @@ func run() {
 		log.Fatal(err)
 	}
 	Print(Green("server gb28181 start at"), BrightBlue(config.ListenAddr))
+	for _, id := range config.Ignore {
+		Ignores[id] = struct{}{}
+	}
 	config := &transaction.Config{
 		SipIP:             ipAddr.IP.String(),
 		SipPort:           uint16(ipAddr.Port),
@@ -93,13 +97,11 @@ func run() {
 		RegisterInterval:  60,
 		HeartbeatInterval: 60,
 		HeartbeatRetry:    3,
-		Debug:             config.Debug,
 		AudioEnable:       true,
 		WaitKeyFrame:      true,
 		MediaIdleTimeout:  30,
 		CatalogInterval:   config.CatalogInterval,
 	}
-
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
@@ -268,7 +270,7 @@ func listenMedia() {
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
-			Println("gb28181 decode rtp error:",err)
+			Println("gb28181 decode rtp error:", err)
 		}
 		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
 			publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)

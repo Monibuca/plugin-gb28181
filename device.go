@@ -69,6 +69,9 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		d.queryChannel = false
 	}
 	for _, c := range list {
+		if _, ok := Ignores[c.DeviceID]; ok {
+			continue
+		}
 		c.device = d
 		if c.ParentID != "" {
 			path := strings.Split(c.ParentID, "/")
