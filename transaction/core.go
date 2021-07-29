@@ -225,6 +225,9 @@ func (c *Core) Handler() {
 		case tid := <-c.removeTa:
 			c.DelTransaction(tid)
 		case p := <-ch:
+			if len(p.Data) < 5 {
+				continue
+			}
 			err := c.HandleReceiveMessage(p)
 			if err != nil {
 				fmt.Println("handler sip response message failed:", err.Error())
@@ -396,7 +399,7 @@ func (c *Core) Send(msg *sip.Message) error {
 
 		addr = fmt.Sprintf("%s:%s", host, port)
 	}
-	
+
 	// fmt.Println("dest addr:", addr)
 	var err1, err2 error
 	pkt := &transport.Packet{}

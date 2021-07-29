@@ -66,7 +66,8 @@ var config = struct {
 	AutoUnPublish   bool
 	Ignore          []string
 	CatalogInterval int
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30}
+	PreFetchRecord  bool
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30, false}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
