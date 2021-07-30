@@ -371,9 +371,7 @@ func (ta *Transaction) Terminate() {
 	//关掉事物
 	ta.cancel()
 	//TODO：某些timer需要检查并关掉，并且设置为nil
-
-	//remove ta from core
-	ta.core.removeTa <- ta.id
+	ta.core.DelTransaction(ta.id)
 }
 
 //根据sip消息，解析出目标服务器地址，发送消息

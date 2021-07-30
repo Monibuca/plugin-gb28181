@@ -20,7 +20,6 @@ type Core struct {
 	handlers     map[State]map[Event]Handler //每个状态都可以处理有限个事件。不必加锁。
 	transactions map[string]*Transaction     //管理所有 transactions,key:tid,value:transaction
 	mutex        sync.RWMutex                //transactions的锁
-	removeTa     chan string                 //要删除transaction的时候，通过chan传递tid
 	tp           transport.ITransport        //transport
 	*Config                                  //sip server配置信息
 	OnRegister   func(*sip.Message)
@@ -37,7 +36,6 @@ func NewCore(config *Config) *Core {
 	core := &Core{
 		handlers:     make(map[State]map[Event]Handler),
 		transactions: make(map[string]*Transaction),
-		removeTa:     make(chan string, 10),
 		Config:       config,
 		ctx:          context.Background(),
 	}
@@ -187,28 +185,14 @@ func (c *Core) Start() {
 }
 
 func (c *Core) Handler() {
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println("packet handler panic: ", err)
-			utils.PrintStack()
-			os.Exit(1)
-		}
-	}()
-	ch := c.tp.ReadPacketChan()
 	//阻塞读取消息
-	for {
-		//fmt.Println("PacketHandler ========== SIP Client")
-		select {
-		case tid := <-c.removeTa:
-			c.DelTransaction(tid)
-		case p := <-ch:
-			if len(p.Data) < 5 {
-				continue
-			}
-			if err := c.HandleReceiveMessage(p); err != nil {
-				fmt.Println("handler sip response message failed:", err.Error())
-				continue
-			}
+	for p := range c.tp.ReadPacketChan() {
+		if len(p.Data) < 5 {
+			continue
+		}
+		if err := c.HandleReceiveMessage(p); err != nil {
+			fmt.Println("handler sip response message failed:", err.Error())
+			continue
 		}
 	}
 }
