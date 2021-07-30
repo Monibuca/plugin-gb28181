@@ -113,28 +113,21 @@ type DecPSPackage struct {
 	VideoStreamType uint32
 	AudioStreamType uint32
 	buffer.RawBuffer
-	VideoPayload []byte
-	AudioPayload []byte
-	PTS uint32
-	DTS uint32
-}
-
-// data包含 接受到完整一帧数据后，所有的payload, 解析出去后是一阵完整的raw数据
-func (dec *DecPSPackage) Read(data []byte) error {
-	return dec.decPackHeader(data)
+	Payload []byte
+	PTS     uint32
+	DTS     uint32
 }
 
 func (dec *DecPSPackage) clean() {
 	dec.systemClockReferenceBase = 0
 	dec.systemClockReferenceExtension = 0
 	dec.programMuxRate = 0
-	dec.VideoPayload = nil
-	dec.AudioPayload = nil
+	dec.Payload = nil
 	dec.PTS = 0
 	dec.DTS = 0
 }
 
-func (dec *DecPSPackage) decPackHeader(data []byte) error {
+func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uint32, []byte), pushAudio func(uint32, []byte)) error {
 	dec.clean()
 
 	// 加载数据
@@ -164,22 +157,34 @@ func (dec *DecPSPackage) decPackHeader(data []byte) error {
 		if err != nil {
 			return err
 		}
-
 		switch nextStartCode {
 		case StartCodeSYS:
-			if err := dec.decSystemHeader(); err != nil {
-				return err
-			}
+			err = dec.decSystemHeader()
 		case StartCodeMAP:
-			if err := dec.decProgramStreamMap(); err != nil {
-				return err
+			err = dec.decProgramStreamMap()
+		case StartCodeVideo:
+			var cts uint32
+			if dec.PTS == 0 {
+				dec.PTS = ts
 			}
-		case StartCodeVideo, StartCodeAudio:
-			if err := dec.decPESPacket(nextStartCode); err != nil {
-				return err
+			if dec.DTS != 0 {
+				cts = dec.PTS - dec.DTS
+			} else {
+				dec.DTS = dec.PTS
 			}
-		case HaiKangCode, MEPGProgramEndCode:
-			return nil
+			if err = dec.decPESPacket(); err == nil {
+				pushVideo(dec.DTS/90, cts/90, dec.Payload)
+			}
+		case StartCodeAudio:
+			if dec.PTS != 0 {
+				ts = dec.PTS
+			}
+			if err = dec.decPESPacket(); err == nil {
+				pushAudio(ts/8, dec.Payload)
+			}
+		}
+		if err != nil {
+			return err
 		}
 	}
 }
@@ -276,7 +281,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	return nil
 }
 
-func (dec *DecPSPackage) decPESPacket(t uint32) error {
+func (dec *DecPSPackage) decPESPacket() error {
 	payloadlen, err := dec.Uint16()
 	if err != nil {
 		return err
@@ -291,7 +296,7 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 	}
 	ptsFlag := flag >> 7
 	dtsFlag := (flag & 0b0100_000) >> 6
-	var pts ,dts uint32
+	var pts, dts uint32
 	payloadlen -= 2
 	pesHeaderDataLen, err := dec.Uint8()
 	if err != nil {
@@ -317,17 +322,8 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 			}
 		}
 	}
-
-	if payload, err := dec.Bytes(int(payloadlen)); err != nil {
-		return err
-	} else {
-		if StartCodeVideo == t {
-			dec.PTS = pts
-			dec.DTS = dts
-			dec.VideoPayload = append(dec.VideoPayload, payload...)
-		} else {
-			dec.AudioPayload = append(dec.AudioPayload, payload...)
-		}
-	}
-	return nil
+	dec.PTS = pts
+	dec.DTS = dts
+	dec.Payload, err = dec.Bytes(int(payloadlen))
+	return err
 }
