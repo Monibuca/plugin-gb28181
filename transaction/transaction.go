@@ -259,12 +259,12 @@ const (
 //是否需要tp layer？
 type Transaction struct {
 	cancel          context.CancelFunc
-	context.Context         //线程管理、其他参数
+	context.Context //线程管理、其他参数
 	sync.Mutex
-	id              string  //transaction ID
-	isReliable      bool    //是否可靠传输
-	core            *Core   //全局参数
-	typo            FSMType //状态机类型
+	id         string  //transaction ID
+	isReliable bool    //是否可靠传输
+	core       *Core   //全局参数
+	typo       FSMType //状态机类型
 
 	state    State          //当前状态
 	response chan *Response //输出的响应
@@ -317,6 +317,14 @@ func (ta *Transaction) GetTid() string {
 	return ta.id
 }
 
+func (ta *Transaction) RunAfter(t time.Duration, evt Event) {
+	time.AfterFunc(t, func() {
+		if ta.Err() == nil {
+			ta.Run(evt, nil)
+		}
+	})
+}
+
 //每一个transaction至少有一个状态机线程运行
 //TODO:如果是一个uac的transaction，则把最后响应的消息返回（通过response chan）
 //transaction有很多消息需要传递到TU，也接收来自TU的消息。
@@ -337,7 +345,7 @@ func (ta *Transaction) Run(evt Event, m *sip.Message) {
 		return
 	}
 	//fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
-	err := f(ta, evt,m)
+	err := f(ta, evt, m)
 	if err != nil {
 		//fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
 	}

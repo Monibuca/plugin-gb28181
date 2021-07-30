@@ -1,9 +1,6 @@
 package transaction
 
 import (
-	// "fmt"
-	"time"
-
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
 
@@ -53,7 +50,7 @@ import (
 
                  Figure 6: non-INVITE client transaction
 */
-func nict_snd_request(t *Transaction, evt Event,m *sip.Message) error {
+func nict_snd_request(t *Transaction, evt Event, m *sip.Message) error {
 	//fmt.Println("nict request:", msg.GetMethod())
 
 	t.origRequest = m
@@ -75,26 +72,21 @@ func nict_snd_request(t *Transaction, evt Event,m *sip.Message) error {
 
 		t.timerE = NewSipTimer(T1, T2, func() {
 			if t.Err() == nil {
-				t.Run(TIMEOUT_E,nil)
+				t.Run(TIMEOUT_E, nil)
 			}
 		})
 	}
-	select {
-	case <-t.Done():
-	case <-time.After(TimeF):
-		t.Run(TIMEOUT_F,nil)
-	}
-
+	t.RunAfter(TimeF, TIMEOUT_F)
 	return nil
 }
 
 //事物超时
-func osip_nict_timeout_f_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_nict_timeout_f_event(t *Transaction, evt Event, m *sip.Message) error {
 	t.Terminate()
 	return nil
 }
 
-func osip_nict_timeout_e_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_nict_timeout_e_event(t *Transaction, evt Event, m *sip.Message) error {
 	if t.state == NICT_TRYING {
 		//reset timer
 		t.timerE.Reset(t.timerE.timeout * 2)
@@ -113,7 +105,7 @@ func osip_nict_timeout_e_event(t *Transaction, evt Event,m *sip.Message) error {
 	return nil
 }
 
-func nict_rcv_1xx(t *Transaction, evt Event,m *sip.Message) error {
+func nict_rcv_1xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	t.state = NICT_PROCEEDING
 
@@ -123,24 +115,20 @@ func nict_rcv_1xx(t *Transaction, evt Event,m *sip.Message) error {
 	return nil
 }
 
-func nict_rcv_23456xx(t *Transaction, evt Event,m *sip.Message) error {
+func nict_rcv_23456xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	t.state = NICT_COMPLETED
 
 	if m.IsReliable() {
 		//不设置timerK
 	} else {
-		select {
-		case <-t.Done():
-		case <-time.After(T4*64):
-			t.Run(TIMEOUT_K,nil)
-		}
+		t.RunAfter(T4*64, TIMEOUT_K)
 	}
 
 	return nil
 }
 
-func osip_nict_timeout_k_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_nict_timeout_k_event(t *Transaction, evt Event, m *sip.Message) error {
 	t.Terminate()
 	return nil
 }

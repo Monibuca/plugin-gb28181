@@ -1,9 +1,6 @@
 package transaction
 
 import (
-	// "fmt"
-	"time"
-
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
 
@@ -49,7 +46,7 @@ resp. to TU |  1xx             V                     |
 
                  Figure 5: INVITE client transaction
 */
-func ict_snd_invite(t *Transaction, evt Event,m *sip.Message) error {
+func ict_snd_invite(t *Transaction, evt Event, m *sip.Message) error {
 
 	t.isReliable = m.IsReliable()
 	t.origRequest = m
@@ -68,16 +65,11 @@ func ict_snd_invite(t *Transaction, evt Event,m *sip.Message) error {
 			}
 		})
 	}
-	select {
-	case <-t.Done():
-	case <-time.After(TimeB):
-		t.Run(TIMEOUT_B, nil)
-	}
-
+	t.RunAfter(TimeB, TIMEOUT_B)
 	return nil
 }
 
-func osip_ict_timeout_a_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_ict_timeout_a_event(t *Transaction, evt Event, m *sip.Message) error {
 	err := t.SipSend(t.origRequest)
 	if err != nil {
 		//发送失败
@@ -89,23 +81,23 @@ func osip_ict_timeout_a_event(t *Transaction, evt Event,m *sip.Message) error {
 	return nil
 }
 
-func osip_ict_timeout_b_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_ict_timeout_b_event(t *Transaction, evt Event, m *sip.Message) error {
 	t.Terminate()
 	return nil
 }
 
-func ict_rcv_1xx(t *Transaction, evt Event,m *sip.Message) error {
+func ict_rcv_1xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	t.state = ICT_PROCEEDING
 	return nil
 }
-func ict_rcv_2xx(t *Transaction, evt Event,m *sip.Message) error {
+func ict_rcv_2xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	t.Terminate()
 
 	return nil
 }
-func ict_rcv_3456xx(t *Transaction, evt Event,m *sip.Message) error {
+func ict_rcv_3456xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	if t.state != ICT_COMPLETED {
 		/* not a retransmission */
@@ -115,11 +107,7 @@ func ict_rcv_3456xx(t *Transaction, evt Event,m *sip.Message) error {
 		_ = t.SipSend(t.ack)
 		t.Terminate()
 	}
-	select {
-	case <-t.Done():
-	case <-time.After(TimeD):
-		t.Run(TIMEOUT_D, nil)
-	}
+	t.RunAfter(TimeD, TIMEOUT_D)
 	t.state = ICT_COMPLETED
 
 	return nil
@@ -147,7 +135,7 @@ func ict_create_ack(t *Transaction, resp *sip.Message) *sip.Message {
 	}
 }
 
-func ict_retransmit_ack(t *Transaction, evt Event,m *sip.Message) error {
+func ict_retransmit_ack(t *Transaction, evt Event, m *sip.Message) error {
 	if t.ack == nil {
 		/* ??? we should make a new ACK and send it!!! */
 		return nil
@@ -161,7 +149,7 @@ func ict_retransmit_ack(t *Transaction, evt Event,m *sip.Message) error {
 	return nil
 }
 
-func osip_ict_timeout_d_event(t *Transaction, evt Event,m *sip.Message) error {
+func osip_ict_timeout_d_event(t *Transaction, evt Event, m *sip.Message) error {
 	t.Terminate()
 	return nil
 }

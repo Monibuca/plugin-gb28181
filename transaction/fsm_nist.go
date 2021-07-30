@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
@@ -53,7 +52,7 @@ import (
 
 */
 
-func nist_rcv_request(t *Transaction, evt Event,m *sip.Message) error {
+func nist_rcv_request(t *Transaction, evt Event, m *sip.Message) error {
 	fmt.Println("rcv request: ", m.GetMethod())
 	fmt.Println("transaction state: ", t.state.String())
 	if t.state != NIST_PRE_TRYING {
@@ -93,12 +92,7 @@ func nist_snd_23456xx(t *Transaction, evt Event, m *sip.Message) error {
 	}
 	if t.state != NIST_COMPLETED {
 		if !t.isReliable {
-			select {
-			case <-t.Done():
-				return nil
-			case <-time.After(T1 * 64):
-				t.Run(TIMEOUT_J, nil)
-			}
+			t.RunAfter(T1*64, TIMEOUT_J)
 		}
 	}
 
