@@ -121,7 +121,7 @@ type DecPSPackage struct {
 
 // data包含 接受到完整一帧数据后，所有的payload, 解析出去后是一阵完整的raw数据
 func (dec *DecPSPackage) Read(data []byte) error {
-	return dec.decPackHeader(append(data, 0x00, 0x00, 0x01, 0xb9))
+	return dec.decPackHeader(data)
 }
 
 func (dec *DecPSPackage) clean() {

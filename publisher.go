@@ -56,18 +56,17 @@ func (p *Publisher) Publish() (result bool) {
 func (p *Publisher) PushPS(ps []byte, ts uint32) {
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.psPacket != nil {
-			if err := p.parser.Read(p.psPacket); err == nil {
+			p.parser.Read(p.psPacket)
+			if p.parser.VideoPayload != nil {
 				if p.parser.DTS != 0 {
 					ts = p.parser.DTS
 					p.pushVideo(ts/90, (p.parser.PTS/90 - p.parser.DTS/90), p.parser.VideoPayload)
 				} else {
 					p.pushVideo(ts/90, 0, p.parser.VideoPayload)
 				}
-				if p.parser.AudioPayload != nil {
-					p.pushAudio(ts/8, p.parser.AudioPayload)
-				}
-			} else {
-				Println("decode PS stream error:", err)
+			}
+			if p.parser.AudioPayload != nil {
+				p.pushAudio(ts/8, p.parser.AudioPayload)
 			}
 			p.psPacket = nil
 		}
