@@ -3,6 +3,8 @@ package transaction
 import (
 	// "fmt"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
 
 /*
@@ -51,52 +53,48 @@ import (
 
                  Figure 6: non-INVITE client transaction
 */
-func nict_snd_request(t *Transaction, e *EventObj) error {
-	msg := e.msg
+func nict_snd_request(t *Transaction, evt Event,m *sip.Message) error {
 	//fmt.Println("nict request:", msg.GetMethod())
 
-	t.origRequest = msg
+	t.origRequest = m
 	t.state = NICT_TRYING
 
-	err := t.SipSend(msg)
+	err := t.SipSend(m)
 	if err != nil {
 		t.Terminate()
 		return err
 	}
 
 	//发送出去之后，开启 timer
-	if msg.IsReliable() {
+	if m.IsReliable() {
 		//stop timer E in reliable transport
 		//fmt.Println("Reliabel")
 	} else {
 		//fmt.Println("Not Reliable")
 		//发送定时器
+
 		t.timerE = NewSipTimer(T1, T2, func() {
-			t.event <- &EventObj{
-				evt: TIMEOUT_E,
-				tid: t.id,
+			if t.Err() == nil {
+				t.Run(TIMEOUT_E,nil)
 			}
 		})
 	}
-
-	//事物定时器
-	t.timerF = time.AfterFunc(TimeF, func() {
-		t.event <- &EventObj{
-			evt: TIMEOUT_F,
-			tid: t.id,
-		}
-	})
+	select {
+	case <-t.Done():
+	case <-time.After(TimeF):
+		t.Run(TIMEOUT_F,nil)
+	}
 
 	return nil
 }
 
 //事物超时
-func osip_nict_timeout_f_event(t *Transaction, e *EventObj) error {
+func osip_nict_timeout_f_event(t *Transaction, evt Event,m *sip.Message) error {
 	t.Terminate()
 	return nil
 }
 
-func osip_nict_timeout_e_event(t *Transaction, e *EventObj) error {
+func osip_nict_timeout_e_event(t *Transaction, evt Event,m *sip.Message) error {
 	if t.state == NICT_TRYING {
 		//reset timer
 		t.timerE.Reset(t.timerE.timeout * 2)
@@ -115,8 +113,8 @@ func osip_nict_timeout_e_event(t *Transaction, e *EventObj) error {
 	return nil
 }
 
-func nict_rcv_1xx(t *Transaction, e *EventObj) error {
-	t.lastResponse = e.msg
+func nict_rcv_1xx(t *Transaction, evt Event,m *sip.Message) error {
+	t.lastResponse = m
 	t.state = NICT_PROCEEDING
 
 	//重置发送定时器
@@ -125,25 +123,24 @@ func nict_rcv_1xx(t *Transaction, e *EventObj) error {
 	return nil
 }
 
-func nict_rcv_23456xx(t *Transaction, e *EventObj) error {
-	t.lastResponse = e.msg
+func nict_rcv_23456xx(t *Transaction, evt Event,m *sip.Message) error {
+	t.lastResponse = m
 	t.state = NICT_COMPLETED
 
-	if e.msg.IsReliable() {
+	if m.IsReliable() {
 		//不设置timerK
 	} else {
-		t.timerK = time.AfterFunc(T4, func() {
-			t.event <- &EventObj{
-				evt: TIMEOUT_K,
-				tid: t.id,
-			}
-		})
+		select {
+		case <-t.Done():
+		case <-time.After(T4*64):
+			t.Run(TIMEOUT_K,nil)
+		}
 	}
 
 	return nil
 }
 
-func osip_nict_timeout_k_event(t *Transaction, e *EventObj) error {
+func osip_nict_timeout_k_event(t *Transaction, evt Event,m *sip.Message) error {
 	t.Terminate()
 	return nil
 }

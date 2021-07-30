@@ -59,7 +59,6 @@ func (c *Core) AddTransaction(ta *Transaction) {
 	c.mutex.Lock()
 	c.transactions[ta.id] = ta
 	c.mutex.Unlock()
-	go ta.Run()
 }
 
 //delete transaction
@@ -69,44 +68,22 @@ func (c *Core) DelTransaction(tid string) {
 	c.mutex.Unlock()
 }
 
-//创建事件:根据接收到的消息创建消息事件
-func (c *Core) NewInComingMessageEvent(m *sip.Message) *EventObj {
-	return &EventObj{
-		evt: getInComingMessageEvent(m),
-		tid: getMessageTransactionID(m),
-		msg: m,
-	}
-}
-
-//创建事件:根据发出的消息创建消息事件
-func (c *Core) NewOutGoingMessageEvent(m *sip.Message) *EventObj {
-	return &EventObj{
-		evt: getOutGoingMessageEvent(m),
-		tid: getMessageTransactionID(m),
-		msg: m,
-	}
-}
-
 //创建事物
 //填充此事物的参数：via、from、to、callID、cseq
-func (c *Core) initTransaction(ctx context.Context, obj *EventObj) *Transaction {
-	m := obj.msg
-
+func (c *Core) initTransaction(ctx context.Context, tid string, m *sip.Message) *Transaction {
 	//ack要么属于一个invite事物，要么由TU层直接管理，不通过事物管理。
 	if m.GetMethod() == sip.ACK {
 		fmt.Println("ack nerver create transaction")
 		return nil
 	}
 	ta := &Transaction{
-		id:       obj.tid,
+		id:       tid,
 		core:     c,
-		ctx:      ctx,
-		done:     make(chan struct{}),
-		event:    make(chan *EventObj, 10), //带缓冲的event channel
 		response: make(chan *Response),
 		startAt:  time.Now(),
 		endAt:    time.Now().Add(1000000 * time.Hour),
 	}
+	ta.Context, ta.cancel = context.WithCancel(ctx)
 	//填充其他transaction的信息
 	ta.via = m.Via
 	ta.from = m.From
@@ -228,8 +205,7 @@ func (c *Core) Handler() {
 			if len(p.Data) < 5 {
 				continue
 			}
-			err := c.HandleReceiveMessage(p)
-			if err != nil {
+			if err := c.HandleReceiveMessage(p); err != nil {
 				fmt.Println("handler sip response message failed:", err.Error())
 				continue
 			}
@@ -249,16 +225,15 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 	method := msg.GetMethod()
 	// data, _ := sip.Encode(msg)
 	// fmt.Println("send message:", method)
-
-	e := c.NewOutGoingMessageEvent(msg)
-
+	evt := getOutGoingMessageEvent(msg)
+	tid := getMessageTransactionID(msg)
 	//匹配事物
 	c.mutex.RLock()
-	ta, ok := c.transactions[e.tid]
+	ta, ok := c.transactions[tid]
 	c.mutex.RUnlock()
 	if !ok {
 		//新的请求
-		ta = c.initTransaction(c.ctx, e)
+		ta = c.initTransaction(c.ctx, tid, msg)
 
 		//如果是sip 消息事件，则将消息缓存，填充typo和state
 		if msg.IsRequest() {
@@ -279,8 +254,8 @@ func (c *Core) SendMessage(msg *sip.Message) *Response {
 	}
 
 	//把event推到transaction
-	ta.event <- e
-	<-ta.done
+	ta.Run(evt, msg)
+	<-ta.Done()
 	if ta.lastResponse != nil {
 		return &Response{
 			Code:    ta.lastResponse.GetStatusCode(),
@@ -317,9 +292,8 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	}
 
 	//fmt.Println("receive message:", msg.GetMethod())
-
-	e := c.NewInComingMessageEvent(msg)
-
+	evt := getInComingMessageEvent(msg)
+	tid := getMessageTransactionID(msg)
 	//一般应该是uas对于接收到的request做预处理
 	if msg.IsRequest() {
 		fixReceiveMessageViaParams(msg, p.Addr)
@@ -329,7 +303,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	//TODO：CANCEL、BYE 和 ACK 需要特殊处理，使用事物或者直接由TU层处理
 	//查找transaction
 	c.mutex.RLock()
-	ta, ok := c.transactions[e.tid]
+	ta, ok := c.transactions[tid]
 	c.mutex.RUnlock()
 	method := msg.GetMethod()
 	if msg.IsRequest() {
@@ -345,17 +319,19 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				c.Send(msg.BuildResponse(200))
 			}
 			if ta != nil {
-				ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+				m := msg.BuildResponse(200)
+				ta.Run(getOutGoingMessageEvent(m), m)
 			}
 		case sip.REGISTER:
 			if !ok {
-				ta = c.initTransaction(c.ctx, e)
+				ta = c.initTransaction(c.ctx, tid, msg)
 				ta.typo = FSM_NIST
 				ta.state = NIST_PROCEEDING
 				c.AddTransaction(ta)
 			}
 			c.OnRegister(msg)
-			ta.event <- c.NewOutGoingMessageEvent(msg.BuildResponse(200))
+			m := msg.BuildResponse(200)
+			ta.Run(getOutGoingMessageEvent(m), m)
 		//case sip.INVITE:
 		//	ta.typo = FSM_IST
 		//	ta.state = IST_PRE_PROCEEDING
@@ -367,8 +343,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			return
 		}
 	} else if ok {
-		ta.event <- e
-
+		ta.Run(evt, msg)
 	}
 	//TODO：TU层处理：根据需要，创建，或者匹配 Dialog
 	//通过tag匹配到call和dialog

@@ -3,6 +3,8 @@ package transaction
 import (
 	"fmt"
 	"time"
+
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
 )
 
 /*
@@ -51,8 +53,8 @@ import (
 
 */
 
-func nist_rcv_request(t *Transaction, e *EventObj) error {
-	fmt.Println("rcv request: ", e.msg.GetMethod())
+func nist_rcv_request(t *Transaction, evt Event,m *sip.Message) error {
+	fmt.Println("rcv request: ", m.GetMethod())
 	fmt.Println("transaction state: ", t.state.String())
 	if t.state != NIST_PRE_TRYING {
 		fmt.Println("rcv request retransmission,do response")
@@ -65,16 +67,16 @@ func nist_rcv_request(t *Transaction, e *EventObj) error {
 		}
 		return nil
 	} else {
-		t.origRequest = e.msg
+		t.origRequest = m
 		t.state = NIST_TRYING
-		t.isReliable = e.msg.IsReliable()
+		t.isReliable = m.IsReliable()
 	}
 
 	return nil
 }
 
-func nist_snd_1xx(t *Transaction, e *EventObj) error {
-	t.lastResponse = e.msg
+func nist_snd_1xx(t *Transaction, evt Event, m *sip.Message) error {
+	t.lastResponse = m
 	err := t.SipSend(t.lastResponse)
 	if err != nil {
 		return err
@@ -84,27 +86,26 @@ func nist_snd_1xx(t *Transaction, e *EventObj) error {
 	return nil
 }
 
-func nist_snd_23456xx(t *Transaction, e *EventObj) error {
-	t.lastResponse = e.msg
-	err := t.SipSend(t.lastResponse)
-	if err != nil {
+func nist_snd_23456xx(t *Transaction, evt Event, m *sip.Message) error {
+	t.lastResponse = m
+	if err := t.SipSend(t.lastResponse); err != nil {
 		return err
 	}
 	if t.state != NIST_COMPLETED {
 		if !t.isReliable {
-			t.timerJ = time.AfterFunc(T1*64, func() {
-				t.event <- &EventObj{
-					evt: TIMEOUT_J,
-					tid: t.id,
-				}
-			})
+			select {
+			case <-t.Done():
+				return nil
+			case <-time.After(T1 * 64):
+				t.Run(TIMEOUT_J, nil)
+			}
 		}
 	}
 
 	t.state = NIST_COMPLETED
 	return nil
 }
-func osip_nist_timeout_j_event(t *Transaction, e *EventObj) error {
+func osip_nist_timeout_j_event(t *Transaction, evt Event, m *sip.Message) error {
 	t.Terminate()
 	return nil
 }

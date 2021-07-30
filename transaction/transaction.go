@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
@@ -229,7 +230,7 @@ type Response struct {
 	Data    *sip.Message
 }
 
-type Handler func(t *Transaction, e *EventObj) error //操作
+type Handler func(*Transaction, Event, *sip.Message) error //操作
 
 type Header map[string]string
 
@@ -257,15 +258,15 @@ const (
 
 //是否需要tp layer？
 type Transaction struct {
-	ctx        context.Context //线程管理、其他参数
-	id         string          //transaction ID
-	isReliable bool            //是否可靠传输
-	core       *Core           //全局参数
-	typo       FSMType         //状态机类型
-	done       chan struct{}   //主动退出
+	cancel          context.CancelFunc
+	context.Context         //线程管理、其他参数
+	sync.Mutex
+	id              string  //transaction ID
+	isReliable      bool    //是否可靠传输
+	core            *Core   //全局参数
+	typo            FSMType //状态机类型
 
 	state    State          //当前状态
-	event    chan *EventObj //输入的事件，带缓冲
 	response chan *Response //输出的响应
 	startAt  time.Time      //开始时间
 	endAt    time.Time      //结束时间
@@ -280,24 +281,10 @@ type Transaction struct {
 	origRequest  *sip.Message //Initial request
 	lastResponse *sip.Message //Last response，可能是临时的，也可能是最终的
 	ack          *sip.Message //ack request sent
-
 	//timer for ict
 	timerA *SipTimer
-	timerB *time.Timer
-	timerD *time.Timer
-
 	//timer for nict
 	timerE *SipTimer
-	timerF *time.Timer
-	timerK *time.Timer
-
-	//timer for ist
-	timerG *time.Timer
-	timerH *time.Timer
-	timerI *time.Timer
-
-	//timer for nist
-	timerJ *time.Timer
 }
 
 type SipTimer struct {
@@ -333,37 +320,26 @@ func (ta *Transaction) GetTid() string {
 //每一个transaction至少有一个状态机线程运行
 //TODO:如果是一个uac的transaction，则把最后响应的消息返回（通过response chan）
 //transaction有很多消息需要传递到TU，也接收来自TU的消息。
-func (ta *Transaction) Run() {
-	for {
-		select {
-		case e := <-ta.event:
-			//根据event调用对应的handler
-			//fmt.Println("fsm run event:", e.evt.String())
-			core := ta.core
-			state := ta.state
-			evtHandlers, ok1 := core.handlers[state]
-			if !ok1 {
-				//fmt.Println("invalid state:", ta.state.String())
-				break
-			}
-			f, ok2 := evtHandlers[e.evt]
-			if !ok2 {
-				//fmt.Println("invalid handler for this event:", e.evt.String())
-				break
-			}
-			//fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
-			err := f(ta, e)
-			if err != nil {
-				//fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
-			}
-		case <-ta.done:
-			//fmt.Println("fsm exit")
-			return
-
-		case <-ta.ctx.Done():
-			//fmt.Println("fsm killed")
-			return
-		}
+func (ta *Transaction) Run(evt Event, m *sip.Message) {
+	//根据event调用对应的handler
+	//fmt.Println("fsm run event:", e.evt.String())
+	core := ta.core
+	ta.Lock()
+	defer ta.Unlock()
+	evtHandlers, ok1 := core.handlers[ta.state]
+	if !ok1 {
+		//fmt.Println("invalid state:", ta.state.String())
+		return
+	}
+	f, ok2 := evtHandlers[evt]
+	if !ok2 {
+		//fmt.Println("invalid handler for this event:", e.evt.String())
+		return
+	}
+	//fmt.Printf("state:%s, event:%s\n", state.String(), e.evt.String())
+	err := f(ta, evt,m)
+	if err != nil {
+		//fmt.Printf("transaction run failed, state:%s, event:%s\n", state.String(), e.evt.String())
 	}
 }
 
@@ -384,9 +360,8 @@ func (ta *Transaction) Terminate() {
 		ta.state = NIST_TERMINATED
 	}
 
-	//关掉事物的线程
-	close(ta.done)
-
+	//关掉事物
+	ta.cancel()
 	//TODO：某些timer需要检查并关掉，并且设置为nil
 
 	//remove ta from core
