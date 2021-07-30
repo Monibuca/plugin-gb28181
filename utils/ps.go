@@ -302,13 +302,13 @@ func (dec *DecPSPackage) decPESPacket(t uint32) error {
 	if extraData, err := dec.Bytes(int(pesHeaderDataLen)); err != nil {
 		return err
 	} else {
-		if ptsFlag == 1 {
+		if ptsFlag == 1 && len(extraData) > 4 {
 			pts = uint32(extraData[0]&0b0000_1110) << 29
 			pts += uint32(extraData[1]) << 22
 			pts += uint32(extraData[2]&0b1111_1110) << 14
 			pts += uint32(extraData[3]) << 7
 			pts += uint32(extraData[4]) >> 1
-			if dtsFlag == 1 {
+			if dtsFlag == 1 && len(extraData) > 9 {
 				dts = uint32(extraData[5]&0b0000_1110) << 29
 				dts += uint32(extraData[6]) << 22
 				dts += uint32(extraData[7]&0b1111_1110) << 14
