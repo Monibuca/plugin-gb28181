@@ -79,7 +79,7 @@ func (c *Core) initTransaction(ctx context.Context, tid string, m *sip.Message) 
 		startAt:  time.Now(),
 		endAt:    time.Now().Add(1000000 * time.Hour),
 	}
-	ta.Context, ta.cancel = context.WithCancel(ctx)
+	ta.Context, ta.cancel = context.WithTimeout(ctx,time.Second*5)
 	//填充其他transaction的信息
 	ta.via = m.Via
 	ta.from = m.From
