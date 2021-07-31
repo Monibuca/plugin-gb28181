@@ -151,7 +151,13 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uin
 	if err = dec.Skip(int(psl)); err != nil {
 		return err
 	}
-
+	var video []byte
+	var videoTs, videoCts uint32
+	defer func() {
+		if video != nil {
+			pushVideo(videoTs, videoCts, video)
+		}
+	}()
 	for {
 		nextStartCode, err := dec.Uint32()
 		if err != nil {
@@ -164,23 +170,30 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uin
 			err = dec.decProgramStreamMap()
 		case StartCodeVideo:
 			var cts uint32
-			if dec.PTS == 0 {
-				dec.PTS = ts
-			}
-			if dec.DTS != 0 {
-				cts = dec.PTS - dec.DTS
-			} else {
-				dec.DTS = dec.PTS
-			}
 			if err = dec.decPESPacket(); err == nil {
-				pushVideo(dec.DTS/90, cts/90, dec.Payload)
+				if video == nil {
+					if dec.PTS == 0 {
+						dec.PTS = ts
+					}
+					if dec.DTS != 0 {
+						cts = dec.PTS - dec.DTS
+					} else {
+						dec.DTS = dec.PTS
+					}
+					videoTs = dec.DTS / 90
+					videoCts = cts / 90
+					video = dec.Payload
+				} else {
+					video = append(video, dec.Payload...)
+				}
 			}
 		case StartCodeAudio:
-			if dec.PTS != 0 {
-				ts = dec.PTS
-			}
 			if err = dec.decPESPacket(); err == nil {
-				pushAudio(ts/8, dec.Payload)
+				if dec.PTS != 0 {
+					pushAudio(dec.PTS/8, dec.Payload)
+				} else {
+					pushAudio(ts/8, dec.Payload)
+				}
 			}
 		}
 		if err != nil {
@@ -286,44 +299,37 @@ func (dec *DecPSPackage) decPESPacket() error {
 	if err != nil {
 		return err
 	}
-
-	if err = dec.Skip(1); err != nil {
-		return err
-	}
-	flag, err := dec.Uint8()
+	payload, err := dec.Bytes(int(payloadlen))
 	if err != nil {
 		return err
 	}
-	ptsFlag := flag >> 7
-	dtsFlag := (flag & 0b0100_000) >> 6
+	flag := payload[1]
+	ptsFlag := flag>>7 == 1
+	dtsFlag := (flag&0b0100_000)>>6 == 1
 	var pts, dts uint32
 	payloadlen -= 2
-	pesHeaderDataLen, err := dec.Uint8()
+	pesHeaderDataLen := payload[2]
 	if err != nil {
 		return err
 	}
-	payloadlen -= uint16(pesHeaderDataLen) + 1
-
-	if extraData, err := dec.Bytes(int(pesHeaderDataLen)); err != nil {
-		return err
-	} else {
-		if ptsFlag == 1 && len(extraData) > 4 {
-			pts = uint32(extraData[0]&0b0000_1110) << 29
-			pts += uint32(extraData[1]) << 22
-			pts += uint32(extraData[2]&0b1111_1110) << 14
-			pts += uint32(extraData[3]) << 7
-			pts += uint32(extraData[4]) >> 1
-			if dtsFlag == 1 && len(extraData) > 9 {
-				dts = uint32(extraData[5]&0b0000_1110) << 29
-				dts += uint32(extraData[6]) << 22
-				dts += uint32(extraData[7]&0b1111_1110) << 14
-				dts += uint32(extraData[8]) << 7
-				dts += uint32(extraData[9]) >> 1
-			}
+	payload = payload[3:]
+	extraData := payload[:pesHeaderDataLen]
+	if ptsFlag && len(extraData) > 4 {
+		pts = uint32(extraData[0]&0b0000_1110) << 29
+		pts += uint32(extraData[1]) << 22
+		pts += uint32(extraData[2]&0b1111_1110) << 14
+		pts += uint32(extraData[3]) << 7
+		pts += uint32(extraData[4]) >> 1
+		if dtsFlag && len(extraData) > 9 {
+			dts = uint32(extraData[5]&0b0000_1110) << 29
+			dts += uint32(extraData[6]) << 22
+			dts += uint32(extraData[7]&0b1111_1110) << 14
+			dts += uint32(extraData[8]) << 7
+			dts += uint32(extraData[9]) >> 1
 		}
 	}
 	dec.PTS = pts
 	dec.DTS = dts
-	dec.Payload, err = dec.Bytes(int(payloadlen))
+	dec.Payload = payload[pesHeaderDataLen:]
 	return err
 }
