@@ -47,10 +47,12 @@ var (
 	ErrFormatPack        = errors.New("not package standard")
 	ErrParsePakcet       = errors.New("parse ps packet error")
 )
+
 type Pusher interface {
 	PushVideo(uint32, uint32, []byte)
 	PushAudio(uint32, []byte)
 }
+
 /*
  This implement from VLC source code
  notes: https://github.com/videolan/vlc/blob/master/modules/mux/mpeg/bits.h
@@ -129,7 +131,18 @@ func (dec *DecPSPackage) clean() {
 	dec.PTS = 0
 	dec.DTS = 0
 }
-
+func (dec *DecPSPackage) ReadPayload() (buf buffer.RawBuffer, err error) {
+	payloadlen, err := dec.Uint16()
+	if err != nil {
+		return
+	}
+	payload, err := dec.Bytes(int(payloadlen))
+	if err != nil {
+		return
+	}
+	buf.LoadBuffer(payload)
+	return
+}
 func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 	dec.clean()
 
@@ -168,7 +181,8 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 		}
 		switch nextStartCode {
 		case StartCodeSYS:
-			err = dec.decSystemHeader()
+			dec.ReadPayload()
+			//err = dec.decSystemHeader()
 		case StartCodeMAP:
 			err = dec.decProgramStreamMap()
 		case StartCodeVideo:
@@ -235,38 +249,35 @@ func (dec *DecPSPackage) decSystemHeader() error {
 }
 
 func (dec *DecPSPackage) decProgramStreamMap() error {
-	psm, err := dec.Uint16()
+	psm, err := dec.ReadPayload()
 	if err != nil {
 		return err
 	}
 	//drop psm version infor
-	if err = dec.Skip(2); err != nil {
+	if err = psm.Skip(2); err != nil {
 		return err
 	}
-	psm -= 2
 
-	programStreamInfoLen, err := dec.Uint16()
+	programStreamInfoLen, err := psm.Uint16()
 	if err != nil {
 		return err
 	}
-	if err = dec.Skip(int(programStreamInfoLen)); err != nil {
+	if err = psm.Skip(int(programStreamInfoLen)); err != nil {
 		return err
 	}
-	psm -= programStreamInfoLen + 2
 
-	programStreamMapLen, err := dec.Uint16()
+	programStreamMapLen, err := psm.Uint16()
 	if err != nil {
 		return err
 	}
-	psm -= 2 + programStreamMapLen
 
 	for programStreamMapLen > 0 {
-		streamType, err := dec.Uint8()
+		streamType, err := psm.Uint8()
 		if err != nil {
 			return err
 		}
 
-		elementaryStreamID, err := dec.Uint8()
+		elementaryStreamID, err := psm.Uint8()
 		if err != nil {
 			return err
 		}
@@ -277,22 +288,14 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 			dec.AudioStreamType = uint32(streamType)
 		}
 
-		elementaryStreamInfoLength, err := dec.Uint16()
+		elementaryStreamInfoLength, err := psm.Uint16()
 		if err != nil {
 			return err
 		}
-		if err = dec.Skip(int(elementaryStreamInfoLength)); err != nil {
+		if err = psm.Skip(int(elementaryStreamInfoLength)); err != nil {
 			return err
 		}
 		programStreamMapLen -= 4 + elementaryStreamInfoLength
-	}
-
-	// crc 32
-	if psm != 4 {
-		return ErrFormatPack
-	}
-	if err = dec.Skip(4); err != nil {
-		return err
 	}
 	return nil
 }
