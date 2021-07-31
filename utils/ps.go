@@ -306,15 +306,14 @@ func (dec *DecPSPackage) decPESPacket() error {
 	if err != nil {
 		return err
 	}
+	if len(payload) < 4 {
+		return errors.New("not enough data")
+	}
 	flag := payload[1]
 	ptsFlag := flag>>7 == 1
 	dtsFlag := (flag&0b0100_000)>>6 == 1
 	var pts, dts uint32
-	payloadlen -= 2
 	pesHeaderDataLen := payload[2]
-	if err != nil {
-		return err
-	}
 	payload = payload[3:]
 	extraData := payload[:pesHeaderDataLen]
 	if ptsFlag && len(extraData) > 4 {
