@@ -47,7 +47,10 @@ var (
 	ErrFormatPack        = errors.New("not package standard")
 	ErrParsePakcet       = errors.New("parse ps packet error")
 )
-
+type Pusher interface {
+	PushVideo(uint32, uint32, []byte)
+	PushAudio(uint32, []byte)
+}
 /*
  This implement from VLC source code
  notes: https://github.com/videolan/vlc/blob/master/modules/mux/mpeg/bits.h
@@ -127,7 +130,7 @@ func (dec *DecPSPackage) clean() {
 	dec.DTS = 0
 }
 
-func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uint32, []byte), pushAudio func(uint32, []byte)) error {
+func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 	dec.clean()
 
 	// 加载数据
@@ -155,7 +158,7 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uin
 	var videoTs, videoCts uint32
 	defer func() {
 		if video != nil {
-			pushVideo(videoTs, videoCts, video)
+			pusher.PushVideo(videoTs, videoCts, video)
 		}
 	}()
 	for {
@@ -190,9 +193,9 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pushVideo func(uint32, uin
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
 				if dec.PTS != 0 {
-					pushAudio(dec.PTS/8, dec.Payload)
+					pusher.PushAudio(dec.PTS/8, dec.Payload)
 				} else {
-					pushAudio(ts/8, dec.Payload)
+					pusher.PushAudio(ts/8, dec.Payload)
 				}
 			}
 		}

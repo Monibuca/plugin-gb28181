@@ -14,6 +14,12 @@ type Publisher struct {
 	pushAudio func(uint32, []byte)
 }
 
+func (p *Publisher) PushVideo(ts uint32, cts uint32, payload []byte) {
+	p.pushVideo(ts, cts, payload)
+}
+func (p *Publisher) PushAudio(ts uint32, payload []byte) {
+	p.pushAudio(ts, payload)
+}
 func (p *Publisher) Publish() (result bool) {
 	if result = p.Stream.Publish(); result {
 		p.pushVideo = func(ts uint32, cts uint32, payload []byte) {
@@ -56,7 +62,7 @@ func (p *Publisher) Publish() (result bool) {
 func (p *Publisher) PushPS(ps []byte, ts uint32) {
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.psPacket != nil {
-			p.parser.Read(p.psPacket, ts, p.pushVideo, p.pushAudio)
+			p.parser.Read(p.psPacket, ts, p)
 			p.psPacket = nil
 		}
 		p.psPacket = append(p.psPacket, ps...)
