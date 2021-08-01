@@ -3,7 +3,7 @@ package utils
 import (
 	"errors"
 
-	"github.com/mask-pp/rtp-ps/buffer"
+	"github.com/Monibuca/utils/v3"
 )
 
 //
@@ -59,53 +59,53 @@ type Pusher interface {
 */
 
 //bitsBuffer bits buffer
-type bitsBuffer struct {
-	iSize int
-	iData int
-	iMask uint8
-	pData []byte
-}
+// type bitsBuffer struct {
+// 	iSize int
+// 	iData int
+// 	iMask uint8
+// 	pData []byte
+// }
 
-func bitsInit(isize int, buffer []byte) *bitsBuffer {
+// func bitsInit(isize int, buffer []byte) *bitsBuffer {
 
-	bits := &bitsBuffer{
-		iSize: isize,
-		iData: 0,
-		iMask: 0x80,
-		pData: buffer,
-	}
-	if bits.pData == nil {
-		bits.pData = make([]byte, isize)
-	}
-	return bits
-}
+// 	bits := &bitsBuffer{
+// 		iSize: isize,
+// 		iData: 0,
+// 		iMask: 0x80,
+// 		pData: buffer,
+// 	}
+// 	if bits.pData == nil {
+// 		bits.pData = make([]byte, isize)
+// 	}
+// 	return bits
+// }
 
-func bitsAlign(bits *bitsBuffer) {
+// func bitsAlign(bits *bitsBuffer) {
 
-	if bits.iMask != 0x80 && bits.iData < bits.iSize {
-		bits.iMask = 0x80
-		bits.iData++
-		bits.pData[bits.iData] = 0x00
-	}
-}
-func bitsWrite(bits *bitsBuffer, count int, src uint64) *bitsBuffer {
+// 	if bits.iMask != 0x80 && bits.iData < bits.iSize {
+// 		bits.iMask = 0x80
+// 		bits.iData++
+// 		bits.pData[bits.iData] = 0x00
+// 	}
+// }
+// func bitsWrite(bits *bitsBuffer, count int, src uint64) *bitsBuffer {
 
-	for count > 0 {
-		count--
-		if ((src >> uint(count)) & 0x01) != 0 {
-			bits.pData[bits.iData] |= bits.iMask
-		} else {
-			bits.pData[bits.iData] &= ^bits.iMask
-		}
-		bits.iMask >>= 1
-		if bits.iMask == 0 {
-			bits.iData++
-			bits.iMask = 0x80
-		}
-	}
+// 	for count > 0 {
+// 		count--
+// 		if ((src >> uint(count)) & 0x01) != 0 {
+// 			bits.pData[bits.iData] |= bits.iMask
+// 		} else {
+// 			bits.pData[bits.iData] &= ^bits.iMask
+// 		}
+// 		bits.iMask >>= 1
+// 		if bits.iMask == 0 {
+// 			bits.iData++
+// 			bits.iMask = 0x80
+// 		}
+// 	}
 
-	return bits
-}
+// 	return bits
+// }
 
 /*
 https://github.com/videolan/vlc/blob/master/modules/demux/mpeg
@@ -117,7 +117,7 @@ type DecPSPackage struct {
 
 	VideoStreamType uint32
 	AudioStreamType uint32
-	buffer.RawBuffer
+	IOBuffer
 	Payload []byte
 	PTS     uint32
 	DTS     uint32
@@ -131,35 +131,27 @@ func (dec *DecPSPackage) clean() {
 	dec.PTS = 0
 	dec.DTS = 0
 }
-func (dec *DecPSPackage) ReadPayload() (buf buffer.RawBuffer, err error) {
+
+func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	payloadlen, err := dec.Uint16()
 	if err != nil {
 		return
 	}
-	payload, err := dec.Bytes(int(payloadlen))
-	if err != nil {
-		return
-	}
-	buf.LoadBuffer(payload)
-	return
+	return dec.ReadN(int(payloadlen))
 }
+
 func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
+	var nextStartCode uint32
 	dec.clean()
 
 	// 加载数据
-	dec.LoadBuffer(data)
+	dec.Write(data)
 
-	if startcode, err := dec.Uint32(); err != nil {
-		return err
-	} else if startcode != StartCodePS {
-		return ErrNotFoundStartCode
-	}
-
-	if err := dec.Skip(9); err != nil {
+	if err := dec.Skip(5); err != nil {
 		return err
 	}
 
-	psl, err := dec.Uint8()
+	psl, err := dec.ReadByte()
 	if err != nil {
 		return err
 	}
@@ -172,10 +164,16 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 	defer func() {
 		if video != nil {
 			pusher.PushVideo(videoTs, videoCts, video)
+			video = nil
+		}
+		if nextStartCode == StartCodePS {
+			data = dec.Bytes()
+			dec.Reset()
+			err = dec.Read(data, ts, pusher)
 		}
 	}()
-	for {
-		nextStartCode, err := dec.Uint32()
+	for err != nil {
+		nextStartCode, err = dec.Uint32()
 		if err != nil {
 			return err
 		}
@@ -199,10 +197,10 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 					}
 					videoTs = dec.DTS / 90
 					videoCts = cts / 90
-					video = dec.Payload
-				} else {
-					video = append(video, dec.Payload...)
 				}
+				video = append(video, dec.Payload...)
+			} else {
+				utils.Println("video", err)
 			}
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
@@ -211,16 +209,19 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 				} else {
 					pusher.PushAudio(ts/8, dec.Payload)
 				}
+			} else {
+				utils.Println("audio", err)
 			}
-		case HaiKangCode:
+		case StartCodePS:
+			return nil
+		default:
 			dec.ReadPayload()
 		}
-		if err != nil {
-			return err
-		}
 	}
+	return err
 }
 
+/*
 func (dec *DecPSPackage) decSystemHeader() error {
 	syslens, err := dec.Uint16()
 	if err != nil {
@@ -249,65 +250,39 @@ func (dec *DecPSPackage) decSystemHeader() error {
 	}
 	return nil
 }
-
+*/
 func (dec *DecPSPackage) decProgramStreamMap() error {
 	psm, err := dec.ReadPayload()
 	if err != nil {
 		return err
 	}
-	//drop psm version infor
-	if err = psm.Skip(2); err != nil {
-		return err
-	}
-
-	programStreamInfoLen, err := psm.Uint16()
-	if err != nil {
-		return err
-	}
-	if err = psm.Skip(int(programStreamInfoLen)); err != nil {
-		return err
-	}
-
-	programStreamMapLen, err := psm.Uint16()
-	if err != nil {
-		return err
-	}
-
+	index := 2
+	programStreamInfoLen := utils.BigEndian.Uint16(psm[index:])
+	index += 2
+	index += int(programStreamInfoLen)
+	programStreamMapLen := utils.BigEndian.Uint16(psm[index:])
+	index += 2
 	for programStreamMapLen > 0 {
-		streamType, err := psm.Uint8()
-		if err != nil {
-			return err
-		}
-
-		elementaryStreamID, err := psm.Uint8()
-		if err != nil {
-			return err
-		}
-
+		streamType := psm[index]
+		index++
+		elementaryStreamID := psm[index]
+		index++
 		if elementaryStreamID >= 0xe0 && elementaryStreamID <= 0xef {
 			dec.VideoStreamType = uint32(streamType)
 		} else if elementaryStreamID >= 0xc0 && elementaryStreamID <= 0xdf {
 			dec.AudioStreamType = uint32(streamType)
 		}
 
-		elementaryStreamInfoLength, err := psm.Uint16()
-		if err != nil {
-			return err
-		}
-		if err = psm.Skip(int(elementaryStreamInfoLength)); err != nil {
-			return err
-		}
+		elementaryStreamInfoLength := utils.BigEndian.Uint16(psm[index:])
+		index += 2
+		index += int(elementaryStreamInfoLength)
 		programStreamMapLen -= 4 + elementaryStreamInfoLength
 	}
 	return nil
 }
 
 func (dec *DecPSPackage) decPESPacket() error {
-	payloadlen, err := dec.Uint16()
-	if err != nil {
-		return err
-	}
-	payload, err := dec.Bytes(int(payloadlen))
+	payload, err := dec.ReadPayload()
 	if err != nil {
 		return err
 	}

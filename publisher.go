@@ -62,7 +62,7 @@ func (p *Publisher) Publish() (result bool) {
 func (p *Publisher) PushPS(ps []byte, ts uint32) {
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.psPacket != nil {
-			p.parser.Read(p.psPacket, ts, p)
+			p.parser.Read(p.psPacket[4:], ts, p)
 			p.psPacket = nil
 		}
 		p.psPacket = append(p.psPacket, ps...)
