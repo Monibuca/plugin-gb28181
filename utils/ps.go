@@ -212,6 +212,8 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 					pusher.PushAudio(ts/8, dec.Payload)
 				}
 			}
+		case HaiKangCode:
+			dec.ReadPayload()
 		}
 		if err != nil {
 			return err
@@ -312,9 +314,10 @@ func (dec *DecPSPackage) decPESPacket() error {
 	if len(payload) < 4 {
 		return errors.New("not enough data")
 	}
+	//data_alignment_indicator := (payload[0]&0b0001_0000)>>4 == 1
 	flag := payload[1]
 	ptsFlag := flag>>7 == 1
-	dtsFlag := (flag&0b0100_000)>>6 == 1
+	dtsFlag := (flag&0b0100_0000)>>6 == 1
 	var pts, dts uint32
 	pesHeaderDataLen := payload[2]
 	payload = payload[3:]
