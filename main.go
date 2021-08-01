@@ -275,7 +275,7 @@ func listenMedia() {
 			Println("gb28181 decode rtp error:", err)
 		}
 		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
-			publisher.PushPS(rtpPacket.Payload, rtpPacket.Timestamp)
+			publisher.PushPS(&rtpPacket)
 		}
 	}
 }

@@ -4,14 +4,15 @@ import (
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	. "github.com/Monibuca/utils/v3"
+	"github.com/pion/rtp"
 )
 
 type Publisher struct {
 	*engine.Stream
-	psPacket  []byte
 	parser    utils.DecPSPackage
 	pushVideo func(uint32, uint32, []byte)
 	pushAudio func(uint32, []byte)
+	lastSeq   uint16
 }
 
 func (p *Publisher) PushVideo(ts uint32, cts uint32, payload []byte) {
@@ -59,14 +60,24 @@ func (p *Publisher) Publish() (result bool) {
 	}
 	return
 }
-func (p *Publisher) PushPS(ps []byte, ts uint32) {
-	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
-		if p.psPacket != nil {
-			p.parser.Read(p.psPacket[4:], ts, p)
-			p.psPacket = nil
+func (p *Publisher) PushPS(rtp *rtp.Packet) {
+	ps := rtp.Payload
+	if p.lastSeq != 0 {
+		// rtp序号不连续，丢弃PS
+		if p.lastSeq+1 != rtp.SequenceNumber {
+			p.parser.Reset()
 		}
-		p.psPacket = append(p.psPacket, ps...)
-	} else if p.psPacket != nil {
-		p.psPacket = append(p.psPacket, ps...)
+	}
+	p.lastSeq = rtp.SequenceNumber
+	p.Update()
+	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
+		if p.parser.Len() > 0 {
+			p.parser.Uint32()
+			p.parser.Read(rtp.Timestamp, p)
+			p.parser.Reset()
+		}
+		p.parser.Write(ps)
+	} else if p.parser.Len() > 0 {
+		p.parser.Write(ps)
 	}
 }

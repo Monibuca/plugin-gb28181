@@ -140,12 +140,9 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	return dec.ReadN(int(payloadlen))
 }
 
-func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
+func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 	var nextStartCode uint32
 	dec.clean()
-	dec.Reset()
-	// 加载数据
-	dec.Write(data)
 
 	if err := dec.Skip(9); err != nil {
 		return err
@@ -167,7 +164,7 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 			video = nil
 		}
 		if nextStartCode == StartCodePS {
-			err = dec.Read(dec.Bytes(), ts, pusher)
+			err = dec.Read(ts, pusher)
 		}
 	}()
 	for err == nil {
@@ -202,11 +199,12 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 			}
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
+				var payload []byte
+				ts := ts >> 3
 				if dec.PTS != 0 {
-					pusher.PushAudio(dec.PTS/8, dec.Payload)
-				} else {
-					pusher.PushAudio(ts/8, dec.Payload)
+					ts = dec.PTS >> 3
 				}
+				pusher.PushAudio(ts, append(payload, dec.Payload...))
 			} else {
 				utils.Println("audio", err)
 			}
