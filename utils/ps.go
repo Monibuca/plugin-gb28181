@@ -147,7 +147,7 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 	// 加载数据
 	dec.Write(data)
 
-	if err := dec.Skip(5); err != nil {
+	if err := dec.Skip(9); err != nil {
 		return err
 	}
 
