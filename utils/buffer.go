@@ -19,11 +19,9 @@ func (r *IOBuffer) Uint16() (uint16, error) {
 	return 0, ErrEOF
 }
 
-func (r *IOBuffer) Skip(n int) error {
-	if r.Len() >= n {
-		return nil
-	}
-	return ErrEOF
+func (r *IOBuffer) Skip(n int) (err error) {
+	_, err = r.ReadN(n)
+	return
 }
 
 func (r *IOBuffer) Uint32() (uint32, error) {

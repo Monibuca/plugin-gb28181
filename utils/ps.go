@@ -143,7 +143,7 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 	var nextStartCode uint32
 	dec.clean()
-
+	dec.Reset()
 	// 加载数据
 	dec.Write(data)
 
@@ -167,9 +167,7 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 			video = nil
 		}
 		if nextStartCode == StartCodePS {
-			data = dec.Bytes()
-			dec.Reset()
-			err = dec.Read(data, ts, pusher)
+			err = dec.Read(dec.Bytes(), ts, pusher)
 		}
 	}()
 	for err == nil {
