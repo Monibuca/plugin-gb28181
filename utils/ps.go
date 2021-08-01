@@ -172,7 +172,7 @@ func (dec *DecPSPackage) Read(data []byte, ts uint32, pusher Pusher) error {
 			err = dec.Read(data, ts, pusher)
 		}
 	}()
-	for err != nil {
+	for err == nil {
 		nextStartCode, err = dec.Uint32()
 		if err != nil {
 			return err
