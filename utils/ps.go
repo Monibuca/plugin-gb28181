@@ -252,6 +252,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	if err != nil {
 		return err
 	}
+	l := len(psm)
 	index := 2
 	programStreamInfoLen := utils.BigEndian.Uint16(psm[index:])
 	index += 2
@@ -259,6 +260,9 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	programStreamMapLen := utils.BigEndian.Uint16(psm[index:])
 	index += 2
 	for programStreamMapLen > 0 {
+		if l <= index+1 {
+			break
+		}
 		streamType := psm[index]
 		index++
 		elementaryStreamID := psm[index]
@@ -268,7 +272,9 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 		} else if elementaryStreamID >= 0xc0 && elementaryStreamID <= 0xdf {
 			dec.AudioStreamType = uint32(streamType)
 		}
-
+		if l <= index+1 {
+			break
+		}
 		elementaryStreamInfoLength := utils.BigEndian.Uint16(psm[index:])
 		index += 2
 		index += int(elementaryStreamInfoLength)
