@@ -13,7 +13,8 @@ import (
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-	. "github.com/Monibuca/utils/v3"
+    "github.com/Monibuca/plugin-gb28181/v3/utils"
+    . "github.com/Monibuca/utils/v3"
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
 	"golang.org/x/net/html/charset"
@@ -217,7 +218,11 @@ func run() {
 			}{}
 			decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
 			decoder.CharsetReader = charset.NewReaderLabel
-			decoder.Decode(temp)
+			err := decoder.Decode(temp)
+            if err != nil {
+                err = utils.DecodeGbk(temp, []byte(msg.Body))
+                log.Printf("decode catelog err: %s", err)
+            }
 			switch temp.XMLName.Local {
 			case "Notify":
 				if d.Channels == nil {
