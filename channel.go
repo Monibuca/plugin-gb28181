@@ -43,7 +43,7 @@ type Channel struct {
 	Secrecy      int
 	Status       string
 	Children     []*Channel
-	*ChannelEx    //自定义属性
+	*ChannelEx   //自定义属性
 }
 
 func (c *Channel) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
@@ -140,6 +140,7 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (channel *Channel) Invite(start, end string) int {
+	channel.Bye()
 	sint, err1 := strconv.ParseInt(start, 10, 0)
 	eint, err2 := strconv.ParseInt(end, 10, 0)
 	d := channel.device
