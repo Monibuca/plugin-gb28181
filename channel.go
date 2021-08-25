@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Monibuca/engine/v3"
@@ -25,6 +26,7 @@ type ChannelEx struct {
 	RecordEndTime   string
 	recordStartTime time.Time
 	recordEndTime   time.Time
+	state           int32
 }
 
 // Channel 通道
@@ -139,7 +141,17 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (channel *Channel) Invite(start, end string) int {
+func (channel *Channel) Invite(start, end string) (code int) {
+	if start == "" {
+		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
+			return 304
+		}
+		defer func() {
+			if code != 200 {
+				atomic.StoreInt32(&channel.state, 0)
+			}
+		}()
+	}
 	channel.Bye()
 	sint, err1 := strconv.ParseInt(start, 10, 0)
 	eint, err2 := strconv.ParseInt(end, 10, 0)
@@ -214,6 +226,11 @@ func (channel *Channel) Invite(start, end string) int {
 				publishers.Remove(SSRC)
 				channel.LivePublisher = nil
 				channel.ByeBye(channel.inviteRes)
+				channel.inviteRes = nil
+				atomic.StoreInt32(&channel.state, 0)
+				if config.AutoInvite {
+					go channel.Invite("", "")
+				}
 			}
 		} else {
 			publisher.Type = "GB18181 Record"
@@ -221,9 +238,9 @@ func (channel *Channel) Invite(start, end string) int {
 				publishers.Remove(SSRC)
 				channel.RecordPublisher = nil
 				channel.ByeBye(channel.recordInviteRes)
+				channel.recordInviteRes = nil
 			}
 		}
-
 		if !publisher.Publish() {
 			return 403
 		}
@@ -246,6 +263,7 @@ func (channel *Channel) Invite(start, end string) int {
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
 	}
+
 	return response.Code
 }
 func (channel *Channel) Bye() int {
