@@ -221,7 +221,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			},
 		}
 		if start == "" {
-			publisher.Type = "GB18181 Live"
+			publisher.Type = "GB28181 Live"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.LivePublisher = nil
@@ -233,7 +233,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				}
 			}
 		} else {
-			publisher.Type = "GB18181 Record"
+			publisher.Type = "GB28181 Record"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.RecordPublisher = nil
