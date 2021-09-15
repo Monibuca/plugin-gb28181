@@ -58,6 +58,13 @@ func (d *Device) addChannel(channel *Channel) {
 	}
 	d.Channels = append(d.Channels, channel)
 }
+func (d *Device) UpdateChannelsDevice() {
+	d.channelMutex.Lock()
+	defer d.channelMutex.Unlock()
+	for _, c := range d.channelMap {
+		c.device = d
+	}
+}
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
