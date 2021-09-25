@@ -21,10 +21,14 @@ import (
 )
 
 var (
-	Devices    sync.Map
-	Ignores    = make(map[string]struct{})
-	publishers Publishers
+	Devices             sync.Map
+	DeviceNonce         = make(map[string]string) //保存nonce防止设备伪造
+	DeviceRegisterCount = make(map[string]int)    //设备注册次数
+	Ignores             = make(map[string]struct{})
+	publishers          Publishers
 )
+
+const MaxRegisterCount = 3
 
 func FindChannel(deviceId string, channelId string) (c *Channel) {
 	if v, ok := Devices.Load(deviceId); ok {
@@ -58,17 +62,20 @@ func (p *Publishers) Get(key uint32) *Publisher {
 }
 
 var config = struct {
-	Serial          string
-	Realm           string
-	ListenAddr      string
-	Expires         int
-	MediaPort       uint16
-	AutoInvite      bool
-	AutoUnPublish   bool
-	Ignore          []string
-	CatalogInterval int
-	PreFetchRecord  bool
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30, false}
+	Serial            string
+	Realm             string
+	ListenAddr        string
+	Expires           int
+	MediaPort         uint16
+	AutoInvite        bool
+	AutoUnPublish     bool
+	Ignore            []string
+	CatalogInterval   int
+	RemoveBanInterval int
+	PreFetchRecord    bool
+	Username          string
+	Password          string
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30, 600, false, "", ""}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -94,6 +101,8 @@ func run() {
 		SipNetwork:        "UDP",
 		Serial:            config.Serial,
 		Realm:             config.Realm,
+		Username:          config.Username,
+		Password:          config.Password,
 		AckTimeout:        10,
 		MediaIP:           ipAddr.IP.String(),
 		RegisterValidity:  config.Expires,
@@ -104,6 +113,7 @@ func run() {
 		WaitKeyFrame:      true,
 		MediaIdleTimeout:  30,
 		CatalogInterval:   config.CatalogInterval,
+		RemoveBanInterval: config.RemoveBanInterval,
 	}
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
@@ -192,16 +202,43 @@ func run() {
 			SipIP:        config.MediaIP,
 			channelMap:   make(map[string]*Channel),
 		}
-		if old, ok := Devices.Load(id); !ok {
-			go d.Query()
-		} else {
-			oldD := old.(*Device)
-			d.RegisterTime = oldD.RegisterTime
-			d.channelMap = oldD.channelMap
-			d.UpdateChannelsDevice()
-			d.Status = oldD.Status
+		// 不需要密码情况
+		if config.Username == "" && config.Password == "" {
+			onRegister(s, config, d)
+			return
 		}
-		Devices.Store(id, d)
+		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
+		username := config.Username
+		if msg.Authorization.GetUsername() == id {
+			username = id
+		}
+		sendUnauthorized := func() {
+			response := msg.BuildResponseWithPhrase(401, "Unauthorized")
+			if DeviceNonce[d.ID] == "" {
+				nonce := utils.RandNumString(32)
+				DeviceNonce[d.ID] = nonce
+			}
+			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[d.ID], sip.DIGEST_ALGO_MD5)
+			s.Send(response)
+		}
+		if DeviceRegisterCount[d.ID] >= MaxRegisterCount {
+			s.Send(msg.BuildResponse(403))
+			return
+		}
+		// 需要密码情况 设备第一次上报，返回401和加密算法
+		if msg.Authorization == nil || msg.Authorization.GetUsername() == "" {
+			sendUnauthorized()
+			return
+		}
+		// 设备第二次上报，校验
+		if !msg.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[d.ID]) {
+			sendUnauthorized()
+			DeviceRegisterCount[d.ID] += 1
+			return
+		}
+		onRegister(s, config, d)
+		delete(DeviceNonce, d.ID)
+		delete(DeviceRegisterCount, d.ID)
 	}
 	s.OnMessage = func(msg *sip.Message) bool {
 		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
@@ -222,7 +259,9 @@ func run() {
 			err := decoder.Decode(temp)
 			if err != nil {
 				err = utils.DecodeGbk(temp, []byte(msg.Body))
-				log.Printf("decode catelog err: %s", err)
+				if err != nil {
+					log.Printf("decode catelog err: %s", err)
+				}
 			}
 			switch temp.XMLName.Local {
 			case "Notify":
@@ -253,6 +292,9 @@ func run() {
 	//})
 	go listenMedia()
 	go queryCatalog(config)
+	if config.Username != "" || config.Password != "" {
+		go removeBanDevice(config)
+	}
 	s.Start()
 }
 func listenMedia() {
@@ -298,5 +340,29 @@ func queryCatalog(config *transaction.Config) {
 			}
 			return true
 		})
+	}
+}
+
+func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
+	if old, ok := Devices.Load(d.ID); !ok {
+		go d.Query()
+	} else {
+		oldD := old.(*Device)
+		d.RegisterTime = oldD.RegisterTime
+		d.channelMap = oldD.channelMap
+		d.UpdateChannelsDevice()
+		d.Status = oldD.Status
+	}
+	Devices.Store(d.ID, d)
+}
+
+func removeBanDevice(config *transaction.Config) {
+	t := time.NewTicker(time.Duration(config.RemoveBanInterval) * time.Second)
+	for range t.C {
+		for id, cnt := range DeviceRegisterCount {
+			if cnt >= MaxRegisterCount {
+				delete(DeviceRegisterCount, id)
+			}
+		}
 	}
 }
