@@ -27,7 +27,7 @@ type Message struct {
 	CallID        string   //Call-ID
 	CSeq          *CSeq    //CSeq
 	Contact       *Contact //Contact
-	Authorization string   //Authorization
+	Authorization *Authorization   //Authorization
 	MaxForwards   int      //Max-Forwards
 	UserAgent     string   //User-Agent
 	Subject       string   //Subject
@@ -37,9 +37,14 @@ type Message struct {
 	Route         *Contact
 	Body          string
 	Addr          string
+	WwwAuthenticate *WwwAuthenticate  //gb28181 密码验证 上级发给下级是WwwAuthenticate；下级发给上级是Authorization
 }
 
 func (m *Message) BuildResponse(code int) *Message {
+	return m.BuildResponseWithPhrase(code,"")
+}
+
+func (m *Message) BuildResponseWithPhrase(code int,phrase string) *Message {
 	response := Message{
 		Mode:        SIP_MESSAGE_RESPONSE,
 		From:        m.From,
@@ -50,6 +55,7 @@ func (m *Message) BuildResponse(code int) *Message {
 		MaxForwards: m.MaxForwards,
 		StartLine: &StartLine{
 			Code: code,
+			phrase: phrase,
 		},
 	}
 	return &response
@@ -356,13 +362,17 @@ func Decode(data []byte) (msg *Message, err error) {
 			msg.ContentLength = int(n)
 
 		case "authorization":
-			msg.Authorization = v
+			msg.Authorization = &Authorization{}
+			msg.Authorization.Parse(v)
 
 		case "content-type":
 			msg.ContentType = v
 		case "route":
 			//msg.Route = new(Contact)
 			//msg.Route.Parse(v)
+		case "www-authenticate":
+			msg.WwwAuthenticate = &WwwAuthenticate{}
+			msg.WwwAuthenticate.Parse(v)
 		default:
 			fmt.Printf("invalid sip head: %s,%s\n", k, v)
 		}
@@ -434,6 +444,12 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString(CRLF)
 	}
 
+	if msg.WwwAuthenticate != nil {
+		sb.WriteString("WWW-Authenticate:")
+		sb.WriteString(msg.WwwAuthenticate.String())
+		sb.WriteString(CRLF)
+	}
+
 	if msg.IsRequest() {
 		//request only
 
@@ -441,9 +457,9 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString(strconv.Itoa(msg.MaxForwards))
 		sb.WriteString(CRLF)
 
-		if msg.Authorization != "" {
+		if msg.Authorization != nil {
 			sb.WriteString("Authorization: ")
-			sb.WriteString(msg.Authorization)
+			sb.WriteString(msg.Authorization.String())
 			sb.WriteString(CRLF)
 		}
 	} else {

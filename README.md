@@ -25,6 +25,10 @@ AutoUnPublish = true
 AutoInvite = false
 MediaPort = 58200
 CatalogInterval = 30
+RemoveBanInterval = 600
+Username = ""
+Password = ""
+
 ```
 
 - `ListenAddr`是监听的地址，这里需要注意的是必须要带上Server的IP地址，这个IP地址是向设备发送信息的时候需要带上的。
@@ -34,6 +38,12 @@ CatalogInterval = 30
 - `AutoInvite` 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
 - `MediaPort` 表示用于接收设备流的端口号
 - `CatalogInterval` 定时获取设备目录的间隔，单位秒
+- `RemoveBanInterval` 定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
+- `Username` 国标用户名
+- `Password` 国标密码 
+
+**注意某些摄像机没有设置用户名的地方，摄像机会以自身的国标id作为用户名，这个时候m7s会忽略使用摄像机的用户名，忽略配置的用户名**
+如果设备配置了错误的用户名和密码，连续三次上报错误后，m7s会记录设备id，并在10分钟内禁止设备注册
 
 ## 插件功能
 

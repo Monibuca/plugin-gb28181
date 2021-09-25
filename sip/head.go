@@ -1,6 +1,7 @@
 package sip
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"strconv"
@@ -12,10 +13,10 @@ import (
 //windows    :     \n
 //Mac OS     :     \r
 const (
-	VERSION  = "SIP/2.0"  // sip version
-	CRLF     = "\r\n"     // 0x0D0A
-	CRLFCRLF = "\r\n\r\n" // 0x0D0A0D0A
-
+	VERSION         = "SIP/2.0"  // sip version
+	CRLF            = "\r\n"     // 0x0D0A
+	CRLFCRLF        = "\r\n\r\n" // 0x0D0A0D0A
+	DIGEST_ALGO_MD5 = "MD5"
 	//CRLF     = "\n"   // 0x0D
 	//CRLFCRLF = "\n\n" // 0x0D0D
 )
@@ -562,10 +563,139 @@ func parseURI(str string) (ret URI, err error) {
 		arr2 := strings.Split(paramStr, "&")
 		for _, one := range arr2 {
 			tmp := strings.Split(one, "=")
-			k, v := tmp[0], tmp[1]
+			var k, v string
+			if len(tmp) == 2 {
+				k, v = tmp[0], tmp[1]
+			} else {
+				k = tmp[0]
+			}
 			ret.headers[k] = v
 		}
 	}
 
 	return
+}
+
+type WwwAuthenticate struct {
+	realm     string
+	nonce     string
+	algorithm string
+	//opaque string // gb28181不需要这字段，海康有
+}
+
+func NewWwwAuthenticate(realm, nonce, algorithm string) *WwwAuthenticate {
+	return &WwwAuthenticate{
+		realm:     realm,
+		nonce:     nonce,
+		algorithm: algorithm,
+	}
+}
+
+// WWW-Authenticate: Digest realm="hik", nonce="a8afe6fcbee6331d89d3eb0d3d19ce39", opaque="a853e4f25298413f9bf3a9aa6767857d", algorithm=MD5
+func (w *WwwAuthenticate) String() string {
+	return fmt.Sprintf(`Digest realm="%s", nonce="%s", algorithm=%s`, w.realm, w.nonce, w.algorithm)
+}
+
+func (w *WwwAuthenticate) Parse(str string) error {
+	arr := strings.Split(str, ",")
+	for _, s := range arr {
+		tmp := strings.Split(s, "=")
+		if len(tmp) != 2 {
+			continue
+		}
+		v := strings.ReplaceAll(tmp[1], "\"", "")
+		if strings.Contains(tmp[0], "realm") {
+			w.realm = v
+		}
+		if strings.Contains(tmp[0], "nonce") {
+			w.nonce = v
+		}
+		if strings.Contains(tmp[0], "algorithm") {
+			w.algorithm = v
+		}
+	}
+	return nil
+}
+
+type Authorization struct {
+	username  string
+	realm     string
+	nonce     string
+	uri       string
+	response  string
+	algorithm string
+	//opaque string // gb28181不需要这字段，海康有
+}
+
+// Authorization: Digest username="admin", realm="hik", nonce="a8afe6fcbee6331d89d3eb0d3d19ce39", uri="sip:130909115229300920@10.64.49.44:7100", response="907ddb1bcc25174d7de4a96c947fb066", algorithm=MD5, opaque="a853e4f25298413f"
+func (a *Authorization) String() string {
+	return fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", response="%s", algorithm=%s`,
+		a.username, a.realm, a.nonce, a.uri, a.response, a.algorithm)
+}
+
+func (a *Authorization) GetUsername() string {
+	return a.username
+}
+
+func (a *Authorization) Parse(str string) error {
+	arr := strings.Split(str, ",")
+	for _, s := range arr {
+		tmp := strings.Split(s, "=")
+		if len(tmp) != 2 {
+			continue
+		}
+		v := strings.ReplaceAll(tmp[1], "\"", "")
+		if strings.Contains(tmp[0], "username") {
+			a.username = v
+		}
+		if strings.Contains(tmp[0], "realm") {
+			a.realm = v
+		}
+		if strings.Contains(tmp[0], "nonce") {
+			a.nonce = v
+		}
+		if strings.Contains(tmp[0], "uri") {
+			a.uri = v
+		}
+		if strings.Contains(tmp[0], "response") {
+			a.response = v
+		}
+		if strings.Contains(tmp[0], "algorithm") {
+			a.algorithm = strings.Trim(v,"H:")
+		}
+	}
+	return nil
+}
+
+func (a *Authorization) Verify(username, passwd, realm, nonce string) bool {
+
+	//1、将 username,realm,password 依次组合获取 1 个字符串，并用算法加密的到密文 r1
+	s1 := fmt.Sprintf("%s:%s:%s", username, realm, passwd)
+	r1 := a.getDigest(s1)
+	//2、将 method，即REGISTER ,uri 依次组合获取 1 个字符串，并对这个字符串使用算法 加密得到密文 r2
+	s2 := fmt.Sprintf("REGISTER:%s", a.uri)
+	r2 := a.getDigest(s2)
+
+	if r1 == "" || r2 == "" {
+		fmt.Println("Authorization algorithm wrong")
+		return false
+	}
+	//3、将密文 1，nonce 和密文 2 依次组合获取 1 个字符串，并对这个字符串使用算法加密，获得密文 r3，即Response
+	s3 := fmt.Sprintf("%s:%s:%s", r1, nonce, r2)
+	r3 := a.getDigest(s3)
+
+	//4、计算服务端和客户端上报的是否相等
+	if r3 == a.response {
+		return true
+	}
+	return false
+}
+
+func (a *Authorization) getDigest(raw string) string {
+	switch a.algorithm {
+	case DIGEST_ALGO_MD5:
+		return fmt.Sprintf("%x", md5.Sum([]byte(raw)))
+	default: //如果没有算法，默认使用MD5
+		return fmt.Sprintf("%x", md5.Sum([]byte(raw)))
+	}
 }
