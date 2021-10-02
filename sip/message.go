@@ -162,7 +162,7 @@ func (m *Message) GetBranch() string {
 
 	b, ok := m.Via.Params["branch"]
 	if !ok {
-		panic("invalid via paramas branch")
+		return ""
 	}
 
 	return b
