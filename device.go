@@ -40,7 +40,6 @@ type Device struct {
 	UpdateTime        time.Time
 	Status            string
 	Channels          []*Channel
-	queryChannel      bool
 	sn                int
 	from              *sip.Contact
 	to                *sip.Contact
@@ -68,10 +67,6 @@ func (d *Device) UpdateChannelsDevice() {
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	if d.queryChannel {
-		d.Channels = nil
-		d.queryChannel = false
-	}
 	for _, c := range list {
 		if _, ok := Ignores[c.DeviceID]; ok {
 			continue
@@ -89,6 +84,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
+			c.alive = true
 			if len(old.Children) == 0 {
 				if config.PreFetchRecord {
 					n := time.Now()
@@ -149,7 +145,6 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	return
 }
 func (d *Device) Query() int {
-	d.queryChannel = true
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
@@ -162,6 +157,20 @@ func (d *Device) Query() int {
 	response := d.SendMessage(requestMsg)
 	if response.Data != nil && response.Data.Via.Params["received"] != "" {
 		d.SipIP = response.Data.Via.Params["received"]
+	}
+	if response.Code == 200 {
+		d.channelMutex.Lock()
+		var stillAlive []*Channel
+		for _, c := range d.Channels {
+			if !c.alive {
+				delete(d.channelMap, c.DeviceID)
+				continue
+			}
+			c.alive = false
+			stillAlive = append(stillAlive, c)
+		}
+		d.Channels = stillAlive
+		d.channelMutex.Unlock()
 	}
 	return response.Code
 }
