@@ -100,6 +100,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		} else {
 			c.ChannelEx = &ChannelEx{
 				device: d,
+				alive: true,
 			}
 		}
 		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
