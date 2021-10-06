@@ -47,6 +47,10 @@ type Device struct {
 	SipIP             string //暴露的IP
 	channelMap        map[string]*Channel
 	channelMutex      sync.RWMutex
+	subscriber        struct {
+		CallID  string
+		Timeout time.Time
+	}
 }
 
 func (d *Device) addChannel(channel *Channel) {
@@ -84,7 +88,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
-			c.alive = true
 			if len(old.Children) == 0 {
 				if config.PreFetchRecord {
 					n := time.Now()
@@ -100,7 +103,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		} else {
 			c.ChannelEx = &ChannelEx{
 				device: d,
-				alive: true,
 			}
 		}
 		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
@@ -145,6 +147,29 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	}
 	return
 }
+func (d *Device) Subscribe() int {
+	requestMsg := d.CreateMessage(sip.SUBSCRIBE)
+	if d.subscriber.CallID != "" {
+		requestMsg.CallID = d.subscriber.CallID
+	}
+	requestMsg.Expires = 3600
+	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
+	requestMsg.ContentType = "Application/MANSCDP+xml"
+	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
+<Query>
+<CmdType>Catalog</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+</Query>`, d.sn, requestMsg.To.Uri.UserInfo())
+	requestMsg.ContentLength = len(requestMsg.Body)
+	response := d.SendMessage(requestMsg)
+	if response.Code == 200 {
+		d.subscriber.CallID = requestMsg.CallID
+	} else {
+		d.subscriber.CallID = ""
+	}
+	return response.Code
+}
 func (d *Device) Query() int {
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -158,20 +183,6 @@ func (d *Device) Query() int {
 	response := d.SendMessage(requestMsg)
 	if response.Data != nil && response.Data.Via.Params["received"] != "" {
 		d.SipIP = response.Data.Via.Params["received"]
-	}
-	if response.Code == 200 {
-		d.channelMutex.Lock()
-		var stillAlive []*Channel
-		for _, c := range d.Channels {
-			if !c.alive {
-				delete(d.channelMap, c.DeviceID)
-				continue
-			}
-			c.alive = false
-			stillAlive = append(stillAlive, c)
-		}
-		d.Channels = stillAlive
-		d.channelMutex.Unlock()
 	}
 	return response.Code
 }

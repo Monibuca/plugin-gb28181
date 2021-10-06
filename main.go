@@ -265,8 +265,13 @@ func run() {
 			}
 			switch temp.XMLName.Local {
 			case "Notify":
-				if d.Channels == nil {
-					go d.Query()
+				switch temp.CmdType {
+				case "Keeyalive":
+					if time.Now().After(d.subscriber.Timeout) {
+						go d.Subscribe()
+					}
+				case "Catalog":
+					d.UpdateChannels(temp.DeviceList)
 				}
 			case "Response":
 				switch temp.CmdType {
@@ -291,7 +296,7 @@ func run() {
 	//	})
 	//})
 	go listenMedia()
-	go queryCatalog(config)
+	// go queryCatalog(config)
 	if config.Username != "" || config.Password != "" {
 		go removeBanDevice(config)
 	}
@@ -328,20 +333,20 @@ func listenMedia() {
 	}
 }
 
-func queryCatalog(config *transaction.Config) {
-	t := time.NewTicker(time.Duration(config.CatalogInterval) * time.Second)
-	for range t.C {
-		Devices.Range(func(key, value interface{}) bool {
-			device := value.(*Device)
-			if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
-				Devices.Delete(key)
-			} else {
-				go device.Query()
-			}
-			return true
-		})
-	}
-}
+// func queryCatalog(config *transaction.Config) {
+// 	t := time.NewTicker(time.Duration(config.CatalogInterval) * time.Second)
+// 	for range t.C {
+// 		Devices.Range(func(key, value interface{}) bool {
+// 			device := value.(*Device)
+// 			if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
+// 				Devices.Delete(key)
+// 			} else if device.Channels != nil {
+// 				go device.Subscribe()
+// 			}
+// 			return true
+// 		})
+// 	}
+// }
 
 func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
 	if old, ok := Devices.Load(d.ID); !ok {

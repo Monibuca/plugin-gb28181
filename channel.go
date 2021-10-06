@@ -26,7 +26,6 @@ type ChannelEx struct {
 	RecordEndTime   string
 	recordStartTime time.Time
 	recordEndTime   time.Time
-	alive           bool
 	state           int32
 }
 
