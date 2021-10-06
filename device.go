@@ -104,6 +104,9 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
+			if config.AutoInvite {
+				go c.Invite("", "")
+			}
 		}
 		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.StreamPath
