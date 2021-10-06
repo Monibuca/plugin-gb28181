@@ -153,6 +153,7 @@ func (d *Device) Subscribe() int {
 		requestMsg.CallID = d.subscriber.CallID
 	}
 	requestMsg.Expires = 3600
+	requestMsg.Event = "Catalog"
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>

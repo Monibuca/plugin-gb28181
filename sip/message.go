@@ -20,31 +20,32 @@ import (
 type Message struct {
 	Mode Mode //0:REQUEST, 1:RESPONSE
 
-	StartLine     *StartLine
-	Via           *Via     //Via
-	From          *Contact //From
-	To            *Contact //To
-	CallID        string   //Call-ID
-	CSeq          *CSeq    //CSeq
-	Contact       *Contact //Contact
-	Authorization *Authorization   //Authorization
-	MaxForwards   int      //Max-Forwards
-	UserAgent     string   //User-Agent
-	Subject       string   //Subject
-	ContentType   string   //Content-Type
-	Expires       int      //Expires
-	ContentLength int      //Content-Length
-	Route         *Contact
-	Body          string
-	Addr          string
-	WwwAuthenticate *WwwAuthenticate  //gb28181 密码验证 上级发给下级是WwwAuthenticate；下级发给上级是Authorization
+	StartLine       *StartLine
+	Via             *Via           //Via
+	From            *Contact       //From
+	To              *Contact       //To
+	CallID          string         //Call-ID
+	CSeq            *CSeq          //CSeq
+	Contact         *Contact       //Contact
+	Authorization   *Authorization //Authorization
+	MaxForwards     int            //Max-Forwards
+	UserAgent       string         //User-Agent
+	Subject         string         //Subject
+	ContentType     string         //Content-Type
+	Expires         int            //Expires
+	ContentLength   int            //Content-Length
+	Route           *Contact
+	Body            string
+	Addr            string
+	Event           string
+	WwwAuthenticate *WwwAuthenticate //gb28181 密码验证 上级发给下级是WwwAuthenticate；下级发给上级是Authorization
 }
 
 func (m *Message) BuildResponse(code int) *Message {
-	return m.BuildResponseWithPhrase(code,"")
+	return m.BuildResponseWithPhrase(code, "")
 }
 
-func (m *Message) BuildResponseWithPhrase(code int,phrase string) *Message {
+func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 	response := Message{
 		Mode:        SIP_MESSAGE_RESPONSE,
 		From:        m.From,
@@ -54,7 +55,7 @@ func (m *Message) BuildResponseWithPhrase(code int,phrase string) *Message {
 		Via:         m.Via,
 		MaxForwards: m.MaxForwards,
 		StartLine: &StartLine{
-			Code: code,
+			Code:   code,
 			phrase: phrase,
 		},
 	}
@@ -373,6 +374,8 @@ func Decode(data []byte) (msg *Message, err error) {
 		case "www-authenticate":
 			msg.WwwAuthenticate = &WwwAuthenticate{}
 			msg.WwwAuthenticate.Parse(v)
+		case "event":
+			msg.Event = v
 		default:
 			fmt.Printf("invalid sip head: %s,%s\n", k, v)
 		}
@@ -445,11 +448,16 @@ func Encode(msg *Message) ([]byte, error) {
 	}
 
 	if msg.WwwAuthenticate != nil {
-		sb.WriteString("WWW-Authenticate:")
+		sb.WriteString("WWW-Authenticate: ")
 		sb.WriteString(msg.WwwAuthenticate.String())
 		sb.WriteString(CRLF)
 	}
 
+	if msg.Event != "" {
+		sb.WriteString("Event: ")
+		sb.WriteString(msg.Event)
+		sb.WriteString(CRLF)
+	}
 	if msg.IsRequest() {
 		//request only
 
