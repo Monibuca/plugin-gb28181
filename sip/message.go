@@ -44,7 +44,9 @@ type Message struct {
 func (m *Message) BuildResponse(code int) *Message {
 	return m.BuildResponseWithPhrase(code, "")
 }
-
+func (m *Message) BuildOK() *Message {
+	return m.BuildResponseWithPhrase(200, "OK")
+}
 func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 	response := Message{
 		Mode:        SIP_MESSAGE_RESPONSE,

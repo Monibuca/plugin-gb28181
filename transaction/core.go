@@ -79,7 +79,7 @@ func (c *Core) initTransaction(ctx context.Context, tid string, m *sip.Message) 
 		startAt:  time.Now(),
 		endAt:    time.Now().Add(1000000 * time.Hour),
 	}
-	ta.Context, ta.cancel = context.WithTimeout(ctx,time.Second*5)
+	ta.Context, ta.cancel = context.WithTimeout(ctx, time.Second*5)
 	//填充其他transaction的信息
 	ta.via = m.Via
 	ta.from = m.From
@@ -294,14 +294,14 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			//TODO:this should be a ACK for 2xx (but could be a late ACK!)
 			return
 		case sip.BYE:
-			c.Send(msg.BuildResponse(200))
+			c.Send(msg.BuildOK())
 			return
 		case sip.MESSAGE:
 			if c.OnMessage(msg) && ta == nil {
-				c.Send(msg.BuildResponse(200))
+				c.Send(msg.BuildOK())
 			}
 			if ta != nil {
-				m := msg.BuildResponse(200)
+				m := msg.BuildOK()
 				ta.Run(getOutGoingMessageEvent(m), m)
 			}
 		case sip.REGISTER:
@@ -311,7 +311,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				ta.state = NIST_PROCEEDING
 				c.AddTransaction(ta)
 			}
-			m := msg.BuildResponse(200)
+			m := msg.BuildOK()
 			m.Contact = msg.Contact
 			ta.Run(getOutGoingMessageEvent(m), m)
 			c.OnRegister(msg)
