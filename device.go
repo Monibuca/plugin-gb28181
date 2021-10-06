@@ -170,7 +170,7 @@ func (d *Device) Subscribe() int {
 	}
 	return response.Code
 }
-func (d *Device) Query() int {
+func (d *Device) Query() {
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
 	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
@@ -184,5 +184,9 @@ func (d *Device) Query() int {
 	if response.Data != nil && response.Data.Via.Params["received"] != "" {
 		d.SipIP = response.Data.Via.Params["received"]
 	}
-	return response.Code
+	if response.Code != 200 {
+		time.AfterFunc(time.Second*5, d.Query)
+	} else {
+		fmt.Printf("device %s send Catalog : %d", d.ID, response.Code)
+	}
 }
