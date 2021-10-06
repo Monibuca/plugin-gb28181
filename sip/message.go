@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 )
@@ -38,6 +39,7 @@ type Message struct {
 	Body            string
 	Addr            string
 	Event           string
+	Date						time.Time
 	WwwAuthenticate *WwwAuthenticate //gb28181 密码验证 上级发给下级是WwwAuthenticate；下级发给上级是Authorization
 }
 
@@ -56,10 +58,12 @@ func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 		CSeq:        m.CSeq,
 		Via:         m.Via,
 		MaxForwards: m.MaxForwards,
+		UserAgent: "Monibuca",
 		StartLine: &StartLine{
 			Code:   code,
 			phrase: phrase,
 		},
+		Date: time.Now(),
 	}
 	return &response
 }
@@ -454,7 +458,11 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString(msg.WwwAuthenticate.String())
 		sb.WriteString(CRLF)
 	}
-
+	if !msg.Date.IsZero() {
+		sb.WriteString("Date: ")
+		sb.WriteString(msg.Date.Format("2006-01-02T15:04:05.999"))
+		sb.WriteString(CRLF)
+	}	
 	if msg.Event != "" {
 		sb.WriteString("Event: ")
 		sb.WriteString(msg.Event)

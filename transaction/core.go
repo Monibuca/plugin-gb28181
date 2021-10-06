@@ -313,6 +313,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 			}
 			m := msg.BuildOK()
 			m.Contact = msg.Contact
+			m.Expires = msg.Expires
 			ta.Run(getOutGoingMessageEvent(m), m)
 			c.OnRegister(msg)
 		//case sip.INVITE:
