@@ -185,8 +185,9 @@ func (d *Device) Query() {
 		d.SipIP = response.Data.Via.Params["received"]
 	}
 	if response.Code != 200 {
+		fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
 		time.AfterFunc(time.Second*5, d.Query)
 	} else {
-		fmt.Printf("device %s send Catalog : %d", d.ID, response.Code)
+		d.Subscribe()
 	}
 }

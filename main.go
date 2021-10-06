@@ -245,6 +245,7 @@ func run() {
 			d := v.(*Device)
 			if d.Status == string(sip.REGISTER) {
 				d.Status = "ONLINE"
+				time.AfterFunc(time.Second*5, d.Query)
 			}
 			d.UpdateTime = time.Now()
 			temp := &struct {
@@ -267,7 +268,7 @@ func run() {
 			case "Notify":
 				switch temp.CmdType {
 				case "Keeyalive":
-					if time.Now().After(d.subscriber.Timeout) {
+					if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
 						go d.Subscribe()
 					}
 				case "Catalog":
@@ -349,9 +350,7 @@ func listenMedia() {
 // }
 
 func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
-	if old, ok := Devices.Load(d.ID); !ok {
-		go d.Query()
-	} else {
+	if old, ok := Devices.Load(d.ID); ok {
 		oldD := old.(*Device)
 		d.RegisterTime = oldD.RegisterTime
 		d.channelMap = oldD.channelMap

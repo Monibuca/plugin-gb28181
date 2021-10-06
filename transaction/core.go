@@ -311,9 +311,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 				ta.state = NIST_PROCEEDING
 				c.AddTransaction(ta)
 			}
-			c.OnRegister(msg)
 			m := msg.BuildResponse(200)
 			ta.Run(getOutGoingMessageEvent(m), m)
+			c.OnRegister(msg)
 		//case sip.INVITE:
 		//	ta.typo = FSM_IST
 		//	ta.state = IST_PRE_PROCEEDING
