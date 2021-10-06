@@ -174,12 +174,12 @@ func (d *Device) Subscribe() int {
 func (d *Device) Query() {
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
-<Query>
-<CmdType>Catalog</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-</Query>`, d.sn, requestMsg.To.Uri.UserInfo())
+	requestMsg.Body = strings.ReplaceAll(fmt.Sprintf(`<?xml version="1.0"?>
+	<Query>
+	<CmdType>Catalog</CmdType>
+	<SN>%d</SN>
+	<DeviceID>%s</DeviceID>
+	</Query>`, d.sn, requestMsg.To.Uri.UserInfo()), "\n", "\r\n")
 	requestMsg.ContentLength = len(requestMsg.Body)
 	response := d.SendMessage(requestMsg)
 	if response.Data != nil && response.Data.Via.Params["received"] != "" {
