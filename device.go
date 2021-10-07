@@ -51,6 +51,7 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
+	qTimer *time.Timer
 }
 
 func (d *Device) addChannel(channel *Channel) {
@@ -190,7 +191,7 @@ func (d *Device) Query() {
 	}
 	if response.Code != 200 {
 		fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
-		time.AfterFunc(time.Second*5, d.Query)
+		d.qTimer = time.AfterFunc(time.Second*5, d.Query)
 	} else {
 		d.Subscribe()
 	}

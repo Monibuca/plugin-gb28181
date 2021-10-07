@@ -352,11 +352,15 @@ func listenMedia() {
 func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
 	if old, ok := Devices.Load(d.ID); ok {
 		oldD := old.(*Device)
+		if oldD.qTimer != nil {
+			oldD.qTimer.Stop()
+		}
 		d.RegisterTime = oldD.RegisterTime
 		d.channelMap = oldD.channelMap
 		d.Channels = oldD.Channels
 		d.UpdateChannelsDevice()
 		d.Status = oldD.Status
+		go d.Query()
 	}
 	Devices.Store(d.ID, d)
 }
