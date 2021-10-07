@@ -354,6 +354,7 @@ func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
 		oldD := old.(*Device)
 		d.RegisterTime = oldD.RegisterTime
 		d.channelMap = oldD.channelMap
+		d.Channels = oldD.Channels
 		d.UpdateChannelsDevice()
 		d.Status = oldD.Status
 	}
