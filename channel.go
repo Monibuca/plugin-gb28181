@@ -262,8 +262,11 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		ack.CallID = response.Data.CallID
 		ack.CSeq.ID = invite.CSeq.ID
 		go d.Send(ack)
+	} else if start == "" && config.AutoInvite {
+		time.AfterFunc(time.Second*5, func() {
+			channel.Invite("", "")
+		})
 	}
-
 	return response.Code
 }
 func (channel *Channel) Bye() int {
