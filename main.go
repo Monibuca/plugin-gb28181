@@ -245,7 +245,9 @@ func run() {
 			d := v.(*Device)
 			if d.Status == string(sip.REGISTER) {
 				d.Status = "ONLINE"
-				time.AfterFunc(time.Second*5, d.Query)
+				if d.qTimer == nil {
+					d.qTimer = time.AfterFunc(time.Second*5, d.Query)
+				}
 			}
 			d.UpdateTime = time.Now()
 			temp := &struct {
@@ -354,13 +356,13 @@ func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
 		oldD := old.(*Device)
 		if oldD.qTimer != nil {
 			oldD.qTimer.Stop()
+			d.qTimer = time.AfterFunc(time.Second*5, d.Query)
 		}
 		d.RegisterTime = oldD.RegisterTime
 		d.channelMap = oldD.channelMap
 		d.Channels = oldD.Channels
 		d.UpdateChannelsDevice()
 		d.Status = oldD.Status
-		go d.Query()
 	}
 	Devices.Store(d.ID, d)
 }
