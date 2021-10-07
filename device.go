@@ -159,7 +159,7 @@ func (d *Device) Subscribe() int {
 	requestMsg.Event = "Catalog"
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
 	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
+	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
 <Query>
 <CmdType>Catalog</CmdType>
 <SN>%d</SN>
@@ -177,12 +177,12 @@ func (d *Device) Subscribe() int {
 func (d *Device) Query() {
 	requestMsg := d.CreateMessage(sip.MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = strings.ReplaceAll(fmt.Sprintf(`<?xml version="1.0"?>
-	<Query>
-	<CmdType>Catalog</CmdType>
-	<SN>%d</SN>
-	<DeviceID>%s</DeviceID>
-	</Query>`, d.sn, requestMsg.To.Uri.UserInfo()), "\n", "\r\n")
+	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
+<Query>
+<CmdType>Catalog</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+</Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
 	response := d.SendMessage(requestMsg)
 	if response.Data != nil && response.Data.Via.Params["received"] != "" {
