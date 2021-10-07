@@ -151,8 +151,10 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				atomic.StoreInt32(&channel.state, 0)
 			}
 		}()
+		channel.Bye(true)
+	} else {
+		channel.Bye(false)
 	}
-	channel.Bye()
 	sint, err1 := strconv.ParseInt(start, 10, 0)
 	eint, err2 := strconv.ParseInt(end, 10, 0)
 	d := channel.device
@@ -269,8 +271,8 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	return response.Code
 }
-func (channel *Channel) Bye() int {
-	if channel.inviteRes != nil {
+func (channel *Channel) Bye(live bool) int {
+	if live && channel.inviteRes != nil {
 		defer func() {
 			channel.inviteRes = nil
 			if channel.LivePublisher != nil {
@@ -279,7 +281,7 @@ func (channel *Channel) Bye() int {
 		}()
 		return channel.ByeBye(channel.inviteRes).Code
 	}
-	if channel.recordInviteRes != nil {
+	if !live && channel.recordInviteRes != nil {
 		defer func() {
 			channel.recordInviteRes = nil
 			if channel.RecordPublisher != nil {

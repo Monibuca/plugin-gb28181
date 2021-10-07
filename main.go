@@ -181,8 +181,9 @@ func run() {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
 		channel := r.URL.Query().Get("channel")
+		live := r.URL.Query().Get("live")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Bye())
+			w.WriteHeader(c.Bye(live != "false"))
 		} else {
 			w.WriteHeader(404)
 		}
