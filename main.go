@@ -274,6 +274,7 @@ func run() {
 					if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
 						go d.Subscribe()
 					}
+					d.CheckSubStream()
 				case "Catalog":
 					d.UpdateChannels(temp.DeviceList)
 				}

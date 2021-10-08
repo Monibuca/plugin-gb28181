@@ -69,6 +69,17 @@ func (d *Device) UpdateChannelsDevice() {
 		c.device = d
 	}
 }
+func (d *Device) CheckSubStream() {
+	d.channelMutex.Lock()
+	defer d.channelMutex.Unlock()
+	for _, c := range d.Channels {
+		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
+			c.LiveSubSP = s.StreamPath
+		} else {
+			c.LiveSubSP = ""
+		}
+	}
+}
 func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
