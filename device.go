@@ -187,23 +187,26 @@ func (d *Device) Subscribe() int {
 	return response.Code
 }
 func (d *Device) Query() {
-	requestMsg := d.CreateMessage(sip.MESSAGE)
-	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
+	for i := time.Duration(5); i < 100; i++ {
+		requestMsg := d.CreateMessage(sip.MESSAGE)
+		requestMsg.ContentType = "Application/MANSCDP+xml"
+		requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
 <Query>
 <CmdType>Catalog</CmdType>
 <SN>%d</SN>
 <DeviceID>%s</DeviceID>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
-	requestMsg.ContentLength = len(requestMsg.Body)
-	response := d.SendMessage(requestMsg)
-	if response.Data != nil && response.Data.Via.Params["received"] != "" {
-		d.SipIP = response.Data.Via.Params["received"]
-	}
-	if response.Code != 200 {
-		fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
-		d.qTimer = time.AfterFunc(time.Second*5, d.Query)
-	} else {
-		d.Subscribe()
+		requestMsg.ContentLength = len(requestMsg.Body)
+		response := d.SendMessage(requestMsg)
+		if response.Data != nil && response.Data.Via.Params["received"] != "" {
+			d.SipIP = response.Data.Via.Params["received"]
+		}
+		if response.Code != 200 {
+			fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
+			<-time.After(time.Second * i)
+		} else {
+			d.Subscribe()
+			break
+		}
 	}
 }
