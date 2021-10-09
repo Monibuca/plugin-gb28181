@@ -51,7 +51,6 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
-	qTimer *time.Timer
 }
 
 func (d *Device) addChannel(channel *Channel) {
@@ -62,13 +61,7 @@ func (d *Device) addChannel(channel *Channel) {
 	}
 	d.Channels = append(d.Channels, channel)
 }
-func (d *Device) UpdateChannelsDevice() {
-	d.channelMutex.Lock()
-	defer d.channelMutex.Unlock()
-	for _, c := range d.channelMap {
-		c.device = d
-	}
-}
+
 func (d *Device) CheckSubStream() {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
@@ -188,6 +181,7 @@ func (d *Device) Subscribe() int {
 }
 func (d *Device) Query() {
 	for i := time.Duration(5); i < 100; i++ {
+		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
 		requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
@@ -203,7 +197,6 @@ func (d *Device) Query() {
 		}
 		if response.Code != 200 {
 			fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
-			<-time.After(time.Second * i)
 		} else {
 			d.Subscribe()
 			break

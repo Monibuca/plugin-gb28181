@@ -191,7 +191,9 @@ func run() {
 	s := transaction.NewCore(config)
 	s.OnRegister = func(msg *sip.Message) {
 		id := msg.From.Uri.UserInfo()
-		d := &Device{
+		var d *Device
+		
+		if _d, loaded := Devices.LoadOrStore(id,&Device{
 			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
@@ -202,10 +204,15 @@ func run() {
 			Addr:         msg.Via.GetSendBy(),
 			SipIP:        config.MediaIP,
 			channelMap:   make(map[string]*Channel),
+		}); loaded {
+			d = _d.(*Device)
+			d.UpdateTime = time.Now()
+			d.from = &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)}
+			d.to = msg.To
+			d.Addr = msg.Via.GetSendBy()
 		}
 		// 不需要密码情况
 		if config.Username == "" && config.Password == "" {
-			onRegister(s, config, d)
 			return
 		}
 		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
@@ -237,7 +244,6 @@ func run() {
 			DeviceRegisterCount[d.ID] += 1
 			return
 		}
-		onRegister(s, config, d)
 		delete(DeviceNonce, d.ID)
 		delete(DeviceRegisterCount, d.ID)
 	}
@@ -246,9 +252,7 @@ func run() {
 			d := v.(*Device)
 			if d.Status == string(sip.REGISTER) {
 				d.Status = "ONLINE"
-				if d.qTimer == nil {
-					d.qTimer = time.AfterFunc(time.Second*5, d.Query)
-				}
+				go d.Query()
 			}
 			d.UpdateTime = time.Now()
 			temp := &struct {
@@ -352,22 +356,6 @@ func listenMedia() {
 // 		})
 // 	}
 // }
-
-func onRegister(s *transaction.Core, config *transaction.Config, d *Device) {
-	if old, ok := Devices.Load(d.ID); ok {
-		oldD := old.(*Device)
-		if oldD.qTimer != nil {
-			oldD.qTimer.Stop()
-			d.qTimer = time.AfterFunc(time.Second*5, d.Query)
-		}
-		d.RegisterTime = oldD.RegisterTime
-		d.channelMap = oldD.channelMap
-		d.Channels = oldD.Channels
-		d.UpdateChannelsDevice()
-		d.Status = oldD.Status
-	}
-	Devices.Store(d.ID, d)
-}
 
 func removeBanDevice(config *transaction.Config) {
 	t := time.NewTicker(time.Duration(config.RemoveBanInterval) * time.Second)
