@@ -191,34 +191,32 @@ func run() {
 	s := transaction.NewCore(config)
 	s.OnRegister = func(msg *sip.Message) {
 		id := msg.From.Uri.UserInfo()
-		var d *Device
-		
-		if _d, loaded := Devices.LoadOrStore(id,&Device{
-			ID:           id,
-			RegisterTime: time.Now(),
-			UpdateTime:   time.Now(),
-			Status:       string(sip.REGISTER),
-			Core:         s,
-			from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
-			to:           msg.To,
-			Addr:         msg.Via.GetSendBy(),
-			SipIP:        config.MediaIP,
-			channelMap:   make(map[string]*Channel),
-		}); loaded {
-			d = _d.(*Device)
-			d.UpdateTime = time.Now()
-			d.from = &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)}
-			d.to = msg.To
-			d.Addr = msg.Via.GetSendBy()
+		storeDevice := func() {
+			var d *Device
+
+			if _d, loaded := Devices.LoadOrStore(id,&Device{
+				ID:           id,
+				RegisterTime: time.Now(),
+				UpdateTime:   time.Now(),
+				Status:       string(sip.REGISTER),
+				Core:         s,
+				from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
+				to:           msg.To,
+				Addr:         msg.Via.GetSendBy(),
+				SipIP:        config.MediaIP,
+				channelMap:   make(map[string]*Channel),
+			}); loaded {
+				d = _d.(*Device)
+				d.UpdateTime = time.Now()
+				d.from = &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)}
+				d.to = msg.To
+				d.Addr = msg.Via.GetSendBy()
+			}
 		}
 		// 不需要密码情况
 		if config.Username == "" && config.Password == "" {
+			storeDevice()
 			return
-		}
-		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
-		username := config.Username
-		if msg.Authorization.GetUsername() == id {
-			username = id
 		}
 		sendUnauthorized := func() {
 			response := msg.BuildResponseWithPhrase(401, "Unauthorized")
@@ -229,21 +227,29 @@ func run() {
 			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
 			s.Send(response)
 		}
-		if DeviceRegisterCount[id] >= MaxRegisterCount {
-			s.Send(msg.BuildResponse(403))
-			return
-		}
 		// 需要密码情况 设备第一次上报，返回401和加密算法
 		if msg.Authorization == nil || msg.Authorization.GetUsername() == "" {
 			sendUnauthorized()
 			return
 		}
+		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
+		username := config.Username
+		if msg.Authorization.GetUsername() == id {
+			username = id
+		}
+
+		if DeviceRegisterCount[id] >= MaxRegisterCount {
+			s.Send(msg.BuildResponse(403))
+			return
+		}
+
 		// 设备第二次上报，校验
 		if !msg.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
 			sendUnauthorized()
 			DeviceRegisterCount[id] += 1
 			return
 		}
+		storeDevice()
 		delete(DeviceNonce, id)
 		delete(DeviceRegisterCount, id)
 	}
