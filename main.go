@@ -222,14 +222,14 @@ func run() {
 		}
 		sendUnauthorized := func() {
 			response := msg.BuildResponseWithPhrase(401, "Unauthorized")
-			if DeviceNonce[d.ID] == "" {
+			if DeviceNonce[id] == "" {
 				nonce := utils.RandNumString(32)
-				DeviceNonce[d.ID] = nonce
+				DeviceNonce[id] = nonce
 			}
-			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[d.ID], sip.DIGEST_ALGO_MD5)
+			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
 			s.Send(response)
 		}
-		if DeviceRegisterCount[d.ID] >= MaxRegisterCount {
+		if DeviceRegisterCount[id] >= MaxRegisterCount {
 			s.Send(msg.BuildResponse(403))
 			return
 		}
@@ -239,13 +239,13 @@ func run() {
 			return
 		}
 		// 设备第二次上报，校验
-		if !msg.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[d.ID]) {
+		if !msg.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
 			sendUnauthorized()
-			DeviceRegisterCount[d.ID] += 1
+			DeviceRegisterCount[id] += 1
 			return
 		}
-		delete(DeviceNonce, d.ID)
-		delete(DeviceRegisterCount, d.ID)
+		delete(DeviceNonce, id)
+		delete(DeviceRegisterCount, id)
 	}
 	s.OnMessage = func(msg *sip.Message) bool {
 		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
