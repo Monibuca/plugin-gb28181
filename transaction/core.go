@@ -264,7 +264,7 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 		fmt.Println("parse sip message failed:", err.Error())
 		return ErrorParse
 	}
-	if msg.Via == nil {
+	if msg.Via == nil || msg.From == nil {
 		return ErrorParse
 	}
 	//这里不处理超过MTU的包，不处理半包
