@@ -1,8 +1,10 @@
 package gb28181
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/xml"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -70,12 +72,12 @@ var config = struct {
 	AutoInvite        bool
 	AutoUnPublish     bool
 	Ignore            []string
-	CatalogInterval   int
+	TCP               bool
 	RemoveBanInterval int
 	PreFetchRecord    bool
 	Username          string
 	Password          string
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, 30, 600, false, "", ""}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, false, 600, false, "", ""}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -112,7 +114,6 @@ func run() {
 		AudioEnable:       true,
 		WaitKeyFrame:      true,
 		MediaIdleTimeout:  30,
-		CatalogInterval:   config.CatalogInterval,
 		RemoveBanInterval: config.RemoveBanInterval,
 	}
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +195,7 @@ func run() {
 		storeDevice := func() {
 			var d *Device
 
-			if _d, loaded := Devices.LoadOrStore(id,&Device{
+			if _d, loaded := Devices.LoadOrStore(id, &Device{
 				ID:           id,
 				RegisterTime: time.Now(),
 				UpdateTime:   time.Now(),
@@ -319,31 +320,41 @@ func run() {
 }
 func listenMedia() {
 	networkBuffer := 1048576
+	addr := ":" + strconv.Itoa(int(config.MediaPort))
 	var rtpPacket rtp.Packet
-	addr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(config.MediaPort)))
-	if err != nil {
-		log.Fatalf("udp server ResolveUDPAddr MediaPort:%d error, %v", config.MediaPort, err)
-	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		log.Fatalf("udp server ListenUDP MediaPort:%d error, %v", config.MediaPort, err)
-	}
-	if err = conn.SetReadBuffer(networkBuffer); err != nil {
-		Printf("udp server video conn set read buffer error, %v", err)
-	}
-	if err = conn.SetWriteBuffer(networkBuffer); err != nil {
-		Printf("udp server video conn set write buffer error, %v", err)
-	}
-	bufUDP := make([]byte, 1048576)
-	Printf("udp server start listen video port[%d]", config.MediaPort)
-	defer Printf("udp server stop listen video port[%d]", config.MediaPort)
-	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
-		ps := bufUDP[:n]
-		if err := rtpPacket.Unmarshal(ps); err != nil {
-			Println("gb28181 decode rtp error:", err)
+	if config.TCP {
+		ListenTCP(addr, func(conn net.Conn) {
+			reader := bufio.NewReader(conn)
+			lenBuf := make([]byte, 2)
+			for {
+				io.ReadFull(reader, lenBuf)
+				ps := make([]byte, BigEndian.Uint16(lenBuf))
+				io.ReadFull(reader, ps)
+				if err := rtpPacket.Unmarshal(ps); err != nil {
+					Println("gb28181 decode rtp error:", err)
+				}
+				if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+					publisher.PushPS(&rtpPacket)
+				}
+			}
+		})
+	} else {
+		conn, err := ListenUDP(addr, networkBuffer)
+		if err != nil {
+			Printf("listen udp %s err: %v", addr, err)
+			return
 		}
-		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
-			publisher.PushPS(&rtpPacket)
+		bufUDP := make([]byte, networkBuffer)
+		Printf("udp server start listen video port[%d]", config.MediaPort)
+		defer Printf("udp server stop listen video port[%d]", config.MediaPort)
+		for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
+			ps := bufUDP[:n]
+			if err := rtpPacket.Unmarshal(ps); err != nil {
+				Println("gb28181 decode rtp error:", err)
+			}
+			if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+				publisher.PushPS(&rtpPacket)
+			}
 		}
 	}
 }

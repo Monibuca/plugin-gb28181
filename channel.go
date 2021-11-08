@@ -179,6 +179,10 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	copy(ssrc[1:6], []byte(config.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
+	protocol := ""
+	if config.TCP {
+		protocol = "TCP/"
+	}
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
@@ -186,19 +190,19 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
-		fmt.Sprintf("m=video %d RTP/AVP 96 97 98", config.MediaPort),
+		fmt.Sprintf("m=video %d %sRTP/AVP 96", protocol, config.MediaPort),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
-		"a=rtpmap:97 MPEG4/90000",
-		"a=rtpmap:98 H264/90000",
-		"y=" + string(ssrc),
+	}
+	if config.TCP {
+		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
 	invite := channel.CreateMessage(sip.INVITE)
 	invite.ContentType = "application/sdp"
 	invite.Contact = &sip.Contact{
 		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
 	}
-	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\n"
+	invite.Body = strings.Join(sdpInfo, "\r\n") + "y=" + string(ssrc) + "\r\n"
 	invite.ContentLength = len(invite.Body)
 	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
 	response := d.SendMessage(invite)
