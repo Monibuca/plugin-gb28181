@@ -190,7 +190,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
-		fmt.Sprintf("m=video %d %sRTP/AVP 96", protocol, config.MediaPort),
+		fmt.Sprintf("m=video %d %sRTP/AVP 96", config.MediaPort, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 	}
@@ -202,7 +202,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	invite.Contact = &sip.Contact{
 		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
 	}
-	invite.Body = strings.Join(sdpInfo, "\r\n") + "y=" + string(ssrc) + "\r\n"
+	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\ny=" + string(ssrc) + "\r\n"
 	invite.ContentLength = len(invite.Body)
 	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
 	response := d.SendMessage(invite)
