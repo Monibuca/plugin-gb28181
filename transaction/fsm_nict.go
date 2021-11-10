@@ -118,12 +118,12 @@ func nict_rcv_1xx(t *Transaction, evt Event, m *sip.Message) error {
 func nict_rcv_23456xx(t *Transaction, evt Event, m *sip.Message) error {
 	t.lastResponse = m
 	t.state = NICT_COMPLETED
-
-	if m.IsReliable() {
-		//不设置timerK
-	} else {
-		t.RunAfter(T4*64, TIMEOUT_K)
-	}
+	t.Terminate()
+	// if m.IsReliable() {
+	// 	//不设置timerK
+	// } else {
+	// 	t.RunAfter(T4*64, TIMEOUT_K)
+	// }
 
 	return nil
 }
