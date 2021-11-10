@@ -326,14 +326,19 @@ func listenMedia() {
 		ListenTCP(addr, func(conn net.Conn) {
 			reader := bufio.NewReader(conn)
 			lenBuf := make([]byte, 2)
-			for {
-				io.ReadFull(reader, lenBuf)
+			defer conn.Close()
+			var err error
+			for err == nil {
+				if _, err = io.ReadFull(reader, lenBuf); err != nil {
+					return
+				}
 				ps := make([]byte, BigEndian.Uint16(lenBuf))
-				io.ReadFull(reader, ps)
+				if _, err = io.ReadFull(reader, ps); err != nil {
+					return
+				}
 				if err := rtpPacket.Unmarshal(ps); err != nil {
 					Println("gb28181 decode rtp error:", err)
-				}
-				if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+				} else if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
 					publisher.PushPS(&rtpPacket)
 				}
 			}
