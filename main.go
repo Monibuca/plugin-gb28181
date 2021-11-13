@@ -73,11 +73,12 @@ var config = struct {
 	AutoUnPublish     bool
 	Ignore            []string
 	TCP               bool
+	TCPMediaPortNum   uint16
 	RemoveBanInterval int
 	PreFetchRecord    bool
 	Username          string
 	Password          string
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, false, 600, false, "", ""}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, false, 1, 600, false, "", ""}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
@@ -97,6 +98,7 @@ func run() {
 	for _, id := range config.Ignore {
 		Ignores[id] = struct{}{}
 	}
+	useTCP := config.TCP
 	config := &transaction.Config{
 		SipIP:             ipAddr.IP.String(),
 		SipPort:           uint16(ipAddr.Port),
@@ -311,19 +313,22 @@ func run() {
 	//		}
 	//	})
 	//})
-	go listenMedia()
+	if useTCP {
+		listenMediaTCP()
+	} else {
+		go listenMediaUDP()
+	}
 	// go queryCatalog(config)
 	if config.Username != "" || config.Password != "" {
 		go removeBanDevice(config)
 	}
 	s.Start()
 }
-func listenMedia() {
-	networkBuffer := 1048576
-	addr := ":" + strconv.Itoa(int(config.MediaPort))
-	var rtpPacket rtp.Packet
-	if config.TCP {
-		ListenTCP(addr, func(conn net.Conn) {
+func listenMediaTCP() {
+	for i := uint16(0); i < config.TCPMediaPortNum; i++ {
+		addr := ":" + strconv.Itoa(int(config.MediaPort+i))
+		go ListenTCP(addr, func(conn net.Conn) {
+			var rtpPacket rtp.Packet
 			reader := bufio.NewReader(conn)
 			lenBuf := make([]byte, 2)
 			defer conn.Close()
@@ -343,23 +348,27 @@ func listenMedia() {
 				}
 			}
 		})
-	} else {
-		conn, err := ListenUDP(addr, networkBuffer)
-		if err != nil {
-			Printf("listen udp %s err: %v", addr, err)
-			return
+	}
+}
+func listenMediaUDP() {
+	var rtpPacket rtp.Packet
+	networkBuffer := 1048576
+	addr := ":" + strconv.Itoa(int(config.MediaPort))
+	conn, err := ListenUDP(addr, networkBuffer)
+	if err != nil {
+		Printf("listen udp %s err: %v", addr, err)
+		return
+	}
+	bufUDP := make([]byte, networkBuffer)
+	Printf("udp server start listen video port[%d]", config.MediaPort)
+	defer Printf("udp server stop listen video port[%d]", config.MediaPort)
+	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
+		ps := bufUDP[:n]
+		if err := rtpPacket.Unmarshal(ps); err != nil {
+			Println("gb28181 decode rtp error:", err)
 		}
-		bufUDP := make([]byte, networkBuffer)
-		Printf("udp server start listen video port[%d]", config.MediaPort)
-		defer Printf("udp server stop listen video port[%d]", config.MediaPort)
-		for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
-			ps := bufUDP[:n]
-			if err := rtpPacket.Unmarshal(ps); err != nil {
-				Println("gb28181 decode rtp error:", err)
-			}
-			if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
-				publisher.PushPS(&rtpPacket)
-			}
+		if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+			publisher.PushPS(&rtpPacket)
 		}
 	}
 }

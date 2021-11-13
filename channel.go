@@ -27,6 +27,7 @@ type ChannelEx struct {
 	recordStartTime time.Time
 	recordEndTime   time.Time
 	state           int32
+	tcpPortIndex    uint16
 }
 
 // Channel 通道
@@ -180,8 +181,13 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
 	protocol := ""
+	port := config.MediaPort
 	if config.TCP {
 		protocol = "TCP/"
+		port = config.MediaPort + channel.tcpPortIndex
+		if channel.tcpPortIndex++; channel.tcpPortIndex >= config.TCPMediaPortNum {
+			channel.tcpPortIndex = 0
+		}
 	}
 	sdpInfo := []string{
 		"v=0",
@@ -190,7 +196,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.SipIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
-		fmt.Sprintf("m=video %d %sRTP/AVP 96", config.MediaPort, protocol),
+		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 	}
