@@ -21,7 +21,7 @@ Serial = "34020000002000000001"
 Realm = "3402000000"
 Expires = 3600
 ListenAddr = "127.0.0.1:5060"
-AutoUnPublish = true 
+AutoCloseAfter = -1
 AutoInvite = false
 MediaPort = 58200
 CatalogInterval = 30
@@ -34,7 +34,7 @@ Password = ""
 - `ListenAddr`是监听的地址，这里需要注意的是必须要带上Server的IP地址，这个IP地址是向设备发送信息的时候需要带上的。
 - `Serial` Server（SIP）的编号
 - `Realm` Server（SIP）的域
-- `AutoUnPublish` 如果设置为true，则当某个流最后一个订阅者取消订阅时，会自动发送bye，节省流量。如果为了响应及时，可以设置成false，保持流的连接
+- `AutoCloseAfter` 如果设置大于等于0，则当某个流最后一个订阅者取消订阅时会延迟N秒，会自动发送bye，节省流量。如果为了响应及时，可以设置成-1，保持流的连接
 - `AutoInvite` 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
 - `MediaPort` 表示用于接收设备流的端口号
 - `CatalogInterval` 定时获取设备目录的间隔，单位秒

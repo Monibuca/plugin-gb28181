@@ -70,7 +70,7 @@ var config = struct {
 	Expires           int
 	MediaPort         uint16
 	AutoInvite        bool
-	AutoUnPublish     bool
+	AutoCloseAfter    int
 	Ignore            []string
 	TCP               bool
 	TCPMediaPortNum   uint16
@@ -78,7 +78,7 @@ var config = struct {
 	PreFetchRecord    bool
 	Username          string
 	Password          string
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, true, nil, false, 1, 600, false, "", ""}
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, -1, nil, false, 1, 600, false, "", ""}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{
