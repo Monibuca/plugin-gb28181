@@ -78,7 +78,8 @@ var config = struct {
 	PreFetchRecord    bool
 	Username          string
 	Password          string
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, -1, nil, false, 1, 600, false, "", ""}
+	UdpCacheSize      int //udp排序缓存
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, -1, nil, false, 1, 600, false, "", "",0}
 
 func init() {
 	engine.InstallPlugin(&engine.PluginConfig{

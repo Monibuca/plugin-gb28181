@@ -13,6 +13,7 @@ type Publisher struct {
 	pushVideo func(uint32, uint32, []byte)
 	pushAudio func(uint32, []byte)
 	lastSeq   uint16
+	UdpCache *utils.PriorityQueue
 }
 
 func (p *Publisher) PushVideo(ts uint32, cts uint32, payload []byte) {
