@@ -118,6 +118,7 @@ func run() {
 		WaitKeyFrame:      true,
 		MediaIdleTimeout:  30,
 		RemoveBanInterval: config.RemoveBanInterval,
+		UdpCacheSize:      config.UdpCacheSize,
 	}
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)

@@ -60,4 +60,5 @@ type Config struct {
 	AudioEnable       bool   //是否开启音频
 	WaitKeyFrame      bool   //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
 	RemoveBanInterval int    //移除禁止设备间隔
+	UdpCacheSize      int    //udp缓存大小
 }

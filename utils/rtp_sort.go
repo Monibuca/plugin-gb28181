@@ -6,25 +6,27 @@ import (
 	"github.com/pion/rtp"
 )
 
-type PriorityQueue struct {
+const MaxRtpDiff = 65000 //相邻两个包之间的最大差值
+
+type PriorityQueueRtp struct {
 	itemHeap    *packets
 	current     *rtp.Packet
 	priorityMap map[uint16]bool
 	lastPacket  *rtp.Packet
 }
 
-func NewPq() *PriorityQueue {
-	return &PriorityQueue{
+func NewPqRtp() *PriorityQueueRtp {
+	return &PriorityQueueRtp{
 		itemHeap:    &packets{},
 		priorityMap: make(map[uint16]bool),
 	}
 }
 
-func (p *PriorityQueue) Len() int {
+func (p *PriorityQueueRtp) Len() int {
 	return p.itemHeap.Len()
 }
 
-func (p *PriorityQueue) Push(v rtp.Packet) {
+func (p *PriorityQueueRtp) Push(v rtp.Packet) {
 	if p.priorityMap[v.SequenceNumber] {
 		return
 	}
@@ -35,7 +37,7 @@ func (p *PriorityQueue) Push(v rtp.Packet) {
 	heap.Push(p.itemHeap, newItem)
 }
 
-func (p *PriorityQueue) Pop() (rtp.Packet, error) {
+func (p *PriorityQueueRtp) Pop() (rtp.Packet, error) {
 	if len(*p.itemHeap) == 0 {
 		return rtp.Packet{}, errors.New("empty queue")
 	}
@@ -44,9 +46,7 @@ func (p *PriorityQueue) Pop() (rtp.Packet, error) {
 	return item.value, nil
 }
 
-
-
-func (p *PriorityQueue) Empty() {
+func (p *PriorityQueueRtp) Empty() {
 	old := *p.itemHeap
 	*p.itemHeap = old[:0]
 }
@@ -64,7 +64,14 @@ func (p *packets) Len() int {
 }
 
 func (p *packets) Less(i, j int) bool {
-	return (*p)[i].priority < (*p)[j].priority
+	a, b := (*p)[i].priority, (*p)[j].priority
+	if int(a)-int(b) > MaxRtpDiff || int(b)-int(a) > MaxRtpDiff {
+		if a < b {
+			return false
+		}
+		return true
+	}
+	return a < b
 }
 
 func (p *packets) Swap(i, j int) {
