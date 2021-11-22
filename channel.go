@@ -232,6 +232,9 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				AutoCloseAfter: &config.AutoCloseAfter,
 			},
 		}
+		if config.UdpCacheSize > 0 && !config.TCP {
+			publisher.udpCache = utils.NewPqRtp()
+		}
 		if start == "" {
 			publisher.Type = "GB28181 Live"
 			publisher.OnClose = func() {

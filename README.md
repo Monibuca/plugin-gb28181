@@ -7,9 +7,10 @@
 github.com/Monibuca/plugin-gb28181
 
 ## 插件引入
+
 ```go
 import (
-    _ "github.com/Monibuca/plugin-gb28181"
+_ "github.com/Monibuca/plugin-gb28181"
 )
 ```
 
@@ -28,7 +29,8 @@ CatalogInterval = 30
 RemoveBanInterval = 600
 Username = ""
 Password = ""
-
+UdpCacheSize = 0 
+TCP = false
 ```
 
 - `ListenAddr`是监听的地址，这里需要注意的是必须要带上Server的IP地址，这个IP地址是向设备发送信息的时候需要带上的。
@@ -40,7 +42,9 @@ Password = ""
 - `CatalogInterval` 定时获取设备目录的间隔，单位秒
 - `RemoveBanInterval` 定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
 - `Username` 国标用户名
-- `Password` 国标密码 
+- `Password` 国标密码
+- `TCP` 是否开启TCP接收国标流，默认false
+- `UdpCacheSize` 表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 
 **注意某些摄像机没有设置用户名的地方，摄像机会以自身的国标id作为用户名，这个时候m7s会忽略使用摄像机的用户名，忽略配置的用户名**
 如果设备配置了错误的用户名和密码，连续三次上报错误后，m7s会记录设备id，并在10分钟内禁止设备注册
@@ -60,35 +64,43 @@ Password = ""
 - 当invite设备的**实时**视频流时，会在m7s中创建对应的流，StreamPath由设备编号和通道编号组成，即[设备编号]/[通道编号],如果有多个层级，通道编号是最后一个层级的编号
 - 当invite设备的**录像**视频流时，StreamPath由设备编号和通道编号以及录像的起止时间拼接而成即[设备编号]/[通道编号]/[开始时间]-[结束时间]
 
+### 如何设置UDP缓存大小
+
+通过wireshark抓包，分析rtp，然后看一下大概多少个包可以有序
+
 ## 接口API
 
 ### 罗列所有的gb28181协议的设备
+
 `/api/gb28181/list`
 设备的结构体如下
+
 ```go
 type Device struct {
-	*transaction.Core `json:"-"`
-	ID                string
-	RegisterTime      time.Time
-	UpdateTime        time.Time
-	Status            string
-	Channels          []*Channel
-	queryChannel      bool
-	sn                int
-	from              *sip.Contact
-	to                *sip.Contact
-	Addr              string
-	SipIP             string //暴露的IP
-	channelMap        map[string]*Channel
-	channelMutex      sync.RWMutex
+*transaction.Core `json:"-"`
+ID                string
+RegisterTime      time.Time
+UpdateTime        time.Time
+Status            string
+Channels          []*Channel
+queryChannel      bool
+sn                int
+from              *sip.Contact
+to                *sip.Contact
+Addr              string
+SipIP             string //暴露的IP
+channelMap        map[string]*Channel
+channelMutex      sync.RWMutex
 }
 ```
+
 > 根据golang的规则，小写字母开头的变量不会被序列化
 
 ### 从设备拉取视频流
+
 `/api/gb28181/invite`
 
-参数名 | 必传 | 含义 
+参数名 | 必传 | 含义
 |----|---|---
 id|是 | 设备ID
 channel|是|通道编号
@@ -101,7 +113,7 @@ endTime|否|结束时间（纯数字Unix时间戳）
 
 `/api/gb28181/bye`
 
-参数名 | 必传 | 含义 
+参数名 | 必传 | 含义
 |----|---|---
 id|是 | 设备ID
 channel|是|通道编号
@@ -110,7 +122,7 @@ channel|是|通道编号
 
 `/api/gb28181/control`
 
-参数名 | 必传 | 含义 
+参数名 | 必传 | 含义
 |----|---|---
 id|是 | 设备ID
 channel|是|通道编号
@@ -120,7 +132,7 @@ ptzcmd|是|PTZ控制指令
 
 `/api/gb28181/query/records`
 
-参数名 | 必传 | 含义 
+参数名 | 必传 | 含义
 |----|---|---
 id|是 | 设备ID
 channel|是|通道编号
