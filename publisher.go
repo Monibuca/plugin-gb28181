@@ -62,6 +62,7 @@ func (p *Publisher) Publish() (result bool) {
 	return
 }
 func (p *Publisher) PushPS(rtp *rtp.Packet) {
+	originRtp := *rtp
 	if config.UdpCacheSize > 0 && config.TCP == false {
 		//序号小于第一个包的丢弃,rtp包序号达到65535后会从0开始，所以这里需要判断一下
 		if rtp.SequenceNumber < p.lastSeq && p.lastSeq-rtp.SequenceNumber < utils.MaxRtpDiff {
@@ -81,6 +82,7 @@ func (p *Publisher) PushPS(rtp *rtp.Packet) {
 					return
 				} else {
 					p.udpCache.Empty()
+					rtp = &originRtp // 还原rtp包，而不是使用缓存中，避免rtp序号断裂
 				}
 			}
 			p.parser.Reset()
