@@ -200,9 +200,9 @@ func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
 				var payload []byte
-				ts := ts >> 3
+				ts := ts  / 90
 				if dec.PTS != 0 {
-					ts = dec.PTS >> 3
+					ts = dec.PTS / 90
 				}
 				pusher.PushAudio(ts, append(payload, dec.Payload...))
 			} else {
