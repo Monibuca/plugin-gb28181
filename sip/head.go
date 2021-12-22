@@ -378,6 +378,9 @@ func (c *CSeq) Parse(str string) error {
 		return err
 	}
 	c.ID = uint32(n)
+	if len(arr1) < 2 {
+		return errors.New("no method: " + str)
+	}
 	c.Method = Method(arr1[1])
 	return nil
 }
