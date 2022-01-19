@@ -236,7 +236,7 @@ type Header map[string]string
 
 // timer相关基础常量、方法等定义
 const (
-	T1      = 100 * time.Millisecond
+	T1      = 250 * time.Millisecond
 	T2      = 4 * time.Second
 	T4      = 5 * time.Second
 	TimeA   = T1
