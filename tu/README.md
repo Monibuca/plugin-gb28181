@@ -1,6 +1,6 @@
 
 Transaction User(TU)事务用户：在transaction 层之上的协议层。TU包括了UAC core、UAS core,和proxy core。
-tu处理业务逻辑，并对事物层进行操作。
+tu处理业务逻辑，并对事务层进行操作。
 
 #### 类型
 

@@ -42,7 +42,7 @@ func (s *TCPServer) IsKeepalive() bool {
 	return s.Keepalive
 }
 
-func (s *TCPServer) Start() error {
+func (s *TCPServer) StartAndWait() error {
 	//监听端口
 	//开启tcp连接线程
 	var err error
@@ -170,5 +170,11 @@ func (s *TCPServer) Close() error {
 		s.sessions.Delete(key)
 		return true
 	})
+	return nil
+}
+func (s *TCPServer) UDPConn() *net.UDPConn {
+	return nil
+}
+func (s *TCPServer) Conn() *net.Conn {
 	return nil
 }

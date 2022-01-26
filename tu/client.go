@@ -2,6 +2,7 @@ package tu
 
 import (
 	"fmt"
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 )
 
@@ -76,17 +77,19 @@ func RunClient() {
 	}
 	c := NewClient(config, static)
 
-	go c.Start()
+	go c.StartAndWait()
 
 	//TODO：先发起注册
 	//TODO:build sip message
 	msg := BuildMessageRequest("", "", "", "", "", "",
 		0, 0, 0, "")
-	resp := c.SendMessage(msg)
-	if resp.Code != 0 {
-		fmt.Println("request failed")
+	tx := c.MustTX(sip.GetTXKey(msg))
+
+	resp, err := tx.SipRequestForResponse(&sip.Request{Message: msg})
+	if err != nil {
+		fmt.Println("request failed, ", err)
 	}
-	fmt.Println("response: ", resp.Data)
+	fmt.Println("response: ", resp.Body)
 
 	select {}
 }

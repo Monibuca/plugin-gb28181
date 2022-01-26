@@ -43,7 +43,7 @@ func (c *TCPClient) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func (c *TCPClient) Start() error {
+func (c *TCPClient) StartAndWait() error {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", c.host, c.port))
 	if err != nil {
 		fmt.Println("dial tcp server failed :", err.Error())
@@ -112,4 +112,10 @@ func (c *TCPClient) Heartbeat(p *Packet) {
 		}
 	}
 	c.WritePacket(p)
+}
+func (s *TCPClient) UDPConn() *net.UDPConn {
+	return nil
+}
+func (s *TCPClient) Conn() *net.Conn {
+	return &s.conn
 }

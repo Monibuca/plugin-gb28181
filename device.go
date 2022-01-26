@@ -2,6 +2,8 @@ package gb28181
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +35,12 @@ func (r *Record) GetPublishStreamPath() string {
 	return fmt.Sprintf("%s/%s", r.DeviceID, r.StartTime)
 }
 
+var (
+	Devices             sync.Map
+	DeviceNonce         = make(map[string]string) //保存nonce防止设备伪造
+	DeviceRegisterCount = make(map[string]int)    //设备注册次数
+)
+
 type Device struct {
 	*transaction.Core `json:"-"`
 	ID                string
@@ -62,7 +70,7 @@ func (d *Device) addChannel(channel *Channel) {
 	d.Channels = append(d.Channels, channel)
 }
 
-func (d *Device) CheckSubStream() {
+func (d *Device) CheckSubStream(tx *sip.GBTx) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	for _, c := range d.Channels {
@@ -73,7 +81,7 @@ func (d *Device) CheckSubStream() {
 		}
 	}
 }
-func (d *Device) UpdateChannels(list []*Channel) {
+func (d *Device) UpdateChannels(list []*Channel, tx *sip.GBTx) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	for _, c := range list {
@@ -97,12 +105,13 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				if config.PreFetchRecord {
 					n := time.Now()
 					n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
-					if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime && n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
-						go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
+					if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
+						n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
+						go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT), tx)
 					}
 				}
 				if config.AutoInvite && c.LivePublisher == nil {
-					go c.Invite("", "")
+					go c.Invite("", "", tx)
 				}
 			}
 		} else {
@@ -110,7 +119,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				device: d,
 			}
 			if config.AutoInvite {
-				go c.Invite("", "")
+				go c.Invite("", "", tx)
 			}
 		}
 		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
@@ -121,7 +130,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		d.channelMap[c.DeviceID] = c
 	}
 }
-func (d *Device) UpdateRecord(channelId string, list []*Record) {
+func (d *Device) UpdateRecord(channelId string, list []*Record, tx *sip.GBTx) {
 	d.channelMutex.RLock()
 	if c, ok := d.channelMap[channelId]; ok {
 		c.Records = append(c.Records, list...)
@@ -131,6 +140,15 @@ func (d *Device) UpdateRecord(channelId string, list []*Record) {
 
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	d.sn++
+	//if msg.Via.Transport == "UDP" {
+	addr, err2 := net.ResolveUDPAddr(d.SipNetwork, d.SipIP+":"+strconv.Itoa(int(d.SipPort)))
+	//} else {
+	//	pkt.Addr, err2 = net.ResolveTCPAddr("tcp", addr)
+	//}
+	if err2 != nil {
+		return nil
+	}
+
 	requestMsg = &sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
 		MaxForwards: 70,
@@ -151,11 +169,12 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr: d.Addr,
+		Addr:    d.Addr,
+		DestAdd: addr,
 	}
 	return
 }
-func (d *Device) Subscribe() int {
+func (d *Device) Subscribe(req *sip.Request, tx *sip.GBTx) int {
 	requestMsg := d.CreateMessage(sip.SUBSCRIBE)
 	if d.subscriber.CallID != "" {
 		requestMsg.CallID = d.subscriber.CallID
@@ -171,15 +190,17 @@ func (d *Device) Subscribe() int {
 <DeviceID>%s</DeviceID>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
-	response := d.SendMessage(requestMsg)
-	if response.Code == 200 {
+
+	request := &sip.Request{Message: requestMsg}
+	response, _ := tx.SipRequestForResponse(request)
+	if response.GetStatusCode() == 200 {
 		d.subscriber.CallID = requestMsg.CallID
 	} else {
 		d.subscriber.CallID = ""
 	}
-	return response.Code
+	return response.GetStatusCode()
 }
-func (d *Device) Query() {
+func (d *Device) Query(req *sip.Request, tx *sip.GBTx) {
 	for i := time.Duration(5); i < 100; i++ {
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
@@ -191,14 +212,15 @@ func (d *Device) Query() {
 <DeviceID>%s</DeviceID>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo())
 		requestMsg.ContentLength = len(requestMsg.Body)
-		response := d.SendMessage(requestMsg)
-		if response.Data != nil && response.Data.Via.Params["received"] != "" {
-			d.SipIP = response.Data.Via.Params["received"]
+		request := &sip.Request{Message: requestMsg}
+		response, _ := tx.SipRequestForResponse(request)
+		if response.Via != nil && response.Via.Params["received"] != "" {
+			d.SipIP = response.Via.Params["received"]
 		}
-		if response.Code != 200 {
-			fmt.Printf("device %s send Catalog : %d\n", d.ID, response.Code)
+		if response.GetStatusCode() != 200 {
+			fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
 		} else {
-			d.Subscribe()
+			d.Subscribe(req, tx)
 			break
 		}
 	}

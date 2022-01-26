@@ -78,7 +78,7 @@ func (b *IOBuffer) tryGrowByReslice(n int) (int, bool) {
 	return 0, false
 }
 
-var ErrTooLarge = errors.New("bytes.Buffer: too large")
+var ErrTooLarge = errors.New("IOBuffer: too large")
 
 func (b *IOBuffer) Write(p []byte) (n int, err error) {
 	defer func() {

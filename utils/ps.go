@@ -2,8 +2,9 @@ package utils
 
 import (
 	"errors"
-
+	"github.com/Monibuca/engine/v3/pool"
 	"github.com/Monibuca/utils/v3"
+	"github.com/logrusorgru/aurora"
 )
 
 //
@@ -140,10 +141,10 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	return dec.ReadN(int(payloadlen))
 }
 
+//read the buffer and push video or audio
 func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
-	var nextStartCode uint32
+again:
 	dec.clean()
-
 	if err := dec.Skip(9); err != nil {
 		return err
 	}
@@ -156,21 +157,13 @@ func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 	if err = dec.Skip(int(psl)); err != nil {
 		return err
 	}
-	var video []byte
-	var videoTs, videoCts uint32
-	defer func() {
-		if video != nil {
-			pusher.PushVideo(videoTs, videoCts, video)
-			video = nil
-		}
-		if nextStartCode == StartCodePS {
-			err = dec.Read(ts, pusher)
-		}
-	}()
+	video := pool.Get()
+	defer pool.Put(video)
+	var nextStartCode, videoTs, videoCts uint32
+loop:
 	for err == nil {
-		nextStartCode, err = dec.Uint32()
-		if err != nil {
-			return err
+		if nextStartCode, err = dec.Uint32(); err != nil {
+			break
 		}
 		switch nextStartCode {
 		case StartCodeSYS:
@@ -181,7 +174,7 @@ func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 		case StartCodeVideo:
 			var cts uint32
 			if err = dec.decPESPacket(); err == nil {
-				if video == nil {
+				if video.Len() == 0 {
 					if dec.PTS == 0 {
 						dec.PTS = ts
 					}
@@ -193,26 +186,32 @@ func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 					videoTs = dec.DTS / 90
 					videoCts = cts / 90
 				}
-				video = append(video, dec.Payload...)
+				video.Write(dec.Payload)
 			} else {
 				utils.Println("video", err)
 			}
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
-				var payload []byte
-				ts := ts  / 90
+				ts := ts / 90
 				if dec.PTS != 0 {
 					ts = dec.PTS / 90
 				}
-				pusher.PushAudio(ts, append(payload, dec.Payload...))
+				pusher.PushAudio(ts, dec.Payload)
 			} else {
 				utils.Println("audio", err)
 			}
 		case StartCodePS:
-			return nil
+			break loop
 		default:
 			dec.ReadPayload()
 		}
+	}
+	if video.Len() > 0 {
+		pusher.PushVideo(videoTs, videoCts, video.Bytes())
+	}
+	if nextStartCode == StartCodePS {
+		utils.Println(aurora.Red("StartCodePS recursion..."), err)
+		goto again
 	}
 	return err
 }

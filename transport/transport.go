@@ -23,9 +23,11 @@ type ITransport interface {
 	Name() string
 	ReadPacketChan() <-chan *Packet //读消息，消息处理器需在循环中阻塞读取
 	WritePacket(packet *Packet)     //写消息
-	Start() error                   //开启连接，阻塞接收消息
+	StartAndWait() error            //开启连接，阻塞接收消息
 	Close() error                   //关闭连接
 	IsReliable() bool               //是否可靠传输
+	UDPConn() *net.UDPConn
+	Conn() *net.Conn
 }
 
 type IServer interface {

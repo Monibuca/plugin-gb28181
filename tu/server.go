@@ -43,7 +43,7 @@ func RunServer() {
 	}
 	s := NewServer(config)
 
-	s.Start()
+	s.StartAndWait()
 
 	select {}
 }

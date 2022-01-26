@@ -16,7 +16,7 @@ func RunServerTCP() {
 	tcp := NewTCPServer(SipPort, true)
 	go PacketHandler(tcp)
 	go func() {
-		_ = tcp.Start()
+		_ = tcp.StartAndWait()
 	}()
 
 	select {}
@@ -27,7 +27,7 @@ func RunClientTCP() {
 	c := NewTCPClient(SipHost, SipPort)
 	go PacketHandler(c)
 	go func() {
-		_ = c.Start()
+		_ = c.StartAndWait()
 	}()
 
 	//发送测试数据
@@ -69,7 +69,7 @@ func RunServerUDP() {
 
 	go PacketHandler(udp)
 	go func() {
-		_ = udp.Start()
+		_ = udp.StartAndWait()
 	}()
 
 	select {}
@@ -79,7 +79,7 @@ func RunClientUDP() {
 	c := NewUDPClient(SipHost, SipPort)
 	go PacketHandler(c)
 	go func() {
-		_ = c.Start()
+		_ = c.StartAndWait()
 	}()
 	//发送测试数据
 	go func() {

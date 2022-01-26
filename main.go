@@ -23,11 +23,8 @@ import (
 )
 
 var (
-	Devices             sync.Map
-	DeviceNonce         = make(map[string]string) //保存nonce防止设备伪造
-	DeviceRegisterCount = make(map[string]int)    //设备注册次数
-	Ignores             = make(map[string]struct{})
-	publishers          Publishers
+	Ignores    = make(map[string]struct{})
+	publishers Publishers
 )
 
 const MaxRegisterCount = 3
@@ -120,6 +117,138 @@ func run() {
 		RemoveBanInterval: config.RemoveBanInterval,
 		UdpCacheSize:      config.UdpCacheSize,
 	}
+
+	s := transaction.NewCore(config)
+	s.OnRegister = func(req *sip.Request, tx *sip.GBTx) {
+		id := req.From.Uri.UserInfo()
+		storeDevice := func() {
+			var d *Device
+
+			if _d, loaded := Devices.LoadOrStore(id, &Device{
+				ID:           id,
+				RegisterTime: time.Now(),
+				UpdateTime:   time.Now(),
+				Status:       string(sip.REGISTER),
+				Core:         s,
+				from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
+				to:           req.To,
+				Addr:         req.Via.GetSendBy(),
+				SipIP:        config.MediaIP,
+				channelMap:   make(map[string]*Channel),
+			}); loaded {
+				d = _d.(*Device)
+				d.UpdateTime = time.Now()
+				d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
+				d.to = req.To
+				d.Addr = req.Via.GetSendBy()
+			}
+		}
+		// 不需要密码情况
+		if config.Username == "" && config.Password == "" {
+			storeDevice()
+			return
+		}
+		sendUnauthorized := func() {
+			var response sip.Response
+			response.Message = req.BuildResponseWithPhrase(401, "Unauthorized")
+			if DeviceNonce[id] == "" {
+				nonce := utils.RandNumString(32)
+				DeviceNonce[id] = nonce
+			}
+			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
+			response.SourceAdd = req.DestAdd
+			response.DestAdd = req.SourceAdd
+			tx.Respond(&response)
+		}
+		// 需要密码情况 设备第一次上报，返回401和加密算法
+		if req.Authorization == nil || req.Authorization.GetUsername() == "" {
+			sendUnauthorized()
+			return
+		}
+		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
+		username := config.Username
+		if req.Authorization.GetUsername() == id {
+			username = id
+		}
+
+		if DeviceRegisterCount[id] >= MaxRegisterCount {
+			var response sip.Response
+			response.Message = req.BuildResponse(http.StatusForbidden)
+			tx.Respond(&response)
+			return
+		}
+
+		// 设备第二次上报，校验
+		if !req.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
+			sendUnauthorized()
+			DeviceRegisterCount[id] += 1
+			return
+		}
+		storeDevice()
+		delete(DeviceNonce, id)
+		delete(DeviceRegisterCount, id)
+	}
+	s.OnMessage = func(req *sip.Request, tx *sip.GBTx) {
+		if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
+			d := v.(*Device)
+			if d.Status == string(sip.REGISTER) {
+				d.Status = "ONLINE"
+				go d.Query(req, tx)
+			}
+			d.UpdateTime = time.Now()
+			temp := &struct {
+				XMLName    xml.Name
+				CmdType    string
+				DeviceID   string
+				DeviceList []*Channel `xml:"DeviceList>Item"`
+				RecordList []*Record  `xml:"RecordList>Item"`
+			}{}
+			decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body)))
+			decoder.CharsetReader = charset.NewReaderLabel
+			err := decoder.Decode(temp)
+			if err != nil {
+				err = utils.DecodeGbk(temp, []byte(req.Body))
+				if err != nil {
+					log.Printf("decode catelog err: %s", err)
+				}
+			}
+			switch temp.CmdType {
+			case "Keeyalive":
+				if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
+					go d.Subscribe(req, tx)
+				}
+				d.CheckSubStream(tx)
+			case "Catalog":
+				d.UpdateChannels(temp.DeviceList, tx)
+
+			case "RecordInfo":
+				d.UpdateRecord(temp.DeviceID, temp.RecordList, tx)
+
+			}
+		}
+	}
+	s.RegistHandler(sip.REGISTER, s.OnRegister)
+	s.RegistHandler(sip.MESSAGE, s.OnMessage)
+	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
+	//	Devices.Range(func(key, value interface{}) bool {
+	//		device:=value.(*Device)
+	//		for _,channel := range device.Channels {
+	//			if stream.StreamPath == channel.RecordSP {
+	//
+	//			}
+	//		}
+	//	})
+	//})
+	if useTCP {
+		listenMediaTCP()
+	} else {
+		go listenMediaUDP()
+	}
+	// go queryCatalog(config)
+	if config.Username != "" || config.Password != "" {
+		go removeBanDevice(config)
+	}
+
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
 		CORS(w, r)
 		id := r.URL.Query().Get("id")
@@ -127,7 +256,7 @@ func run() {
 		startTime := r.URL.Query().Get("startTime")
 		endTime := r.URL.Query().Get("endTime")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.QueryRecord(startTime, endTime))
+			w.WriteHeader(c.QueryRecord(startTime, endTime, s.MustTX(id)))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -160,7 +289,7 @@ func run() {
 		channel := r.URL.Query().Get("channel")
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Control(ptzcmd))
+			w.WriteHeader(c.Control(ptzcmd, s.MustTX(id)))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -176,7 +305,7 @@ func run() {
 			if startTime == "" && c.LivePublisher != nil {
 				w.WriteHeader(304) //直播流已存在
 			} else {
-				w.WriteHeader(c.Invite(startTime, endTime))
+				w.WriteHeader(c.Invite(startTime, endTime, s.MustTX(id)))
 			}
 		} else {
 			w.WriteHeader(404)
@@ -188,143 +317,13 @@ func run() {
 		channel := r.URL.Query().Get("channel")
 		live := r.URL.Query().Get("live")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Bye(live != "false"))
+			w.WriteHeader(c.Bye(live != "false", s.MustTX(id)))
 		} else {
 			w.WriteHeader(404)
 		}
 	})
-	s := transaction.NewCore(config)
-	s.OnRegister = func(msg *sip.Message) {
-		id := msg.From.Uri.UserInfo()
-		storeDevice := func() {
-			var d *Device
 
-			if _d, loaded := Devices.LoadOrStore(id, &Device{
-				ID:           id,
-				RegisterTime: time.Now(),
-				UpdateTime:   time.Now(),
-				Status:       string(sip.REGISTER),
-				Core:         s,
-				from:         &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)},
-				to:           msg.To,
-				Addr:         msg.Via.GetSendBy(),
-				SipIP:        config.MediaIP,
-				channelMap:   make(map[string]*Channel),
-			}); loaded {
-				d = _d.(*Device)
-				d.UpdateTime = time.Now()
-				d.from = &sip.Contact{Uri: msg.StartLine.Uri, Params: make(map[string]string)}
-				d.to = msg.To
-				d.Addr = msg.Via.GetSendBy()
-			}
-		}
-		// 不需要密码情况
-		if config.Username == "" && config.Password == "" {
-			storeDevice()
-			return
-		}
-		sendUnauthorized := func() {
-			response := msg.BuildResponseWithPhrase(401, "Unauthorized")
-			if DeviceNonce[id] == "" {
-				nonce := utils.RandNumString(32)
-				DeviceNonce[id] = nonce
-			}
-			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
-			s.Send(response)
-		}
-		// 需要密码情况 设备第一次上报，返回401和加密算法
-		if msg.Authorization == nil || msg.Authorization.GetUsername() == "" {
-			sendUnauthorized()
-			return
-		}
-		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
-		username := config.Username
-		if msg.Authorization.GetUsername() == id {
-			username = id
-		}
-
-		if DeviceRegisterCount[id] >= MaxRegisterCount {
-			s.Send(msg.BuildResponse(403))
-			return
-		}
-
-		// 设备第二次上报，校验
-		if !msg.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
-			sendUnauthorized()
-			DeviceRegisterCount[id] += 1
-			return
-		}
-		storeDevice()
-		delete(DeviceNonce, id)
-		delete(DeviceRegisterCount, id)
-	}
-	s.OnMessage = func(msg *sip.Message) bool {
-		if v, ok := Devices.Load(msg.From.Uri.UserInfo()); ok {
-			d := v.(*Device)
-			if d.Status == string(sip.REGISTER) {
-				d.Status = "ONLINE"
-				go d.Query()
-			}
-			d.UpdateTime = time.Now()
-			temp := &struct {
-				XMLName    xml.Name
-				CmdType    string
-				DeviceID   string
-				DeviceList []*Channel `xml:"DeviceList>Item"`
-				RecordList []*Record  `xml:"RecordList>Item"`
-			}{}
-			decoder := xml.NewDecoder(bytes.NewReader([]byte(msg.Body)))
-			decoder.CharsetReader = charset.NewReaderLabel
-			err := decoder.Decode(temp)
-			if err != nil {
-				err = utils.DecodeGbk(temp, []byte(msg.Body))
-				if err != nil {
-					log.Printf("decode catelog err: %s", err)
-				}
-			}
-			switch temp.XMLName.Local {
-			case "Notify":
-				switch temp.CmdType {
-				case "Keeyalive":
-					if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
-						go d.Subscribe()
-					}
-					d.CheckSubStream()
-				case "Catalog":
-					d.UpdateChannels(temp.DeviceList)
-				}
-			case "Response":
-				switch temp.CmdType {
-				case "Catalog":
-					d.UpdateChannels(temp.DeviceList)
-				case "RecordInfo":
-					d.UpdateRecord(temp.DeviceID, temp.RecordList)
-				}
-			}
-			return true
-		}
-		return false
-	}
-	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
-	//	Devices.Range(func(key, value interface{}) bool {
-	//		device:=value.(*Device)
-	//		for _,channel := range device.Channels {
-	//			if stream.StreamPath == channel.RecordSP {
-	//
-	//			}
-	//		}
-	//	})
-	//})
-	if useTCP {
-		listenMediaTCP()
-	} else {
-		go listenMediaUDP()
-	}
-	// go queryCatalog(config)
-	if config.Username != "" || config.Password != "" {
-		go removeBanDevice(config)
-	}
-	s.Start()
+	s.StartAndWait()
 }
 func listenMediaTCP() {
 	for i := uint16(0); i < config.TCPMediaPortNum; i++ {

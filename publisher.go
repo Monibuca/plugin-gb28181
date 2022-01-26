@@ -9,7 +9,7 @@ import (
 
 type Publisher struct {
 	*engine.Stream
-	parser    utils.DecPSPackage
+	parser    *utils.DecPSPackage
 	pushVideo func(uint32, uint32, []byte)
 	pushAudio func(uint32, []byte)
 	lastSeq   uint16
@@ -90,9 +90,12 @@ func (p *Publisher) PushPS(rtp *rtp.Packet) {
 	}
 	p.lastSeq = rtp.SequenceNumber
 	p.Update()
+	if p.parser == nil {
+		p.parser = new(utils.DecPSPackage)
+	}
 	if len(ps) >= 4 && BigEndian.Uint32(ps) == utils.StartCodePS {
 		if p.parser.Len() > 0 {
-			p.parser.Uint32()
+			p.parser.Skip(4)
 			p.parser.Read(rtp.Timestamp, p)
 			p.parser.Reset()
 		}

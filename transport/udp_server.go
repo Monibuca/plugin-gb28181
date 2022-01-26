@@ -9,9 +9,9 @@ import (
 type UDPServer struct {
 	Statistic
 	addr      string
-	Conn      *net.UDPConn
-	ReadChan  chan *Packet
-	WriteChan chan *Packet
+	conn      *net.UDPConn
+	readChan  chan *Packet
+	writeChan chan *Packet
 	done      chan struct{}
 	Keepalive bool
 	//Sessions  sync.Map // key is remote-addr的string , value:*Connection。UDP不需要
@@ -22,8 +22,8 @@ func NewUDPServer(port uint16) IServer {
 
 	return &UDPServer{
 		addr:      addrStr,
-		ReadChan:  make(chan *Packet, 10),
-		WriteChan: make(chan *Packet, 10),
+		readChan:  make(chan *Packet, 1024),
+		writeChan: make(chan *Packet, 1024),
 		done:      make(chan struct{}),
 	}
 }
@@ -40,7 +40,7 @@ func (s *UDPServer) IsKeepalive() bool {
 	return s.Keepalive
 }
 
-func (s *UDPServer) Start() error {
+func (s *UDPServer) StartAndWait() error {
 	addr, err := net.ResolveUDPAddr("udp", s.addr)
 	if err != nil {
 		fmt.Println("Can't resolve address: ", err)
@@ -55,8 +55,9 @@ func (s *UDPServer) Start() error {
 	defer func() {
 		_ = conn.Close()
 	}()
+	ccc := *conn
 
-	s.Conn = conn
+	s.conn = &ccc
 
 	fmt.Println("start udp server at: ", s.addr)
 
@@ -64,17 +65,6 @@ func (s *UDPServer) Start() error {
 	if s.Keepalive {
 		//TODO:start heartbeat thread
 	}
-	//写线程
-	go func() {
-		for {
-			select {
-			case p := <-s.WriteChan:
-				_, _ = s.Conn.WriteTo(p.Data, p.Addr)
-			case <-s.done:
-				return
-			}
-		}
-	}()
 
 	//读线程
 	for {
@@ -84,17 +74,17 @@ func (s *UDPServer) Start() error {
 			fmt.Println("failed to read UDP msg because of ", err.Error())
 			continue
 		}
-		s.ReadChan <- &Packet{
+		s.readChan <- &Packet{
 			Addr: remoteAddr,
 			Data: data[:n],
 		}
 	}
 }
 func (s *UDPServer) ReadPacketChan() <-chan *Packet {
-	return s.ReadChan
+	return s.readChan
 }
 func (s *UDPServer) WritePacket(packet *Packet) {
-	s.WriteChan <- packet
+	s.writeChan <- packet
 }
 
 func (s *UDPServer) Close() error {
@@ -103,4 +93,10 @@ func (s *UDPServer) Close() error {
 }
 func (s *UDPServer) CloseOne(addr string) {
 	//处理某设备离线
+}
+func (s *UDPServer) UDPConn() *net.UDPConn {
+	return s.conn
+}
+func (s *UDPServer) Conn() *net.Conn {
+	return nil
 }

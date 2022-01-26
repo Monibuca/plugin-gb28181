@@ -43,7 +43,7 @@ func (c *UDPClient) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func (c *UDPClient) Start() error {
+func (c *UDPClient) StartAndWait() error {
 	addrStr := fmt.Sprintf("%s:%d", c.host, c.port)
 	addr, err := net.ResolveUDPAddr("udp", addrStr)
 	if err != nil {
@@ -116,4 +116,10 @@ func (c *UDPClient) Heartbeat(p *Packet) {
 		}
 	}
 	c.WritePacket(p)
+}
+func (c *UDPClient) UDPConn() *net.UDPConn {
+	return c.conn
+}
+func (c *UDPClient) Conn() *net.Conn {
+	return nil
 }

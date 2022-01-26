@@ -3,6 +3,7 @@ package sip
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -39,8 +40,10 @@ type Message struct {
 	Body            string
 	Addr            string
 	Event           string
-	Date						time.Time
+	Date            time.Time
 	WwwAuthenticate *WwwAuthenticate //gb28181 密码验证 上级发给下级是WwwAuthenticate；下级发给上级是Authorization
+	SourceAdd       net.Addr
+	DestAdd         net.Addr
 }
 
 func (m *Message) BuildResponse(code int) *Message {
@@ -58,7 +61,7 @@ func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 		CSeq:        m.CSeq,
 		Via:         m.Via,
 		MaxForwards: m.MaxForwards,
-		UserAgent: "Monibuca",
+		UserAgent:   "Monibuca",
 		StartLine: &StartLine{
 			Code:   code,
 			phrase: phrase,
@@ -69,7 +72,7 @@ func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 }
 
 //z9hG4bK + 10个随机数字
-func randBranch() string {
+func RandBranch() string {
 	return fmt.Sprintf("z9hG4bK%s", utils.RandNumString(8))
 }
 
@@ -93,7 +96,7 @@ func BuildMessageRequest(method Method, transport, sipSerial, sipRealm, username
 		Host:      client,
 	}
 	msg.Via.Params = map[string]string{
-		"branch": randBranch(),
+		"branch": RandBranch(),
 		"rport":  "-1", //only key,no-value
 	}
 	msg.From = &Contact{
@@ -462,7 +465,7 @@ func Encode(msg *Message) ([]byte, error) {
 		sb.WriteString("Date: ")
 		sb.WriteString(msg.Date.Format("2006-01-02T15:04:05.999"))
 		sb.WriteString(CRLF)
-	}	
+	}
 	if msg.Event != "" {
 		sb.WriteString("Event: ")
 		sb.WriteString(msg.Event)
