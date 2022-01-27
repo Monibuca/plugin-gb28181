@@ -1,8 +1,10 @@
-package sip
+package transaction
 
 import (
+	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	. "github.com/Monibuca/plugin-gb28181/v3/transport"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
+	. "github.com/Monibuca/utils/v3"
 	"net/http"
 	"sync"
 	"time"
@@ -44,13 +46,14 @@ func (txs *GBTxs) rmTX(tx *GBTx) {
 type GBTx struct {
 	conn   Connection
 	key    string
-	resp   chan *Response
+	resp   chan *sip.Response
 	active chan int
+	*Core
 }
 
 // NewTransaction create a new GBtx
 func NewTransaction(key string, conn Connection) *GBTx {
-	tx := &GBTx{conn: conn, key: key, resp: make(chan *Response, 10), active: make(chan int, 1)}
+	tx := &GBTx{conn: conn, key: key, resp: make(chan *sip.Response, 10), active: make(chan int, 1)}
 	go tx.watch()
 	return tx
 }
@@ -74,7 +77,7 @@ func (tx *GBTx) watch() {
 }
 
 // GetResponse GetResponse
-func (tx *GBTx) GetResponse() *Response {
+func (tx *GBTx) GetResponse() *sip.Response {
 	for {
 		res := <-tx.resp
 		if res == nil {
@@ -92,14 +95,14 @@ func (tx *GBTx) GetResponse() *Response {
 
 // Close the Close function closes the GBTx
 func (tx *GBTx) Close() {
-	//Println("closed tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
+	Printf("closed tx: %s   %s     TXs: %d", tx.key, time.Now().Format("2006-01-02 15:04:05"), len(ActiveTX.Txs))
 	ActiveTX.rmTX(tx)
 	close(tx.resp)
 	close(tx.active)
 }
 
 // ReceiveResponse receive a Response
-func (tx *GBTx) ReceiveResponse(msg *Response) {
+func (tx *GBTx) ReceiveResponse(msg *sip.Response) {
 	defer func() {
 		if r := recover(); r != nil {
 			//Println("send to closed channel, txkey:", tx.key, "message: \n", msg)
@@ -111,22 +114,22 @@ func (tx *GBTx) ReceiveResponse(msg *Response) {
 }
 
 // Respond Respond
-func (tx *GBTx) Respond(res *Response) error {
-	str, _ := Encode(res.Message)
+func (tx *GBTx) Respond(res *sip.Response) error {
+	str, _ := sip.Encode(res.Message)
 	//Println("send response,to:", (res.DestAdd).String(), "txkey:", tx.key, "message: \n", string(str))
 	_, err := tx.conn.WriteTo(str, res.DestAdd)
 	return err
 }
 
 // Request Request
-func (tx *GBTx) Request(req *Request) error {
-	str, _ := Encode(req.Message)
+func (tx *GBTx) Request(req *sip.Request) error {
+	str, _ := sip.Encode(req.Message)
 	//Println("send Request,to:", (req.DestAdd).String(), "txkey:", tx.key, "message: \n", string(str))
 	_, err := tx.conn.WriteTo(str, req.DestAdd)
 	return err
 }
 
-func GetTXKey(msg *Message) (key string) {
+func GetTXKey(msg *sip.Message) (key string) {
 	if len(msg.CallID) > 0 {
 		key = msg.CallID
 	} else {
@@ -135,7 +138,7 @@ func GetTXKey(msg *Message) (key string) {
 	return
 }
 
-func (tx *GBTx) SipResponse() (*Response, error) {
+func (tx *GBTx) SipResponse() (*sip.Response, error) {
 	response := tx.GetResponse()
 	if response == nil {
 		return nil, utils.NewError(nil, "response timeout", "tx key:", tx.Key())
@@ -146,7 +149,7 @@ func (tx *GBTx) SipResponse() (*Response, error) {
 	return response, nil
 }
 
-func (tx *GBTx) SipRequestForResponse(req *Request) (response *Response, err error) {
+func (tx *GBTx) SipRequestForResponse(req *sip.Request) (response *sip.Response, err error) {
 	err = tx.Request(req)
 	if err == nil {
 		return tx.SipResponse()

@@ -83,7 +83,7 @@ func RunClient() {
 	//TODO:build sip message
 	msg := BuildMessageRequest("", "", "", "", "", "",
 		0, 0, 0, "")
-	tx := c.MustTX(sip.GetTXKey(msg))
+	tx := c.MustTX(transaction.GetTXKey(msg))
 
 	resp, err := tx.SipRequestForResponse(&sip.Request{Message: msg})
 	if err != nil {

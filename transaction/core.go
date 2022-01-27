@@ -115,7 +115,9 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 }
 
 func (c *Core) NewTX(key string) *GBTx {
-	return c.txs.NewTX(key, *c.tp.Conn())
+	tx := c.txs.NewTX(key, *c.tp.Conn())
+	tx.Core = c
+	return tx
 }
 func (c *Core) GetTX(key string) *GBTx {
 	return c.txs.GetTX(key)
@@ -152,7 +154,6 @@ func (c *Core) handlerResponse(msg *Response) {
 		str, _ := Encode(msg.Message)
 		Println("not found tx. receive response from:", msg.Source(), "message: \n", string(str))
 	} else {
-		Println("receive response from:", msg.Source(), "txKey:", tx.Key(), "message: \n", msg.Event)
 		tx.ReceiveResponse(msg)
 	}
 }

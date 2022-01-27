@@ -2,8 +2,6 @@ package gb28181
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/xml"
 	"io"
 	"log"
 	"net"
@@ -15,16 +13,15 @@ import (
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	. "github.com/Monibuca/utils/v3"
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
-	"golang.org/x/net/html/charset"
 )
 
 var (
-	Ignores    = make(map[string]struct{})
-	publishers Publishers
+	Ignores      = make(map[string]struct{})
+	publishers   Publishers
+	serverConfig *transaction.Config
 )
 
 const MaxRegisterCount = 3
@@ -86,11 +83,11 @@ func init() {
 	pc.Install(run)
 	publishers.data = make(map[uint32]*Publisher)
 }
-func onBye(req *sip.Request, tx *sip.GBTx) {
+func onBye(req *sip.Request, tx *transaction.GBTx) {
 	response := &sip.Response{req.BuildOK()}
 	_ = tx.Respond(response)
 }
-func storeDevice(id string, mediaIP string, s *transaction.Core, req *sip.Message) {
+func storeDevice(id string, s *transaction.Core, req *sip.Message) {
 	var d *Device
 
 	if _d, loaded := Devices.LoadOrStore(id, &Device{
@@ -102,7 +99,7 @@ func storeDevice(id string, mediaIP string, s *transaction.Core, req *sip.Messag
 		from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
 		to:           req.To,
 		Addr:         req.Via.GetSendBy(),
-		SipIP:        mediaIP,
+		SipIP:        serverConfig.MediaIP,
 		channelMap:   make(map[string]*Channel),
 	}); loaded {
 		d = _d.(*Device)
@@ -125,6 +122,7 @@ func storeDevice(id string, mediaIP string, s *transaction.Core, req *sip.Messag
 
 	}
 }
+
 func run() {
 	ipAddr, err := net.ResolveUDPAddr("", config.ListenAddr)
 	if err != nil {
@@ -135,7 +133,7 @@ func run() {
 		Ignores[id] = struct{}{}
 	}
 	useTCP := config.TCP
-	config := &transaction.Config{
+	serverConfig = &transaction.Config{
 		SipIP:             ipAddr.IP.String(),
 		SipPort:           uint16(ipAddr.Port),
 		SipNetwork:        "UDP",
@@ -156,105 +154,9 @@ func run() {
 		UdpCacheSize:      config.UdpCacheSize,
 	}
 
-	s := transaction.NewCore(config)
-	s.OnRegister = func(req *sip.Request, tx *sip.GBTx) {
-		id := req.From.Uri.UserInfo()
-
-		passAuth := false
-		// 不需要密码情况
-		if config.Username == "" && config.Password == "" {
-			passAuth = true
-		} else {
-			// 需要密码情况 设备第一次上报，返回401和加密算法
-			if req.Authorization != nil || req.Authorization.GetUsername() != "" {
-				// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
-				var username string
-				if req.Authorization.GetUsername() == id {
-					username = id
-				} else {
-					username = config.Username
-				}
-
-				if DeviceRegisterCount[id] >= MaxRegisterCount {
-					var response sip.Response
-					response.Message = req.BuildResponse(http.StatusForbidden)
-					_ = tx.Respond(&response)
-					return
-				} else {
-					// 设备第二次上报，校验
-					if req.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
-						passAuth = true
-					} else {
-						DeviceRegisterCount[id]++
-					}
-				}
-			}
-
-		}
-		if passAuth {
-			storeDevice(id, config.MediaIP, s, req.Message)
-			delete(DeviceNonce, id)
-			delete(DeviceRegisterCount, id)
-			m := req.BuildOK()
-			resp := &sip.Response{Message: m}
-			_ = tx.Respond(resp)
-		} else {
-			var response sip.Response
-			response.Message = req.BuildResponseWithPhrase(401, "Unauthorized")
-			if DeviceNonce[id] == "" {
-				nonce := utils.RandNumString(32)
-				DeviceNonce[id] = nonce
-			}
-			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
-			response.SourceAdd = req.DestAdd
-			response.DestAdd = req.SourceAdd
-			_ = tx.Respond(&response)
-		}
-	}
-	s.OnMessage = func(req *sip.Request, tx *sip.GBTx) {
-
-		if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
-			d := v.(*Device)
-			if d.Status == string(sip.REGISTER) {
-				d.Status = "ONLINE"
-				go d.Query(req)
-			}
-			d.UpdateTime = time.Now()
-			temp := &struct {
-				XMLName    xml.Name
-				CmdType    string
-				DeviceID   string
-				DeviceList []*Channel `xml:"DeviceList>Item"`
-				RecordList []*Record  `xml:"RecordList>Item"`
-			}{}
-			decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body)))
-			decoder.CharsetReader = charset.NewReaderLabel
-			err := decoder.Decode(temp)
-			if err != nil {
-				err = utils.DecodeGbk(temp, []byte(req.Body))
-				if err != nil {
-					log.Printf("decode catelog err: %s", err)
-				}
-			}
-			switch temp.CmdType {
-			case "Keeyalive":
-				if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
-					go d.Subscribe(req)
-				}
-				d.CheckSubStream()
-			case "Catalog":
-				d.UpdateChannels(temp.DeviceList)
-
-			case "RecordInfo":
-				d.UpdateRecord(temp.DeviceID, temp.RecordList)
-
-			}
-			response := &sip.Response{req.BuildOK()}
-			tx.Respond(response)
-		}
-	}
-	s.RegistHandler(sip.REGISTER, s.OnRegister)
-	s.RegistHandler(sip.MESSAGE, s.OnMessage)
+	s := transaction.NewCore(serverConfig)
+	s.RegistHandler(sip.REGISTER, OnRegister)
+	s.RegistHandler(sip.MESSAGE, OnMessage)
 	s.RegistHandler(sip.BYE, onBye)
 
 	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
@@ -272,9 +174,9 @@ func run() {
 	} else {
 		go listenMediaUDP()
 	}
-	// go queryCatalog(config)
-	if config.Username != "" || config.Password != "" {
-		go removeBanDevice(config)
+	// go queryCatalog(serverConfig)
+	if serverConfig.Username != "" || serverConfig.Password != "" {
+		go removeBanDevice(serverConfig)
 	}
 
 	http.HandleFunc("/api/gb28181/query/records", func(w http.ResponseWriter, r *http.Request) {
@@ -296,7 +198,7 @@ func run() {
 			var list []*Device
 			Devices.Range(func(key, value interface{}) bool {
 				device := value.(*Device)
-				if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
+				if time.Since(device.UpdateTime) > time.Duration(serverConfig.RegisterValidity)*time.Second {
 					Devices.Delete(key)
 				} else {
 					list = append(list, device)
