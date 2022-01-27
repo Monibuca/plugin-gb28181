@@ -50,7 +50,7 @@ type Channel struct {
 }
 
 func (c *Channel) CreateRequst(Method Method) (request *Request) {
-
+	request = &Request{}
 	request.Message = c.device.CreateMessage(Method)
 	request.Message.StartLine.Uri = NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
 	request.Message.To = &Contact{
@@ -62,7 +62,7 @@ func (c *Channel) CreateRequst(Method Method) (request *Request) {
 	}
 	return
 }
-func (channel *Channel) QueryRecord(startTime, endTime string, tx *GBTx) int {
+func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	d := channel.device
 	channel.RecordStartTime = startTime
 	channel.RecordEndTime = endTime
@@ -82,14 +82,14 @@ func (channel *Channel) QueryRecord(startTime, endTime string, tx *GBTx) int {
 <Type>time</Type>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo(), startTime, endTime)
 	requestMsg.ContentLength = len(requestMsg.Body)
-	resp, err := tx.SipRequestForResponse(requestMsg)
+	resp, err := d.SipRequestForResponse(requestMsg)
 	if err != nil {
 		return http.StatusRequestTimeout
 	}
 	return resp.GetStatusCode()
 
 }
-func (channel *Channel) Control(PTZCmd string, tx *GBTx) int {
+func (channel *Channel) Control(PTZCmd string) int {
 	d := channel.device
 	requestMsg := channel.CreateRequst(MESSAGE)
 	requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -101,7 +101,7 @@ func (channel *Channel) Control(PTZCmd string, tx *GBTx) int {
 <PTZCmd>%s</PTZCmd>
 </Control>`, d.sn, requestMsg.To.Uri.UserInfo(), PTZCmd)
 	requestMsg.ContentLength = len(requestMsg.Body)
-	resp, err := tx.SipRequestForResponse(requestMsg)
+	resp, err := d.SipRequestForResponse(requestMsg)
 	if err != nil {
 		return http.StatusRequestTimeout
 	}
@@ -152,7 +152,7 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
+func (channel *Channel) Invite(start, end string) (code int) {
 	if start == "" {
 		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
 			return 304
@@ -162,9 +162,9 @@ func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
 				atomic.StoreInt32(&channel.state, 0)
 			}
 		}()
-		channel.Bye(true, tx)
+		channel.Bye(true)
 	} else {
-		channel.Bye(false, tx)
+		channel.Bye(false)
 	}
 	sint, err1 := strconv.ParseInt(start, 10, 0)
 	eint, err2 := strconv.ParseInt(end, 10, 0)
@@ -221,9 +221,13 @@ func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
 	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\ny=" + string(ssrc) + "\r\n"
 	invite.ContentLength = len(invite.Body)
 	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
-	response, err := tx.SipRequestForResponse(invite)
+	response, _ := d.Core.SipRequestForResponse(invite)
+	if response == nil {
+		return http.StatusRequestTimeout
+	}
 	fmt.Printf("invite response statuscode: %d\n", response.GetStatusCode())
-	if err != nil && response.GetStatusCode() == 200 {
+
+	if response.GetStatusCode() == 200 {
 		ds := strings.Split(response.Body, "\r\n")
 		_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
 		SSRC := uint32(_SSRC)
@@ -250,11 +254,11 @@ func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.LivePublisher = nil
-				channel.ByeBye((*Request)(channel.inviteRes), tx)
+				channel.ByeBye((*Request)(channel.inviteRes))
 				channel.inviteRes = nil
 				atomic.StoreInt32(&channel.state, 0)
 				if config.AutoInvite {
-					go channel.Invite("", "", tx)
+					go channel.Invite("", "")
 				}
 			}
 		} else {
@@ -262,7 +266,7 @@ func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.RecordPublisher = nil
-				channel.ByeBye((*Request)(channel.recordInviteRes), tx)
+				channel.ByeBye((*Request)(channel.recordInviteRes))
 				channel.recordInviteRes = nil
 			}
 		}
@@ -286,15 +290,15 @@ func (channel *Channel) Invite(start, end string, tx *GBTx) (code int) {
 		ack.To = response.To
 		ack.CallID = response.CallID
 		ack.CSeq.ID = invite.CSeq.ID
-		tx.Respond(&Response{Message: ack})
+		d.Respond(&Response{Message: ack})
 	} else if start == "" && config.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
-			channel.Invite("", "", tx)
+			channel.Invite("", "")
 		})
 	}
 	return response.GetStatusCode()
 }
-func (channel *Channel) Bye(live bool, tx *GBTx) int {
+func (channel *Channel) Bye(live bool) int {
 	if live && channel.inviteRes != nil {
 		defer func() {
 			channel.inviteRes = nil
@@ -302,7 +306,7 @@ func (channel *Channel) Bye(live bool, tx *GBTx) int {
 				channel.LivePublisher.Close()
 			}
 		}()
-		return channel.ByeBye((*Request)(channel.inviteRes), tx).GetStatusCode()
+		return channel.ByeBye((*Request)(channel.inviteRes)).GetStatusCode()
 	}
 	if !live && channel.recordInviteRes != nil {
 		defer func() {
@@ -311,14 +315,15 @@ func (channel *Channel) Bye(live bool, tx *GBTx) int {
 				channel.RecordPublisher.Close()
 			}
 		}()
-		return channel.ByeBye((*Request)(channel.recordInviteRes), tx).GetStatusCode()
+		return channel.ByeBye((*Request)(channel.recordInviteRes)).GetStatusCode()
 	}
 	return 404
 }
-func (c *Channel) ByeBye(res *Request, tx *GBTx) *Response {
+func (c *Channel) ByeBye(res *Request) *Response {
 	if res == nil {
 		return nil
 	}
+	d := c.device
 	bye := c.device.CreateMessage(BYE)
 	bye.StartLine = &StartLine{
 		Uri:    NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain()),
@@ -330,7 +335,7 @@ func (c *Channel) ByeBye(res *Request, tx *GBTx) *Response {
 	req := &Request{}
 	req.Message = bye
 
-	resp, _ := tx.SipRequestForResponse(req)
+	resp, _ := d.SipRequestForResponse(req)
 	return resp
 
 }

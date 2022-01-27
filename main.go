@@ -86,7 +86,45 @@ func init() {
 	pc.Install(run)
 	publishers.data = make(map[uint32]*Publisher)
 }
+func onBye(req *sip.Request, tx *sip.GBTx) {
+	response := &sip.Response{req.BuildOK()}
+	_ = tx.Respond(response)
+}
+func storeDevice(id string, mediaIP string, s *transaction.Core, req *sip.Message) {
+	var d *Device
 
+	if _d, loaded := Devices.LoadOrStore(id, &Device{
+		ID:           id,
+		RegisterTime: time.Now(),
+		UpdateTime:   time.Now(),
+		Status:       string(sip.REGISTER),
+		Core:         s,
+		from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
+		to:           req.To,
+		Addr:         req.Via.GetSendBy(),
+		SipIP:        mediaIP,
+		channelMap:   make(map[string]*Channel),
+	}); loaded {
+		d = _d.(*Device)
+		d.UpdateTime = time.Now()
+		d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
+		d.to = req.To
+		d.Addr = req.Via.GetSendBy()
+
+		//TODO: Should we send  GetDeviceInf request?
+		//message := d.CreateMessage(sip.MESSAGE)
+		//message.Body = sip.GetDeviceInfoXML(d.ID)
+
+		//request := &sip.Request{Message: message}
+		//if newTx, err := s.Request(request); err == nil {
+		//	if _, err = newTx.SipResponse(); err != nil {
+		//		Println("notify device after register,", err)
+		//		return
+		//	}
+		//}
+
+	}
+}
 func run() {
 	ipAddr, err := net.ResolveUDPAddr("", config.ListenAddr)
 	if err != nil {
@@ -121,34 +159,46 @@ func run() {
 	s := transaction.NewCore(config)
 	s.OnRegister = func(req *sip.Request, tx *sip.GBTx) {
 		id := req.From.Uri.UserInfo()
-		storeDevice := func() {
-			var d *Device
 
-			if _d, loaded := Devices.LoadOrStore(id, &Device{
-				ID:           id,
-				RegisterTime: time.Now(),
-				UpdateTime:   time.Now(),
-				Status:       string(sip.REGISTER),
-				Core:         s,
-				from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
-				to:           req.To,
-				Addr:         req.Via.GetSendBy(),
-				SipIP:        config.MediaIP,
-				channelMap:   make(map[string]*Channel),
-			}); loaded {
-				d = _d.(*Device)
-				d.UpdateTime = time.Now()
-				d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
-				d.to = req.To
-				d.Addr = req.Via.GetSendBy()
-			}
-		}
+		passAuth := false
 		// 不需要密码情况
 		if config.Username == "" && config.Password == "" {
-			storeDevice()
-			return
+			passAuth = true
+		} else {
+			// 需要密码情况 设备第一次上报，返回401和加密算法
+			if req.Authorization != nil || req.Authorization.GetUsername() != "" {
+				// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
+				var username string
+				if req.Authorization.GetUsername() == id {
+					username = id
+				} else {
+					username = config.Username
+				}
+
+				if DeviceRegisterCount[id] >= MaxRegisterCount {
+					var response sip.Response
+					response.Message = req.BuildResponse(http.StatusForbidden)
+					_ = tx.Respond(&response)
+					return
+				} else {
+					// 设备第二次上报，校验
+					if req.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
+						passAuth = true
+					} else {
+						DeviceRegisterCount[id]++
+					}
+				}
+			}
+
 		}
-		sendUnauthorized := func() {
+		if passAuth {
+			storeDevice(id, config.MediaIP, s, req.Message)
+			delete(DeviceNonce, id)
+			delete(DeviceRegisterCount, id)
+			m := req.BuildOK()
+			resp := &sip.Response{Message: m}
+			_ = tx.Respond(resp)
+		} else {
 			var response sip.Response
 			response.Message = req.BuildResponseWithPhrase(401, "Unauthorized")
 			if DeviceNonce[id] == "" {
@@ -158,42 +208,16 @@ func run() {
 			response.WwwAuthenticate = sip.NewWwwAuthenticate(s.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
 			response.SourceAdd = req.DestAdd
 			response.DestAdd = req.SourceAdd
-			tx.Respond(&response)
+			_ = tx.Respond(&response)
 		}
-		// 需要密码情况 设备第一次上报，返回401和加密算法
-		if req.Authorization == nil || req.Authorization.GetUsername() == "" {
-			sendUnauthorized()
-			return
-		}
-		// 有些摄像头没有配置用户名的地方，用户名就是摄像头自己的国标id
-		username := config.Username
-		if req.Authorization.GetUsername() == id {
-			username = id
-		}
-
-		if DeviceRegisterCount[id] >= MaxRegisterCount {
-			var response sip.Response
-			response.Message = req.BuildResponse(http.StatusForbidden)
-			tx.Respond(&response)
-			return
-		}
-
-		// 设备第二次上报，校验
-		if !req.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
-			sendUnauthorized()
-			DeviceRegisterCount[id] += 1
-			return
-		}
-		storeDevice()
-		delete(DeviceNonce, id)
-		delete(DeviceRegisterCount, id)
 	}
 	s.OnMessage = func(req *sip.Request, tx *sip.GBTx) {
+
 		if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
 			d := v.(*Device)
 			if d.Status == string(sip.REGISTER) {
 				d.Status = "ONLINE"
-				go d.Query(req, tx)
+				go d.Query(req)
 			}
 			d.UpdateTime = time.Now()
 			temp := &struct {
@@ -215,20 +239,24 @@ func run() {
 			switch temp.CmdType {
 			case "Keeyalive":
 				if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
-					go d.Subscribe(req, tx)
+					go d.Subscribe(req)
 				}
-				d.CheckSubStream(tx)
+				d.CheckSubStream()
 			case "Catalog":
-				d.UpdateChannels(temp.DeviceList, tx)
+				d.UpdateChannels(temp.DeviceList)
 
 			case "RecordInfo":
-				d.UpdateRecord(temp.DeviceID, temp.RecordList, tx)
+				d.UpdateRecord(temp.DeviceID, temp.RecordList)
 
 			}
+			response := &sip.Response{req.BuildOK()}
+			tx.Respond(response)
 		}
 	}
 	s.RegistHandler(sip.REGISTER, s.OnRegister)
 	s.RegistHandler(sip.MESSAGE, s.OnMessage)
+	s.RegistHandler(sip.BYE, onBye)
+
 	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
 	//	Devices.Range(func(key, value interface{}) bool {
 	//		device:=value.(*Device)
@@ -256,7 +284,7 @@ func run() {
 		startTime := r.URL.Query().Get("startTime")
 		endTime := r.URL.Query().Get("endTime")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.QueryRecord(startTime, endTime, s.MustTX(id)))
+			w.WriteHeader(c.QueryRecord(startTime, endTime))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -289,7 +317,7 @@ func run() {
 		channel := r.URL.Query().Get("channel")
 		ptzcmd := r.URL.Query().Get("ptzcmd")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Control(ptzcmd, s.MustTX(id)))
+			w.WriteHeader(c.Control(ptzcmd))
 		} else {
 			w.WriteHeader(404)
 		}
@@ -305,7 +333,7 @@ func run() {
 			if startTime == "" && c.LivePublisher != nil {
 				w.WriteHeader(304) //直播流已存在
 			} else {
-				w.WriteHeader(c.Invite(startTime, endTime, s.MustTX(id)))
+				w.WriteHeader(c.Invite(startTime, endTime))
 			}
 		} else {
 			w.WriteHeader(404)
@@ -317,7 +345,7 @@ func run() {
 		channel := r.URL.Query().Get("channel")
 		live := r.URL.Query().Get("live")
 		if c := FindChannel(id, channel); c != nil {
-			w.WriteHeader(c.Bye(live != "false", s.MustTX(id)))
+			w.WriteHeader(c.Bye(live != "false"))
 		} else {
 			w.WriteHeader(404)
 		}

@@ -9,7 +9,7 @@ type TCPClient struct {
 	Statistic
 	host       string
 	port       uint16
-	conn       net.Conn
+	conn       Connection
 	readChan   chan *Packet
 	writeChan  chan *Packet
 	remoteAddr net.Addr
@@ -52,7 +52,7 @@ func (c *TCPClient) StartAndWait() error {
 		fmt.Println("start tcp client")
 	}
 
-	c.conn = conn
+	c.conn = newTCPConnection(conn)
 	c.remoteAddr = conn.RemoteAddr()
 	c.localAddr = conn.LocalAddr()
 
@@ -113,9 +113,7 @@ func (c *TCPClient) Heartbeat(p *Packet) {
 	}
 	c.WritePacket(p)
 }
-func (s *TCPClient) UDPConn() *net.UDPConn {
-	return nil
-}
-func (s *TCPClient) Conn() *net.Conn {
+
+func (s *TCPClient) Conn() *Connection {
 	return &s.conn
 }

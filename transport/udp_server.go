@@ -9,7 +9,7 @@ import (
 type UDPServer struct {
 	Statistic
 	addr      string
-	conn      *net.UDPConn
+	conn      *Connection
 	readChan  chan *Packet
 	writeChan chan *Packet
 	done      chan struct{}
@@ -55,10 +55,8 @@ func (s *UDPServer) StartAndWait() error {
 	defer func() {
 		_ = conn.Close()
 	}()
-	ccc := *conn
-
-	s.conn = &ccc
-
+	udpConnection := newUDPConnection(conn)
+	s.conn = &udpConnection
 	fmt.Println("start udp server at: ", s.addr)
 
 	//心跳线程
@@ -94,9 +92,7 @@ func (s *UDPServer) Close() error {
 func (s *UDPServer) CloseOne(addr string) {
 	//处理某设备离线
 }
-func (s *UDPServer) UDPConn() *net.UDPConn {
+
+func (s *UDPServer) Conn() *Connection {
 	return s.conn
-}
-func (s *UDPServer) Conn() *net.Conn {
-	return nil
 }

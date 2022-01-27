@@ -5,7 +5,7 @@ import (
 	"fmt"
 	. "github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transport"
-	"github.com/sirupsen/logrus"
+	. "github.com/Monibuca/utils/v3"
 	"net"
 	"net/http"
 	"strconv"
@@ -25,7 +25,6 @@ type Core struct {
 	*Config                              //sip server配置信息
 	OnRegister      func(msg *Request, tx *GBTx)
 	OnMessage       func(msg *Request, tx *GBTx)
-	conn            *net.Conn
 	udpaddr         net.Addr
 }
 
@@ -61,7 +60,7 @@ func NewCore(config *Config) *Core {
 func (c *Core) StartAndWait() {
 	go c.handlerListen()
 
-	c.tp.StartAndWait()
+	_ = c.tp.StartAndWait()
 }
 
 func (c *Core) handlerListen() {
@@ -115,28 +114,30 @@ func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
 	return
 }
 
-func (s *Core) NewTX(key string) *GBTx {
-	return s.txs.NewTX(key, s.tp.UDPConn())
+func (c *Core) NewTX(key string) *GBTx {
+	return c.txs.NewTX(key, *c.tp.Conn())
 }
-func (s *Core) GetTX(key string) *GBTx {
-	return s.txs.GetTX(key)
+func (c *Core) GetTX(key string) *GBTx {
+	return c.txs.GetTX(key)
 }
-func (s *Core) MustTX(key string) *GBTx {
-	tx := s.txs.GetTX(key)
+func (c *Core) MustTX(key string) *GBTx {
+	tx := c.txs.GetTX(key)
 	if tx == nil {
-		tx = s.NewTX(key)
+		tx = c.NewTX(key)
 	}
 	return tx
 }
 
-func (s *Core) handlerRequest(msg *Request) {
-	tx := s.MustTX(GetTXKey(msg.Message))
-	logrus.Traceln("receive request from:", msg.Source(), ",method:", msg.GetMethod(), "txKey:", tx.Key(), "message: \n", msg.Event)
-	s.hmu.RLock()
-	handler, ok := s.requestHandlers[msg.GetMethod()]
-	s.hmu.RUnlock()
+func (c *Core) handlerRequest(msg *Request) {
+	tx := c.MustTX(GetTXKey(msg.Message))
+
+	//Println("receive request from:", msg.Source(), ",method:", msg.GetMethod(), "txKey:", tx.Key(), "message: \n", string(encode))
+	c.hmu.RLock()
+	handler, ok := c.requestHandlers[msg.GetMethod()]
+	c.hmu.RUnlock()
 	if !ok {
-		logrus.Errorln("not found handler func,requestMethod:", msg.GetMethod(), msg.Event)
+		encode, _ := Encode(msg.Message)
+		Println("not found handler func,requestMethod:", msg.GetMethod(), msg.Event, encode)
 		go handlerMethodNotAllowed(msg, tx)
 		return
 	}
@@ -144,12 +145,14 @@ func (s *Core) handlerRequest(msg *Request) {
 	go handler(msg, tx)
 }
 
-func (s *Core) handlerResponse(msg *Response) {
-	tx := s.GetTX(GetTXKey(msg.Message))
-	logrus.Traceln("receive response from:", msg.Source(), "txKey:", tx.Key(), "message: \n", msg.Event)
+func (c *Core) handlerResponse(msg *Response) {
+	tx := c.GetTX(GetTXKey(msg.Message))
+
 	if tx == nil {
-		logrus.Infoln("not found tx. receive response from:", msg.Source(), "message: \n", msg.Event)
+		str, _ := Encode(msg.Message)
+		Println("not found tx. receive response from:", msg.Source(), "message: \n", string(str))
 	} else {
+		Println("receive response from:", msg.Source(), "txKey:", tx.Key(), "message: \n", msg.Event)
 		tx.ReceiveResponse(msg)
 	}
 }
@@ -158,24 +161,42 @@ func handlerMethodNotAllowed(req *Request, tx *GBTx) {
 	resp.Message = req.BuildResponse(http.StatusMethodNotAllowed)
 	resp.DestAdd = req.SourceAdd
 	resp.SourceAdd = req.DestAdd
-	tx.Respond(&resp)
+	_ = tx.Respond(&resp)
+}
+func (c *Core) SipRequestForResponse(req *Request) (response *Response, err error) {
+	var tx *GBTx
+	tx, err = c.Request(req)
+	if err == nil {
+		return tx.SipResponse()
+	}
+	return
 }
 
 // Request Request
-func (s *Core) Request(req *Request) (*GBTx, error) {
-	var viaHop Via
-	req.Via = &viaHop
-	viaHop.Host = s.SipIP
-	viaHop.Port = strconv.Itoa(int(s.SipPort))
-	viaHop.Params["branch"] = RandBranch()
-	viaHop.Params["rport"] = ""
-	tx := s.MustTX(GetTXKey(req.Message))
+func (c *Core) Request(req *Request) (*GBTx, error) {
+	if req.Via == nil {
+		var viaHop Via
+		viaHop.Host = c.SipIP
+		viaHop.Port = strconv.Itoa(int(c.SipPort))
+		viaHop.Params = make(map[string]string)
+		viaHop.Params["branch"] = RandBranch()
+		viaHop.Params["rport"] = ""
+		req.Via = &viaHop
+	}
+	tx := c.MustTX(GetTXKey(req.Message))
 	return tx, tx.Request(req)
 }
 
+// Request Request
+func (c *Core) Respond(resp *Response) (*GBTx, error) {
+
+	tx := c.MustTX(GetTXKey(resp.Message))
+	return tx, tx.Respond(resp)
+}
+
 // RegistHandler RegistHandler
-func (s *Core) RegistHandler(method Method, handler RequestHandler) {
-	s.hmu.Lock()
-	s.requestHandlers[method] = handler
-	s.hmu.Unlock()
+func (c *Core) RegistHandler(method Method, handler RequestHandler) {
+	c.hmu.Lock()
+	c.requestHandlers[method] = handler
+	c.hmu.Unlock()
 }

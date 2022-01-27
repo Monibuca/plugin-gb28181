@@ -69,8 +69,8 @@ func (s *TCPServer) StartAndWait() error {
 				if !ok {
 					return
 				}
-				c := val.(*Connection)
-				_, _ = c.Conn.Write(p.Data)
+				c := *val.(*Connection)
+				_, _ = c.Write(p.Data)
 			case <-s.done:
 				return
 			}
@@ -104,17 +104,18 @@ func (s *TCPServer) StartAndWait() error {
 		}
 
 		// conn.SetReadDeadline(time.Now().Add(600 * time.Second))
-		session := &Connection{Conn: conn, Addr: conn.RemoteAddr()}
-		address := session.Addr.String()
+		session := newTCPConnection(conn)
+		address := session.RemoteAddr().String()
 		s.sessions.Store(address, session)
 
 		fmt.Println(fmt.Sprintf("new tcp client remoteAddr: %v", address))
-		go s.handlerSession(session)
+		go s.handlerSession(&session)
 	}
 }
 
 func (s *TCPServer) handlerSession(c *Connection) {
-	addrStr := c.Addr.String()
+	conn := *c
+	addrStr := conn.RemoteAddr().String()
 
 	//recovery from panic
 	defer func() {
@@ -126,16 +127,16 @@ func (s *TCPServer) handlerSession(c *Connection) {
 
 	buf := make([]byte, 2048)
 	for {
-		n, err := c.Conn.Read(buf)
+		n, err := conn.Read(buf)
 		switch {
 		case err == nil:
 			p := &Packet{
-				Addr: c.Addr,
+				Addr: conn.RemoteAddr(),
 				Data: buf[:n],
 			}
 			s.readChan <- p
 		case err == io.EOF:
-			fmt.Println(fmt.Sprintf("io.EOF,client close --- remoteAddr: %v", c.Addr))
+			fmt.Println(fmt.Sprintf("io.EOF,client close --- remoteAddr: %v", conn.RemoteAddr()))
 			return
 		case err != nil:
 			fmt.Println("client other err: ", err)
@@ -150,8 +151,8 @@ func (s *TCPServer) CloseOne(addr string) {
 	if !ok {
 		return
 	}
-	c := val.(*Connection)
-	_ = c.Conn.Close()
+	c := *val.(*Connection)
+	_ = c.Close()
 	s.sessions.Delete(addr)
 }
 
@@ -165,16 +166,14 @@ func (s *TCPServer) WritePacket(packet *Packet) {
 func (s *TCPServer) Close() error {
 	//TODO：TCP服务退出之前，需要先close掉所有客户端的连接
 	s.sessions.Range(func(key, value interface{}) bool {
-		c := value.(*Connection)
-		_ = c.Conn.Close()
+		c := *value.(*Connection)
+		_ = c.Close()
 		s.sessions.Delete(key)
 		return true
 	})
 	return nil
 }
-func (s *TCPServer) UDPConn() *net.UDPConn {
-	return nil
-}
-func (s *TCPServer) Conn() *net.Conn {
+
+func (s *TCPServer) Conn() *Connection {
 	return nil
 }

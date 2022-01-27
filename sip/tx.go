@@ -1,9 +1,8 @@
 package sip
 
 import (
+	. "github.com/Monibuca/plugin-gb28181/v3/transport"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	. "github.com/Monibuca/utils/v3"
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -17,7 +16,7 @@ type GBTxs struct {
 	RWM *sync.RWMutex
 }
 
-func (txs *GBTxs) NewTX(key string, conn *net.UDPConn) *GBTx {
+func (txs *GBTxs) NewTX(key string, conn Connection) *GBTx {
 	tx := NewTransaction(key, conn)
 	txs.RWM.Lock()
 	txs.Txs[key] = tx
@@ -43,15 +42,14 @@ func (txs *GBTxs) rmTX(tx *GBTx) {
 
 // GBTx Gb28181 Transaction
 type GBTx struct {
-	conn   *net.UDPConn
+	conn   Connection
 	key    string
 	resp   chan *Response
 	active chan int
 }
 
 // NewTransaction create a new GBtx
-func NewTransaction(key string, conn *net.UDPConn) *GBTx {
-	Println("new tx", key, time.Now().Format("2006-01-02 15:04:05"))
+func NewTransaction(key string, conn Connection) *GBTx {
 	tx := &GBTx{conn: conn, key: key, resp: make(chan *Response, 10), active: make(chan int, 1)}
 	go tx.watch()
 	return tx
@@ -66,10 +64,10 @@ func (tx *GBTx) watch() {
 	for {
 		select {
 		case <-tx.active:
-			Println("active tx", tx.Key(), time.Now().Format("2006-01-02 15:04:05"))
+			//Println("active tx", tx.Key(), time.Now().Format("2006-01-02 15:04:05"))
 		case <-time.After(20 * time.Second):
 			tx.Close()
-			Println("watch closed tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
+			//Println("watch closed tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
 			return
 		}
 	}
@@ -83,7 +81,7 @@ func (tx *GBTx) GetResponse() *Response {
 			return res
 		}
 		tx.active <- 2
-		Println("response tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
+		//Println("response tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
 		if res.GetStatusCode() == http.StatusContinue || res.GetStatusCode() == http.StatusSwitchingProtocols {
 			// Trying and Dialog Establishement 等待下一个返回
 			continue
@@ -94,7 +92,7 @@ func (tx *GBTx) GetResponse() *Response {
 
 // Close the Close function closes the GBTx
 func (tx *GBTx) Close() {
-	Println("closed tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
+	//Println("closed tx", tx.key, time.Now().Format("2006-01-02 15:04:05"))
 	ActiveTX.rmTX(tx)
 	close(tx.resp)
 	close(tx.active)
@@ -104,10 +102,10 @@ func (tx *GBTx) Close() {
 func (tx *GBTx) ReceiveResponse(msg *Response) {
 	defer func() {
 		if r := recover(); r != nil {
-			Println("send to closed channel, txkey:", tx.key, "message: \n", msg)
+			//Println("send to closed channel, txkey:", tx.key, "message: \n", msg)
 		}
 	}()
-	Println("receiveResponse tx", tx.Key(), time.Now().Format("2006-01-02 15:04:05"))
+	//Println("receiveResponse tx", tx.Key(), time.Now().Format("2006-01-02 15:04:05"))
 	tx.resp <- msg
 	tx.active <- 1
 }
@@ -115,7 +113,7 @@ func (tx *GBTx) ReceiveResponse(msg *Response) {
 // Respond Respond
 func (tx *GBTx) Respond(res *Response) error {
 	str, _ := Encode(res.Message)
-	Println("send response,to:", (res.DestAdd).String(), "txkey:", tx.key, "message: \n", str)
+	//Println("send response,to:", (res.DestAdd).String(), "txkey:", tx.key, "message: \n", string(str))
 	_, err := tx.conn.WriteTo(str, res.DestAdd)
 	return err
 }
@@ -123,7 +121,7 @@ func (tx *GBTx) Respond(res *Response) error {
 // Request Request
 func (tx *GBTx) Request(req *Request) error {
 	str, _ := Encode(req.Message)
-	Println("send response,to:", (req.DestAdd).String(), "txkey:", tx.key, "message: \n", str)
+	//Println("send Request,to:", (req.DestAdd).String(), "txkey:", tx.key, "message: \n", string(str))
 	_, err := tx.conn.WriteTo(str, req.DestAdd)
 	return err
 }

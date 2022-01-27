@@ -66,7 +66,8 @@ func (m *Message) BuildResponseWithPhrase(code int, phrase string) *Message {
 			Code:   code,
 			phrase: phrase,
 		},
-		Date: time.Now(),
+		Date:    time.Now(),
+		DestAdd: m.SourceAdd,
 	}
 	return &response
 }
@@ -139,8 +140,6 @@ func (m *Message) IsResponse() bool {
 
 func (m *Message) GetMethod() Method {
 	if m.CSeq == nil {
-		b, _ := Encode(m)
-		println(string(b))
 		return MESSAGE
 	}
 	return m.CSeq.Method
@@ -182,12 +181,12 @@ func (m *Message) GetBranch() string {
 //请求消息的source，格式： host:port
 func (m *Message) Source() string {
 	if m.Mode == SIP_MESSAGE_RESPONSE {
-		fmt.Println("only for request message")
+		//fmt.Println("only for request message")
 		return ""
 	}
 
 	if m.Via == nil {
-		fmt.Println("invalid request message")
+		//fmt.Println("invalid request message")
 		return ""
 	}
 
@@ -285,7 +284,7 @@ func Decode(data []byte) (msg *Message, err error) {
 						return
 					}
 				} else {
-					fmt.Println(firstline)
+					//fmt.Println(firstline)
 				}
 			}
 			continue
@@ -488,7 +487,7 @@ func Encode(msg *Message) ([]byte, error) {
 	}
 
 	sb.WriteString("Content-Length: ")
-	sb.WriteString(strconv.Itoa(msg.ContentLength))
+	sb.WriteString(strconv.Itoa(len(msg.Body)))
 
 	sb.WriteString(CRLFCRLF)
 

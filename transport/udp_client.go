@@ -10,7 +10,7 @@ type UDPClient struct {
 	Statistic
 	host       string
 	port       uint16
-	conn       *net.UDPConn
+	conn       Connection
 	readChan   chan *Packet
 	writeChan  chan *Packet
 	done       chan struct{}
@@ -117,9 +117,7 @@ func (c *UDPClient) Heartbeat(p *Packet) {
 	}
 	c.WritePacket(p)
 }
-func (c *UDPClient) UDPConn() *net.UDPConn {
-	return c.conn
-}
-func (c *UDPClient) Conn() *net.Conn {
-	return nil
+
+func (c *UDPClient) Conn() *Connection {
+	return &c.conn
 }

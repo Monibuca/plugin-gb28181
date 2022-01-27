@@ -26,8 +26,7 @@ type ITransport interface {
 	StartAndWait() error            //开启连接，阻塞接收消息
 	Close() error                   //关闭连接
 	IsReliable() bool               //是否可靠传输
-	UDPConn() *net.UDPConn
-	Conn() *net.Conn
+	Conn() *Connection
 }
 
 type IServer interface {
@@ -48,18 +47,6 @@ type Packet struct {
 	Type string //消息类型，预留字段，对于客户端主动关闭等消息的上报、心跳超时等。如果为空，则仅透传消息。
 	Addr net.Addr
 	Data []byte
-}
-
-//对于面向连接的（UDP或者TCP都可以面向连接，维持心跳即可），必须有session
-type Connection struct {
-	Addr           net.Addr
-	Conn           net.Conn
-	Online         bool
-	ReconnectCount int64 //重连次数
-}
-
-func (s *Connection) Close() {
-	//TODO：处理session的关闭，修改缓存状态、数据库状态、发送离线通知、执行离线回调等等
 }
 
 //通讯统计
