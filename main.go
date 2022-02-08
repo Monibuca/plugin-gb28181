@@ -322,10 +322,9 @@ func listenMediaUDP() {
 func removeBanDevice(config *transaction.Config) {
 	t := time.NewTicker(time.Duration(config.RemoveBanInterval) * time.Second)
 	for range t.C {
-		for id, cnt := range DeviceRegisterCount {
-			if cnt >= MaxRegisterCount {
-				delete(DeviceRegisterCount, id)
-			}
-		}
+		DeviceRegisterCount.Range(func(key, value interface{}) bool {
+			if value.(int)>MaxRegisterCount {DeviceRegisterCount.Delete(key)}
+			return true
+		})
 	}
 }

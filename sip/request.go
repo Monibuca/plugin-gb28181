@@ -11,16 +11,15 @@ type Request struct {
 }
 
 var (
-	// CatalogXML 获取设备列表xml样式
-	CatalogXML = `<?xml version="1.0"?>
-<Query>
+// CatalogXML 获取设备列表xml样式
+CatalogXML = `<?xml version="1.0"?><Query>
 <CmdType>Catalog</CmdType>
 <SN>17430</SN>
 <DeviceID>%s</DeviceID>
 </Query>
-	`
-	// RecordInfoXML 获取录像文件列表xml样式
-	RecordInfoXML = `<?xml version="1.0"?>
+`
+// RecordInfoXML 获取录像文件列表xml样式
+RecordInfoXML = `<?xml version="1.0"?>
 <Query>
 <CmdType>RecordInfo</CmdType>
 <SN>17430</SN>
@@ -31,8 +30,8 @@ var (
 <Type>time</Type>
 </Query>
 `
-	// DeviceInfoXML 查询设备详情xml样式
-	DeviceInfoXML = `<?xml version="1.0"?>
+// DeviceInfoXML 查询设备详情xml样式
+DeviceInfoXML = `<?xml version="1.0"?>
 <Query>
 <CmdType>DeviceInfo</CmdType>
 <SN>17430</SN>
@@ -41,17 +40,17 @@ var (
 `
 )
 
-// GetDeviceInfoXML 获取设备详情指令
-func GetDeviceInfoXML(id string) string {
+// BuildDeviceInfoXML 获取设备详情指令
+func BuildDeviceInfoXML(id string) string {
 	return fmt.Sprintf(DeviceInfoXML, id)
 }
 
-// GetCatalogXML 获取NVR下设备列表指令
-func GetCatalogXML(id string) string {
+// BuildCatalogXML 获取NVR下设备列表指令
+func BuildCatalogXML(id string) string {
 	return fmt.Sprintf(CatalogXML, id)
 }
 
-// GetRecordInfoXML 获取录像文件列表指令
-func GetRecordInfoXML(id string, start, end int64) string {
+// BuildRecordInfoXML 获取录像文件列表指令
+func BuildRecordInfoXML(id string, start, end int64) string {
 	return fmt.Sprintf(RecordInfoXML, id, time.Unix(start, 0).Format("2006-01-02T15:04:05"), time.Unix(end, 0).Format("2006-01-02T15:04:05"))
 }

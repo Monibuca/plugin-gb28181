@@ -37,8 +37,8 @@ func (r *Record) GetPublishStreamPath() string {
 
 var (
 	Devices             sync.Map
-	DeviceNonce         = make(map[string]string) //保存nonce防止设备伪造
-	DeviceRegisterCount = make(map[string]int)    //设备注册次数
+	DeviceNonce         sync.Map //保存nonce防止设备伪造
+	DeviceRegisterCount sync.Map    //设备注册次数
 )
 
 type Device struct {

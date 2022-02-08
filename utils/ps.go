@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"github.com/Monibuca/engine/v3/pool"
 	"github.com/Monibuca/utils/v3"
 	"github.com/logrusorgru/aurora"
 )
@@ -157,8 +156,7 @@ again:
 	if err = dec.Skip(int(psl)); err != nil {
 		return err
 	}
-	video := pool.Get()
-	defer pool.Put(video)
+	var video []byte
 	var nextStartCode, videoTs, videoCts uint32
 loop:
 	for err == nil {
@@ -174,7 +172,7 @@ loop:
 		case StartCodeVideo:
 			var cts uint32
 			if err = dec.decPESPacket(); err == nil {
-				if video.Len() == 0 {
+				if len(video) == 0 {
 					if dec.PTS == 0 {
 						dec.PTS = ts
 					}
@@ -186,7 +184,7 @@ loop:
 					videoTs = dec.DTS / 90
 					videoCts = cts / 90
 				}
-				video.Write(dec.Payload)
+				video = append (video,dec.Payload...)
 			} else {
 				utils.Println("video", err)
 			}
@@ -206,8 +204,8 @@ loop:
 			dec.ReadPayload()
 		}
 	}
-	if video.Len() > 0 {
-		pusher.PushVideo(videoTs, videoCts, video.Bytes())
+	if len(video) > 0 {
+		pusher.PushVideo(videoTs, videoCts, video)
 	}
 	if nextStartCode == StartCodePS {
 		utils.Println(aurora.Red("StartCodePS recursion..."), err)

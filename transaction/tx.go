@@ -4,7 +4,6 @@ import (
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	. "github.com/Monibuca/plugin-gb28181/v3/transport"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	. "github.com/Monibuca/utils/v3"
 	"net/http"
 	"sync"
 	"time"
@@ -95,7 +94,7 @@ func (tx *GBTx) GetResponse() *sip.Response {
 
 // Close the Close function closes the GBTx
 func (tx *GBTx) Close() {
-	Printf("closed tx: %s   %s     TXs: %d", tx.key, time.Now().Format("2006-01-02 15:04:05"), len(ActiveTX.Txs))
+	//Printf("closed tx: %s   %s     TXs: %d", tx.key, time.Now().Format("2006-01-02 15:04:05"), len(ActiveTX.Txs))
 	ActiveTX.rmTX(tx)
 	close(tx.resp)
 	close(tx.active)

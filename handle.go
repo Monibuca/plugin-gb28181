@@ -6,9 +6,9 @@ import (
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
+	"github.com/logrusorgru/aurora"
 
 	. "github.com/Monibuca/utils/v3"
-	. "github.com/logrusorgru/aurora"
 	"golang.org/x/net/html/charset"
 	"net/http"
 	"time"
@@ -32,17 +32,18 @@ func OnRegister(req *sip.Request, tx *transaction.GBTx) {
 				username = config.Username
 			}
 
-			if DeviceRegisterCount[id] >= MaxRegisterCount {
+			if dc, ok := DeviceRegisterCount.LoadOrStore(id, 1); ok && dc.(int) > MaxRegisterCount {
 				var response sip.Response
 				response.Message = req.BuildResponse(http.StatusForbidden)
 				_ = tx.Respond(&response)
 				return
 			} else {
 				// 设备第二次上报，校验
-				if req.Authorization.Verify(username, config.Password, config.Realm, DeviceNonce[id]) {
+				_nonce, loaded := DeviceNonce.Load(id)
+				if loaded && req.Authorization.Verify(username, config.Password, config.Realm, _nonce.(string)) {
 					passAuth = true
 				} else {
-					DeviceRegisterCount[id]++
+					DeviceRegisterCount.Store(id, dc.(int)+1)
 				}
 			}
 		}
@@ -50,19 +51,16 @@ func OnRegister(req *sip.Request, tx *transaction.GBTx) {
 	}
 	if passAuth {
 		storeDevice(id, tx.Core, req.Message)
-		delete(DeviceNonce, id)
-		delete(DeviceRegisterCount, id)
+		DeviceNonce.Delete(id)
+		DeviceRegisterCount.Delete(id)
 		m := req.BuildOK()
 		resp := &sip.Response{Message: m}
 		_ = tx.Respond(resp)
 	} else {
 		var response sip.Response
 		response.Message = req.BuildResponseWithPhrase(401, "Unauthorized")
-		if DeviceNonce[id] == "" {
-			nonce := utils.RandNumString(32)
-			DeviceNonce[id] = nonce
-		}
-		response.WwwAuthenticate = sip.NewWwwAuthenticate(config.Realm, DeviceNonce[id], sip.DIGEST_ALGO_MD5)
+		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
+		response.WwwAuthenticate = sip.NewWwwAuthenticate(config.Realm, _nonce.(string), sip.DIGEST_ALGO_MD5)
 		response.SourceAdd = req.DestAdd
 		response.DestAdd = req.SourceAdd
 		_ = tx.Respond(&response)
@@ -93,29 +91,32 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 				Printf("decode catelog err: %s", err)
 			}
 		}
+		var body string
 		switch temp.CmdType {
 		case "Keepalive":
 			if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
 				go d.Subscribe(req)
 			}
 			d.CheckSubStream()
-			break
 		case "Catalog":
 			d.UpdateChannels(temp.DeviceList)
-			break
 		case "RecordInfo":
 			d.UpdateRecord(temp.DeviceID, temp.RecordList)
-			break
 		case "DeviceInfo":
 			// 主设备信息
-			break
+		case "Alarm":
+			d.Status = "Alarmed"
+			body = sip.BuildAlarmResponseXML(d.ID)
 		default:
-			Println(Red("Not supported CmdType"), temp.CmdType)
+			Println("DeviceID:" , aurora.Red(d.ID) ," Not supported CmdType : "+temp.CmdType +" body:\n", req.Body)
 			response := &sip.Response{req.BuildResponse(http.StatusBadRequest)}
 			tx.Respond(response)
 			return
 		}
-		response := &sip.Response{req.BuildOK()}
+
+		buildOK := req.BuildOK()
+		buildOK.Body = body
+		response := &sip.Response{buildOK}
 		tx.Respond(response)
 	}
 }
