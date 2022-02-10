@@ -56,6 +56,7 @@ func OnRegister(req *sip.Request, tx *transaction.GBTx) {
 		m := req.BuildOK()
 		resp := &sip.Response{Message: m}
 		_ = tx.Respond(resp)
+
 	} else {
 		var response sip.Response
 		response.Message = req.BuildResponseWithPhrase(401, "Unauthorized")
@@ -76,11 +77,15 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		}
 		d.UpdateTime = time.Now()
 		temp := &struct {
-			XMLName    xml.Name
-			CmdType    string
-			DeviceID   string
-			DeviceList []*Channel `xml:"DeviceList>Item"`
-			RecordList []*Record  `xml:"RecordList>Item"`
+			XMLName      xml.Name
+			CmdType      string
+			DeviceID     string
+			DeviceName   string
+			Manufacturer string
+			Model        string
+			Channel      string
+			DeviceList   []*Channel `xml:"DeviceList>Item"`
+			RecordList   []*Record  `xml:"RecordList>Item"`
 		}{}
 		decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body)))
 		decoder.CharsetReader = charset.NewReaderLabel
@@ -104,11 +109,14 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 			d.UpdateRecord(temp.DeviceID, temp.RecordList)
 		case "DeviceInfo":
 			// 主设备信息
+			d.Name = temp.DeviceName
+			d.Manufacturer = temp.Manufacturer
+			d.Model = temp.Model
 		case "Alarm":
 			d.Status = "Alarmed"
 			body = sip.BuildAlarmResponseXML(d.ID)
 		default:
-			Println("DeviceID:" , aurora.Red(d.ID) ," Not supported CmdType : "+temp.CmdType +" body:\n", req.Body)
+			Println("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:\n", req.Body)
 			response := &sip.Response{req.BuildResponse(http.StatusBadRequest)}
 			tx.Respond(response)
 			return

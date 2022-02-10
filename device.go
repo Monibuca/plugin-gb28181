@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"fmt"
+	"github.com/logrusorgru/aurora"
 	"net"
 	"net/http"
 	"strings"
@@ -38,14 +39,19 @@ func (r *Record) GetPublishStreamPath() string {
 var (
 	Devices             sync.Map
 	DeviceNonce         sync.Map //保存nonce防止设备伪造
-	DeviceRegisterCount sync.Map    //设备注册次数
+	DeviceRegisterCount sync.Map //设备注册次数
 )
 
 type Device struct {
 	*transaction.Core `json:"-"`
 	ID                string
+	Name              string
+	Manufacturer      string
+	Model             string
+	Owner             string
 	RegisterTime      time.Time
 	UpdateTime        time.Time
+	LastKeepaliveAt   time.Time
 	Status            string
 	Channels          []*Channel
 	sn                int
@@ -183,12 +189,7 @@ func (d *Device) Subscribe(req *sip.Request) int {
 	requestMsg.Event = "Catalog"
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
 	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
-<Query>
-<CmdType>Catalog</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-</Query>`, d.sn, requestMsg.To.Uri.UserInfo())
+	requestMsg.Body = sip.BuildCatalogXML(d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
 
 	request := &sip.Request{Message: requestMsg}
@@ -205,15 +206,12 @@ func (d *Device) Subscribe(req *sip.Request) int {
 }
 func (d *Device) Query(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
+
+		fmt.Println(aurora.Red("device.Query"))
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
-		requestMsg.Body = fmt.Sprintf(`<?xml version="1.0" encoding="gb2312"?>
-<Query>
-<CmdType>Catalog</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-</Query>`, d.sn, requestMsg.To.Uri.UserInfo())
+		requestMsg.Body = sip.BuildDeviceInfoXML(d.sn, requestMsg.To.Uri.UserInfo())
 		requestMsg.ContentLength = len(requestMsg.Body)
 		request := &sip.Request{Message: requestMsg}
 
