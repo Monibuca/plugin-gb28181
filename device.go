@@ -98,7 +98,9 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
 			if parent, ok := d.channelMap[parentId]; ok {
-				parent.Children = append(parent.Children, c)
+				if c.DeviceID != parentId {
+					parent.Children = append(parent.Children, c)
+				}
 			} else {
 				d.addChannel(c)
 			}
