@@ -12,12 +12,13 @@ import (
 	"github.com/Monibuca/engine/v3"
 	. "github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
+	. "github.com/Monibuca/utils/v3"
 )
 
 type ChannelEx struct {
-	device          *Device
-	inviteRes       *Response
-	recordInviteRes *Response
+	device          *Device   `json:"-"`
+	inviteRes       *Response `json:"-"`
+	recordInviteRes *Response `json:"-"`
 	RecordPublisher *Publisher
 	LivePublisher   *Publisher
 	LiveSubSP       string //实时子码流
@@ -45,8 +46,8 @@ type Channel struct {
 	RegisterWay  int
 	Secrecy      int
 	Status       string
-	Children     []*Channel
-	*ChannelEx   //自定义属性
+	Children     []*Channel `json:"-"`
+	*ChannelEx              //自定义属性
 }
 
 func (c *Channel) CreateRequst(Method Method) (request *Request) {
@@ -225,7 +226,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	if response == nil {
 		return http.StatusRequestTimeout
 	}
-	fmt.Printf("invite response statuscode: %d\n", response.GetStatusCode())
+	Printf("Channel :%s invite response status code: %d\n", channel.DeviceID, response.GetStatusCode())
 
 	if response.GetStatusCode() == 200 {
 		ds := strings.Split(response.Body, "\r\n")

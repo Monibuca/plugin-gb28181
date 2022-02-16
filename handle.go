@@ -73,7 +73,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		d := v.(*Device)
 		if d.Status == string(sip.REGISTER) {
 			d.Status = "ONLINE"
-			go d.Query(req)
+			go d.QueryDeviceInfo(req)
 		}
 		d.UpdateTime = time.Now()
 		temp := &struct {
@@ -99,8 +99,10 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		var body string
 		switch temp.CmdType {
 		case "Keepalive":
-			if d.subscriber.CallID != "" && time.Now().After(d.subscriber.Timeout) {
-				go d.Subscribe(req)
+			d.LastKeepaliveAt = time.Now()
+			//callID !="" 说明是订阅的事件类型信息
+			if d.Channels == nil || d.subscriber.CallID != "" && d.LastKeepaliveAt.After(d.subscriber.Timeout) {
+				go d.Catalog()
 			}
 			d.CheckSubStream()
 		case "Catalog":

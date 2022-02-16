@@ -90,18 +90,7 @@ func onBye(req *sip.Request, tx *transaction.GBTx) {
 func storeDevice(id string, s *transaction.Core, req *sip.Message) {
 	var d *Device
 
-	if _d, loaded := Devices.LoadOrStore(id, &Device{
-		ID:           id,
-		RegisterTime: time.Now(),
-		UpdateTime:   time.Now(),
-		Status:       string(sip.REGISTER),
-		Core:         s,
-		from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
-		to:           req.To,
-		Addr:         req.Via.GetSendBy(),
-		SipIP:        serverConfig.MediaIP,
-		channelMap:   make(map[string]*Channel),
-	}); loaded {
+	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
 		d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
@@ -120,6 +109,19 @@ func storeDevice(id string, s *transaction.Core, req *sip.Message) {
 		//	}
 		//}
 
+	} else {
+		Devices.Store(id, &Device{
+			ID:           id,
+			RegisterTime: time.Now(),
+			UpdateTime:   time.Now(),
+			Status:       string(sip.REGISTER),
+			Core:         s,
+			from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
+			to:           req.To,
+			Addr:         req.Via.GetSendBy(),
+			SipIP:        serverConfig.MediaIP,
+			channelMap:   make(map[string]*Channel),
+		})
 	}
 }
 
@@ -312,7 +314,7 @@ func listenMediaUDP() {
 // 			if time.Since(device.UpdateTime) > time.Duration(config.RegisterValidity)*time.Second {
 // 				Devices.Delete(key)
 // 			} else if device.Channels != nil {
-// 				go device.Subscribe()
+// 				go device.Catalog()
 // 			}
 // 			return true
 // 		})
@@ -323,7 +325,9 @@ func removeBanDevice(config *transaction.Config) {
 	t := time.NewTicker(time.Duration(config.RemoveBanInterval) * time.Second)
 	for range t.C {
 		DeviceRegisterCount.Range(func(key, value interface{}) bool {
-			if value.(int)>MaxRegisterCount {DeviceRegisterCount.Delete(key)}
+			if value.(int) > MaxRegisterCount {
+				DeviceRegisterCount.Delete(key)
+			}
 			return true
 		})
 	}

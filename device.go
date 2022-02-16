@@ -2,7 +2,6 @@ package gb28181
 
 import (
 	"fmt"
-	"github.com/logrusorgru/aurora"
 	"net"
 	"net/http"
 	"strings"
@@ -13,7 +12,7 @@ import (
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	// . "github.com/Monibuca/utils/v3"
+	. "github.com/Monibuca/utils/v3"
 	// . "github.com/logrusorgru/aurora"
 )
 
@@ -98,9 +97,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
 			if parent, ok := d.channelMap[parentId]; ok {
-				if c.DeviceID != parentId {
-					parent.Children = append(parent.Children, c)
-				}
+				parent.Children = append(parent.Children, c)
 			} else {
 				d.addChannel(c)
 			}
@@ -182,7 +179,7 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	}
 	return
 }
-func (d *Device) Subscribe(req *sip.Request) int {
+func (d *Device) Subscribe() int {
 	requestMsg := d.CreateMessage(sip.SUBSCRIBE)
 	if d.subscriber.CallID != "" {
 		requestMsg.CallID = d.subscriber.CallID
@@ -206,10 +203,27 @@ func (d *Device) Subscribe(req *sip.Request) int {
 	}
 	return http.StatusRequestTimeout
 }
-func (d *Device) Query(req *sip.Request) {
+
+func (d *Device) Catalog() int {
+	requestMsg := d.CreateMessage(sip.MESSAGE)
+	requestMsg.Expires = 3600
+	requestMsg.Event = "Catalog"
+	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
+	requestMsg.ContentType = "Application/MANSCDP+xml"
+	requestMsg.Body = sip.BuildCatalogXML(d.sn, requestMsg.To.Uri.UserInfo())
+	requestMsg.ContentLength = len(requestMsg.Body)
+
+	request := &sip.Request{Message: requestMsg}
+	response, err := d.Core.SipRequestForResponse(request)
+	if err == nil && response != nil {
+		return response.GetStatusCode()
+	}
+	return http.StatusRequestTimeout
+}
+func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		fmt.Println(aurora.Red("device.Query"))
+		Printf("device.QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr)
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -218,14 +232,17 @@ func (d *Device) Query(req *sip.Request) {
 		request := &sip.Request{Message: requestMsg}
 
 		response, _ := d.Core.SipRequestForResponse(request)
-		if response != nil && response.Via != nil && response.Via.Params["received"] != "" {
-			d.SipIP = response.Via.Params["received"]
-		}
-		if response != nil && response.GetStatusCode() != 200 {
-			fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
-		} else {
-			d.Subscribe(req)
-			break
+		if response != nil {
+
+			if response.Via != nil && response.Via.Params["received"] != "" {
+				d.SipIP = response.Via.Params["received"]
+			}
+			if response.GetStatusCode() != 200 {
+				fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
+			} else {
+				d.Subscribe()
+				break
+			}
 		}
 	}
 }
