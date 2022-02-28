@@ -97,7 +97,9 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
 			if parent, ok := d.channelMap[parentId]; ok {
-				parent.Children = append(parent.Children, c)
+				if c.DeviceID != parentId {
+					parent.Children = append(parent.Children, c)
+				}
 			} else {
 				d.addChannel(c)
 			}
@@ -106,25 +108,24 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
-			if len(old.Children) == 0 {
-				if config.PreFetchRecord {
-					n := time.Now()
-					n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
-					if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
-						n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
-						go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
-					}
-				}
-				if config.AutoInvite && c.LivePublisher == nil {
-					go c.Invite("", "")
+			if config.PreFetchRecord {
+				n := time.Now()
+				n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
+				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
+					n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
+					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
+			if config.AutoInvite && c.LivePublisher == nil {
+				c.Invite("", "")
+			}
+
 		} else {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
 			if config.AutoInvite {
-				go c.Invite("", "")
+				c.Invite("", "")
 			}
 		}
 		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
