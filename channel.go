@@ -80,7 +80,7 @@ func (channel *Channel) QueryRecord(startTime, endTime string) int {
 <StartTime>%s</StartTime>
 <EndTime>%s</EndTime>
 <Secrecy>0</Secrecy>
-<Type>time</Type>
+<Type>all</Type>
 </Query>`, d.sn, requestMsg.To.Uri.UserInfo(), startTime, endTime)
 	requestMsg.ContentLength = len(requestMsg.Body)
 	resp, err := d.SipRequestForResponse(requestMsg)
