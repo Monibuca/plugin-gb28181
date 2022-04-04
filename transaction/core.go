@@ -69,6 +69,9 @@ func (c *Core) handlerListen() {
 		if len(p.Data) < 5 {
 			continue
 		}
+		if c.LogVerbose {
+			Println("Received: \n", string(p.Data))
+		}
 		if err := c.HandleReceiveMessage(p); err != nil {
 			fmt.Println("handler sip response message failed:", err.Error())
 			continue
@@ -82,7 +85,7 @@ func (c *Core) handlerListen() {
 //响应消息则需要匹配到请求，让请求的transaction来处理。
 //TODO：参考srs和osip的流程，以及文档，做最终处理。需要将逻辑分成两层：TU 层和 transaction 层
 func (c *Core) HandleReceiveMessage(p *transport.Packet) (err error) {
-	// fmt.Println("packet content:", string(p.Data))
+	//Println("packet content:", string(p.Data))
 	//var msg *Message
 	msg, err := Decode(p.Data)
 	if err != nil {
@@ -171,6 +174,50 @@ func (c *Core) SipRequestForResponse(req *Request) (response *Response, err erro
 		return tx.SipResponse()
 	}
 	return
+}
+func (c *Core) ResolveAddress(msg *Message) (destAddr net.Addr, err error) {
+	addr := msg.Addr
+
+	if addr == "" {
+		viaParams := msg.Via.Params
+		var host, port string
+		var ok1, ok2 bool
+		if host, ok1 = viaParams["maddr"]; !ok1 {
+			if host, ok2 = viaParams["received"]; !ok2 {
+				host = msg.Via.Host
+			}
+		}
+		//port
+		port = viaParams["rport"]
+		if port == "" || port == "0" || port == "-1" {
+			port = msg.Via.Port
+		}
+
+		if port == "" {
+			port = "5060"
+		}
+
+		addr = fmt.Sprintf("%s:%s", host, port)
+	}
+
+	// fmt.Println("dest addr:", addr)
+	var err1, err2 error
+
+	if msg.Via.Transport == "UDP" {
+		destAddr, err2 = net.ResolveUDPAddr("udp", addr)
+	} else {
+		destAddr, err2 = net.ResolveTCPAddr("tcp", addr)
+	}
+
+	if err1 != nil {
+		return nil, err1
+	}
+
+	if err2 != nil {
+		return nil, err2
+	}
+
+	return destAddr, nil
 }
 
 // Request Request

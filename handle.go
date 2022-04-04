@@ -71,6 +71,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 
 	if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
 		d := v.(*Device)
+		d.SourceAddr = req.SourceAdd
 		if d.Status == string(sip.REGISTER) {
 			d.Status = "ONLINE"
 			go d.QueryDeviceInfo(req)
@@ -101,8 +102,20 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		case "Keepalive":
 			d.LastKeepaliveAt = time.Now()
 			//callID !="" 说明是订阅的事件类型信息
-			if d.Channels == nil || d.subscriber.CallID != "" && d.LastKeepaliveAt.After(d.subscriber.Timeout) {
+			if d.Channels == nil {
 				go d.Catalog()
+			} else {
+				if d.subscriber.CallID != "" && d.LastKeepaliveAt.After(d.subscriber.Timeout) {
+					go d.Catalog()
+				} else {
+					for _, c := range d.Channels {
+						if config.AutoInvite &&
+							(c.LivePublisher == nil || (c.LivePublisher.VideoTracks.Size == 0 && c.LivePublisher.AudioTracks.Size == 0)) {
+							c.Invite("", "")
+						}
+					}
+				}
+
 			}
 			d.CheckSubStream()
 		case "Catalog":
@@ -129,4 +142,8 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		response := &sip.Response{buildOK}
 		tx.Respond(response)
 	}
+}
+func onBye(req *sip.Request, tx *transaction.GBTx) {
+	response := &sip.Response{req.BuildOK()}
+	_ = tx.Respond(response)
 }

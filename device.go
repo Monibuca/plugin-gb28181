@@ -58,6 +58,7 @@ type Device struct {
 	to                *sip.Contact
 	Addr              string
 	SipIP             string //暴露的IP
+	SourceAddr        net.Addr
 	channelMap        map[string]*Channel
 	channelMutex      sync.RWMutex
 	subscriber        struct {
@@ -116,7 +117,8 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
-			if config.AutoInvite && c.LivePublisher == nil {
+			if config.AutoInvite &&
+				(c.LivePublisher == nil || (c.LivePublisher.VideoTracks.Size == 0 && c.LivePublisher.AudioTracks.Size == 0)) {
 				c.Invite("", "")
 			}
 
@@ -146,15 +148,6 @@ func (d *Device) UpdateRecord(channelId string, list []*Record) {
 
 func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 	d.sn++
-	//if msg.Via.Transport == "UDP" {
-	deviceAddr, err2 := net.ResolveUDPAddr(strings.ToLower(d.SipNetwork), d.Addr)
-	//} else {
-	//	pkt.Addr, err2 = net.ResolveTCPAddr("tcp", addr)
-	//}
-	if err2 != nil {
-		return nil
-	}
-
 	requestMsg = &sip.Message{
 		Mode:        sip.SIP_MESSAGE_REQUEST,
 		MaxForwards: 70,
@@ -175,8 +168,30 @@ func (d *Device) CreateMessage(Method sip.Method) (requestMsg *sip.Message) {
 			ID:     uint32(d.sn),
 			Method: Method,
 		}, CallID: utils.RandNumString(10),
-		Addr:    d.Addr,
-		DestAdd: deviceAddr,
+		Addr: d.Addr,
+	}
+	var err2 error
+	requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
+	if err2 != nil {
+		return nil
+	}
+	//intranet ip , let's resolve it with public ip
+	var deviceIp, deviceSourceIP net.IP
+	switch addr := requestMsg.DestAdd.(type) {
+	case *net.UDPAddr:
+		deviceIp = addr.IP
+	case *net.TCPAddr:
+		deviceIp = addr.IP
+	}
+
+	switch addr2 := d.SourceAddr.(type) {
+	case *net.UDPAddr:
+		deviceSourceIP = addr2.IP
+	case *net.TCPAddr:
+		deviceSourceIP = addr2.IP
+	}
+	if deviceIp.IsPrivate() && !deviceSourceIP.IsPrivate() {
+		requestMsg.DestAdd = d.SourceAddr
 	}
 	return
 }
@@ -239,7 +254,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 				d.SipIP = response.Via.Params["received"]
 			}
 			if response.GetStatusCode() != 200 {
-				fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
+				Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
 			} else {
 				d.Subscribe()
 				break

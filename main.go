@@ -73,7 +73,8 @@ var config = struct {
 	Username          string
 	Password          string
 	UdpCacheSize      int //udp排序缓存
-}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, -1, nil, false, 1, 600, false, "", "", 0}
+	LogVerbose        bool
+}{"34020000002000000001", "3402000000", "127.0.0.1:5060", 3600, 58200, false, -1, nil, false, 1, 600, false, "", "", 0, false}
 
 func init() {
 	pc := engine.PluginConfig{
@@ -83,10 +84,7 @@ func init() {
 	pc.Install(run)
 	publishers.data = make(map[uint32]*Publisher)
 }
-func onBye(req *sip.Request, tx *transaction.GBTx) {
-	response := &sip.Response{req.BuildOK()}
-	_ = tx.Respond(response)
-}
+
 func storeDevice(id string, s *transaction.Core, req *sip.Message) {
 	var d *Device
 
@@ -154,6 +152,7 @@ func run() {
 		MediaIdleTimeout:  30,
 		RemoveBanInterval: config.RemoveBanInterval,
 		UdpCacheSize:      config.UdpCacheSize,
+		LogVerbose:        config.LogVerbose,
 	}
 
 	s := transaction.NewCore(serverConfig)
