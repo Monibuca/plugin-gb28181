@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"m7s.live/plugin-gb28181/v4/utils"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 //默认端口：TCP/UDP是5060，5061是在TCP上的TLS

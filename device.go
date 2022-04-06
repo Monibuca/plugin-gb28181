@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"m7s.live/engine/v4"
-	"m7s.live/plugin-gb28181/v4/sip"
-	"m7s.live/plugin-gb28181/v4/transaction"
-	"m7s.live/plugin-gb28181/v4/utils"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/utils"
 	// . "github.com/logrusorgru/aurora"
 )
 
@@ -69,14 +70,13 @@ type Device struct {
 
 func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *sip.Message) {
 	var d *Device
-
+	plugin.Debug("StoreDevice", zap.String("id", id))
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
 		d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
 		d.to = req.To
 		d.Addr = req.Via.GetSendBy()
-
 		//TODO: Should we send  GetDeviceInf request?
 		//message := d.CreateMessage(sip.MESSAGE)
 		//message.Body = sip.GetDeviceInfoXML(d.ID)
@@ -88,9 +88,8 @@ func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *si
 		//		return
 		//	}
 		//}
-
 	} else {
-		Devices.Store(id, &Device{
+		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
@@ -102,7 +101,9 @@ func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *si
 			SipIP:        config.SipIP,
 			channelMap:   make(map[string]*Channel),
 			config:       config,
-		})
+		}
+		Devices.Store(id, d)
+		go d.Catalog()
 	}
 }
 

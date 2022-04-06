@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"m7s.live/plugin-gb28181/v4/sip"
-	. "m7s.live/plugin-gb28181/v4/transport"
-	"m7s.live/plugin-gb28181/v4/utils"
+	"m7s.live/plugin/gb28181/v4/sip"
+	. "m7s.live/plugin/gb28181/v4/transport"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 var ActiveTX *GBTxs

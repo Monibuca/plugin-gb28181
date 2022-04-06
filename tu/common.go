@@ -3,8 +3,8 @@ package tu
 import (
 	"fmt"
 
-	"m7s.live/plugin-gb28181/v4/sip"
-	"m7s.live/plugin-gb28181/v4/utils"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 //根据参数构建各种消息

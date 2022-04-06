@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"m7s.live/plugin-gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/sip"
 )
 
 //=====================================================sip message utils

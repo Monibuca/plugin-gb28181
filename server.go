@@ -9,15 +9,13 @@ import (
 
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
-	. "m7s.live/engine/v4"
-	"m7s.live/plugin-gb28181/v4/sip"
-	"m7s.live/plugin-gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/transaction"
 )
 
 type Server struct {
 	Ignores      map[string]struct{}
 	publishers   Publishers
-	serverConfig *transaction.Config
 	MediaNetwork string
 }
 
@@ -34,11 +32,11 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 }
 
 type Publishers struct {
-	data map[uint32]*Publisher
+	data map[uint32]*GBPublisher
 	sync.RWMutex
 }
 
-func (p *Publishers) Add(key uint32, pp *Publisher) {
+func (p *Publishers) Add(key uint32, pp *GBPublisher) {
 	p.Lock()
 	p.data[key] = pp
 	p.Unlock()
@@ -48,14 +46,14 @@ func (p *Publishers) Remove(key uint32) {
 	delete(p.data, key)
 	p.Unlock()
 }
-func (p *Publishers) Get(key uint32) *Publisher {
+func (p *Publishers) Get(key uint32) *GBPublisher {
 	p.RLock()
 	defer p.RUnlock()
 	return p.data[key]
 }
 
 func (config *GB28181Config) startServer() {
-	config.publishers.data = make(map[uint32]*Publisher)
+	config.publishers.data = make(map[uint32]*GBPublisher)
 
 	fmt.Println(Green("server gb28181 start at"), BrightBlue(config.SipIP+":"+strconv.Itoa(int(config.SipPort))))
 
@@ -141,7 +139,7 @@ func listenMediaUDP(config *GB28181Config) {
 			fmt.Println("gb28181 decode rtp error:", err)
 		}
 		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
-			//publisher.PushPS(&rtpPacket)
+			publisher.PushPS(&rtpPacket)
 		}
 	}
 }

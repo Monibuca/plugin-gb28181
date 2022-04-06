@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"m7s.live/plugin-gb28181/v4/utils"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 //Content-Type: Application/MANSCDP+xml

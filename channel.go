@@ -2,10 +2,15 @@ package gb28181
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
-	. "m7s.live/plugin-gb28181/v4/sip"
+	. "m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 type ChannelEx struct {
@@ -50,10 +55,10 @@ func (c *Channel) CreateRequst(Method Method) (request *Request) {
 	request.Message.To = &Contact{
 		Uri: request.Message.StartLine.Uri,
 	}
-	// request.Message.From = &Contact{
-	// 	Uri:    NewURI(config.Serial + "@" + config.Realm),
-	// 	Params: map[string]string{"tag": utils.RandNumString(9)},
-	// }
+	request.Message.From = &Contact{
+		Uri:    NewURI(c.device.config.Serial + "@" + c.device.config.Realm),
+		Params: map[string]string{"tag": utils.RandNumString(9)},
+	}
 	return
 }
 func (channel *Channel) QueryRecord(startTime, endTime string) int {
@@ -147,151 +152,148 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (channel *Channel) Invite(start, end string) (code int) {
-	// if start == "" {
-	// 	if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
-	// 		return 304
-	// 	}
-	// 	defer func() {
-	// 		if code != 200 {
-	// 			atomic.StoreInt32(&channel.state, 0)
-	// 		}
-	// 	}()
-	// 	channel.Bye(true)
-	// } else {
-	// 	channel.Bye(false)
-	// }
-	// sint, err1 := strconv.ParseInt(start, 10, 0)
-	// eint, err2 := strconv.ParseInt(end, 10, 0)
-	// d := channel.device
-	// streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
-	// s := "Play"
-	// ssrc := make([]byte, 10)
-	// if start != "" {
-	// 	if err1 != nil || err2 != nil {
-	// 		return 400
-	// 	}
-	// 	s = "Playback"
-	// 	ssrc[0] = '1'
-	// 	streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, start, end)
-	// } else {
-	// 	ssrc[0] = '0'
-	// }
+	if start == "" {
+		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
+			return 304
+		}
+		defer func() {
+			if code != 200 {
+				atomic.StoreInt32(&channel.state, 0)
+			}
+		}()
+		channel.Bye(true)
+	} else {
+		channel.Bye(false)
+	}
+	sint, err1 := strconv.ParseInt(start, 10, 0)
+	eint, err2 := strconv.ParseInt(end, 10, 0)
+	d := channel.device
+	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
+	s := "Play"
+	ssrc := make([]byte, 10)
+	if start != "" {
+		if err1 != nil || err2 != nil {
+			return 400
+		}
+		s = "Playback"
+		ssrc[0] = '1'
+		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, start, end)
+	} else {
+		ssrc[0] = '0'
+	}
+	config := channel.device.config
+	// size := 1
+	// fps := 15
+	// bitrate := 200
+	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
+	copy(ssrc[1:6], []byte(config.Serial[3:8]))
+	randNum := rand.Intn(10000)
+	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
+	protocol := ""
+	port := config.MediaPort
+	if config.IsMediaNetworkTCP() {
+		protocol = "TCP/"
+		port = config.MediaPort + channel.tcpPortIndex
+		if port+1 >= config.MediaPortMax {
+			channel.tcpPortIndex = 0
+		}
+	}
+	sdpInfo := []string{
+		"v=0",
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
+		"s=" + s,
+		"u=" + channel.DeviceID + ":0",
+		"c=IN IP4 " + d.SipIP,
+		fmt.Sprintf("t=%d %d", sint, eint),
+		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
+		"a=recvonly",
+		"a=rtpmap:96 PS/90000",
+	}
+	if config.IsMediaNetworkTCP() {
+		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
+	}
+	invite := channel.CreateRequst(INVITE)
+	invite.ContentType = "application/sdp"
+	invite.Contact = &Contact{
+		Uri: NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
+	}
+	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\ny=" + string(ssrc) + "\r\n"
+	invite.ContentLength = len(invite.Body)
+	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
+	response, _ := d.Core.SipRequestForResponse(invite)
+	if response == nil {
+		return http.StatusRequestTimeout
+	}
+	fmt.Printf("Channel :%s invite response status code: %d\n", channel.DeviceID, response.GetStatusCode())
 
-	// // size := 1
-	// // fps := 15
-	// // bitrate := 200
-	// // fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
-	// copy(ssrc[1:6], []byte(config.Serial[3:8]))
-	// randNum := rand.Intn(10000)
-	// copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
-	// protocol := ""
-	// port := config.MediaPort
-	// if config.TCP {
-	// 	protocol = "TCP/"
-	// 	port = config.MediaPort + channel.tcpPortIndex
-	// 	if channel.tcpPortIndex++; channel.tcpPortIndex >= config.TCPMediaPortNum {
-	// 		channel.tcpPortIndex = 0
-	// 	}
-	// }
-	// sdpInfo := []string{
-	// 	"v=0",
-	// 	fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
-	// 	"s=" + s,
-	// 	"u=" + channel.DeviceID + ":0",
-	// 	"c=IN IP4 " + d.SipIP,
-	// 	fmt.Sprintf("t=%d %d", sint, eint),
-	// 	fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
-	// 	"a=recvonly",
-	// 	"a=rtpmap:96 PS/90000",
-	// }
-	// if config.TCP {
-	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
-	// }
-	// invite := channel.CreateRequst(INVITE)
-	// invite.ContentType = "application/sdp"
-	// invite.Contact = &Contact{
-	// 	Uri: NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
-	// }
-	// invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\ny=" + string(ssrc) + "\r\n"
-	// invite.ContentLength = len(invite.Body)
-	// invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
-	// response, _ := d.Core.SipRequestForResponse(invite)
-	// if response == nil {
-	// 	return http.StatusRequestTimeout
-	// }
-	// Printf("Channel :%s invite response status code: %d\n", channel.DeviceID, response.GetStatusCode())
-
-	// if response.GetStatusCode() == 200 {
-	// 	ds := strings.Split(response.Body, "\r\n")
-	// 	_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
-	// 	SSRC := uint32(_SSRC)
-	// 	for _, l := range ds {
-	// 		if ls := strings.Split(l, "="); len(ls) > 1 {
-	// 			if ls[0] == "y" && len(ls[1]) > 0 {
-	// 				_SSRC, _ = strconv.ParseInt(ls[1], 10, 0)
-	// 				SSRC = uint32(_SSRC)
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	// 	publisher := &Publisher{
-	// 		Stream: &engine.Stream{
-	// 			StreamPath:     streamPath,
-	// 			AutoCloseAfter: &config.AutoCloseAfter,
-	// 		},
-	// 	}
-	// 	if config.UdpCacheSize > 0 && !config.TCP {
-	// 		publisher.udpCache = utils.NewPqRtp()
-	// 	}
-	// 	if start == "" {
-	// 		publisher.Type = "GB28181 Live"
-	// 		publisher.OnClose = func() {
-	// 			publishers.Remove(SSRC)
-	// 			channel.LivePublisher = nil
-	// 			channel.ByeBye((*Request)(channel.inviteRes))
-	// 			channel.inviteRes = nil
-	// 			atomic.StoreInt32(&channel.state, 0)
-	// 			if config.AutoInvite {
-	// 				go channel.Invite("", "")
-	// 			}
-	// 		}
-	// 	} else {
-	// 		publisher.Type = "GB28181 Record"
-	// 		publisher.OnClose = func() {
-	// 			publishers.Remove(SSRC)
-	// 			channel.RecordPublisher = nil
-	// 			channel.ByeBye((*Request)(channel.recordInviteRes))
-	// 			channel.recordInviteRes = nil
-	// 		}
-	// 	}
-	// 	if !publisher.Publish() {
-	// 		return 403
-	// 	}
-	// 	publishers.Add(SSRC, publisher)
-	// 	if start == "" {
-	// 		channel.inviteRes = response
-	// 		channel.LivePublisher = publisher
-	// 	} else {
-	// 		channel.RecordPublisher = publisher
-	// 		channel.recordInviteRes = response
-	// 	}
-	// 	ack := d.CreateMessage(ACK)
-	// 	ack.StartLine = &StartLine{
-	// 		Uri:    NewURI(channel.DeviceID + "@" + d.to.Uri.Domain()),
-	// 		Method: ACK,
-	// 	}
-	// 	ack.From = response.From
-	// 	ack.To = response.To
-	// 	ack.CallID = response.CallID
-	// 	ack.CSeq.ID = invite.CSeq.ID
-	// 	d.Respond(&Response{Message: ack})
-	// } else if start == "" && config.AutoInvite {
-	// 	time.AfterFunc(time.Second*5, func() {
-	// 		channel.Invite("", "")
-	// 	})
-	// }
-	// return response.GetStatusCode()
-	return 200
+	if response.GetStatusCode() == 200 {
+		ds := strings.Split(response.Body, "\r\n")
+		_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
+		SSRC := uint32(_SSRC)
+		for _, l := range ds {
+			if ls := strings.Split(l, "="); len(ls) > 1 {
+				if ls[0] == "y" && len(ls[1]) > 0 {
+					_SSRC, _ = strconv.ParseInt(ls[1], 10, 0)
+					SSRC = uint32(_SSRC)
+					break
+				}
+			}
+		}
+		publisher := &GBPublisher{
+			StreamPath: streamPath,
+		}
+		// if config.UdpCacheSize > 0 && !config.IsMediaNetworkTCP() {
+		// 	publisher.udpCache = utils.NewPqRtp()
+		// }
+		publishers := &config.publishers
+		if start == "" {
+			publisher.Type = "GB28181 Live"
+			publisher.OnClose = func() {
+				publishers.Remove(SSRC)
+				channel.LivePublisher = nil
+				channel.ByeBye((*Request)(channel.inviteRes))
+				channel.inviteRes = nil
+				atomic.StoreInt32(&channel.state, 0)
+				if config.AutoInvite {
+					go channel.Invite("", "")
+				}
+			}
+		} else {
+			publisher.Type = "GB28181 Record"
+			publisher.OnClose = func() {
+				publishers.Remove(SSRC)
+				channel.RecordPublisher = nil
+				channel.ByeBye((*Request)(channel.recordInviteRes))
+				channel.recordInviteRes = nil
+			}
+		}
+		if !publisher.Publish() {
+			return 403
+		}
+		publishers.Add(SSRC, publisher)
+		if start == "" {
+			channel.inviteRes = response
+			channel.LivePublisher = publisher
+		} else {
+			channel.RecordPublisher = publisher
+			channel.recordInviteRes = response
+		}
+		ack := d.CreateMessage(ACK)
+		ack.StartLine = &StartLine{
+			Uri:    NewURI(channel.DeviceID + "@" + d.to.Uri.Domain()),
+			Method: ACK,
+		}
+		ack.From = response.From
+		ack.To = response.To
+		ack.CallID = response.CallID
+		ack.CSeq.ID = invite.CSeq.ID
+		d.Respond(&Response{Message: ack})
+	} else if start == "" && config.AutoInvite {
+		time.AfterFunc(time.Second*5, func() {
+			channel.Invite("", "")
+		})
+	}
+	return response.GetStatusCode()
 }
 func (channel *Channel) Bye(live bool) int {
 	if live && channel.inviteRes != nil {

@@ -3,8 +3,8 @@ package tu
 import (
 	"fmt"
 
-	"m7s.live/plugin-gb28181/v4/sip"
-	"m7s.live/plugin-gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/transaction"
 )
 
 //sip server和client的配置，可以得到sip URI：sip

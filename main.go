@@ -2,12 +2,13 @@ package gb28181
 
 import (
 	"net"
+	"strings"
 
 	"github.com/pion/rtp"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
-	"m7s.live/plugin-gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/transaction"
 )
 
 type GB28181Config struct {
@@ -22,19 +23,7 @@ type GB28181Config struct {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
-		plugin.Info("GB28181 启动")
 		c.startServer()
-		// if c.ListenAddr != "" {
-		// 	plugin.Info("gb28181 udp server start at", zap.String("listen addr", c.ListenAddr))
-		// 	go c.UDP.Listen(plugin, c)
-		// }
-		// case config.Config:
-		// 	plugin.CancelFunc()
-		// 	if c.ListenAddr != "" {
-		// 		plugin.Context, plugin.CancelFunc = context.WithCancel(Engine)
-		// 		plugin.Info("gb28181 udp server start at", zap.String("listen addr", c.ListenAddr))
-		// 		go c.UDP.Listen(plugin, c)
-		// 	}
 	}
 }
 
@@ -55,8 +44,12 @@ func (c *GB28181Config) ServeUDP(conn *net.UDPConn) {
 	}
 }
 
+func (c *GB28181Config) IsMediaNetworkTCP() bool {
+	return strings.ToLower(c.MediaNetwork) == "tcp"
+}
+
 var conf = &GB28181Config{
-	AutoInvite:     false,
+	AutoInvite:     true,
 	AutoCloseAfter: -1,
 	PreFetchRecord: false,
 	Server: Server{
