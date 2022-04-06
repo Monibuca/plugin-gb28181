@@ -2,8 +2,9 @@ package tu
 
 import (
 	"fmt"
-	"github.com/Monibuca/plugin-gb28181/v3/sip"
-	"github.com/Monibuca/plugin-gb28181/v3/transaction"
+
+	"m7s.live/plugin-gb28181/v4/sip"
+	"m7s.live/plugin-gb28181/v4/transaction"
 )
 
 //sip server和client的配置，可以得到sip URI：sip

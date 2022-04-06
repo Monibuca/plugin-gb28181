@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"encoding/binary"
 	"errors"
-	"github.com/Monibuca/utils/v3"
+	"fmt"
+
 	"github.com/logrusorgru/aurora"
 )
 
@@ -184,9 +186,9 @@ loop:
 					videoTs = dec.DTS / 90
 					videoCts = cts / 90
 				}
-				video = append (video,dec.Payload...)
+				video = append(video, dec.Payload...)
 			} else {
-				utils.Println("video", err)
+				fmt.Println("video", err)
 			}
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
@@ -196,7 +198,7 @@ loop:
 				}
 				pusher.PushAudio(ts, dec.Payload)
 			} else {
-				utils.Println("audio", err)
+				fmt.Println("audio", err)
 			}
 		case StartCodePS:
 			break loop
@@ -208,7 +210,7 @@ loop:
 		pusher.PushVideo(videoTs, videoCts, video)
 	}
 	if nextStartCode == StartCodePS {
-		utils.Println(aurora.Red("StartCodePS recursion..."), err)
+		fmt.Println(aurora.Red("StartCodePS recursion..."), err)
 		goto again
 	}
 	return err
@@ -251,10 +253,10 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	}
 	l := len(psm)
 	index := 2
-	programStreamInfoLen := utils.BigEndian.Uint16(psm[index:])
+	programStreamInfoLen := binary.BigEndian.Uint16(psm[index:])
 	index += 2
 	index += int(programStreamInfoLen)
-	programStreamMapLen := utils.BigEndian.Uint16(psm[index:])
+	programStreamMapLen := binary.BigEndian.Uint16(psm[index:])
 	index += 2
 	for programStreamMapLen > 0 {
 		if l <= index+1 {
@@ -272,7 +274,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 		if l <= index+1 {
 			break
 		}
-		elementaryStreamInfoLength := utils.BigEndian.Uint16(psm[index:])
+		elementaryStreamInfoLength := binary.BigEndian.Uint16(psm[index:])
 		index += 2
 		index += int(elementaryStreamInfoLength)
 		programStreamMapLen -= 4 + elementaryStreamInfoLength

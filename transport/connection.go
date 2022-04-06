@@ -1,7 +1,7 @@
 package transport
 
 import (
-	. "github.com/Monibuca/utils/v3"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -63,7 +63,7 @@ func (conn *connection) ReadFrom(buf []byte) (num int, raddr net.Addr, err error
 	if err != nil {
 		return num, raddr, err
 	}
-	Printf("readFrom %d , %s -> %s \n %s", num, raddr, conn.LocalAddr(), string(buf[:num]))
+	fmt.Printf("readFrom %d , %s -> %s \n %s", num, raddr, conn.LocalAddr(), string(buf[:num]))
 	return num, raddr, err
 }
 
