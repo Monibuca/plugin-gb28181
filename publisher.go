@@ -23,12 +23,12 @@ type GBPublisher struct {
 }
 
 func (p *GBPublisher) PushVideo(ts uint32, cts uint32, payload []byte) {
-	p.VideoTrack.WriteAnnexB(ts, cts, payload)
-	//p.pushVideo(ts, cts, payload)
+	//p.VideoTrack.WriteAnnexB(ts, cts, payload)
+	p.pushVideo(ts, cts, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
-	p.VideoTrack.WriteAVCC(ts, payload)
-	//p.pushAudio(ts, payload)
+	//p.VideoTrack.WriteAVCC(ts, payload)
+	p.pushAudio(ts, payload)
 }
 
 func (p *GBPublisher) Publish() (result bool) {
@@ -49,6 +49,7 @@ func (p *GBPublisher) Publish() (result bool) {
 		p.pushAudio = func(ts uint32, payload common.AVCCFrame) {
 			switch p.parser.AudioStreamType {
 			case utils.G711A:
+			case utils.G711A + 1:
 				at := NewG711(p.Stream, true)
 				at.SampleRate = 8000
 				at.SampleSize = 16
@@ -64,7 +65,6 @@ func (p *GBPublisher) Publish() (result bool) {
 }
 
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
-	plugin.Debug("收到了推送流")
 	originRtp := *rtp
 	if p.config.UdpCacheSize > 0 && !p.config.IsMediaNetworkTCP() {
 		//序号小于第一个包的丢弃,rtp包序号达到65535后会从0开始，所以这里需要判断一下

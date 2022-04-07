@@ -9,6 +9,7 @@ import (
 
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
+	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/sip"
 	"m7s.live/plugin/gb28181/v4/transaction"
 )
@@ -55,7 +56,7 @@ func (p *Publishers) Get(key uint32) *GBPublisher {
 func (config *GB28181Config) startServer() {
 	config.publishers.data = make(map[uint32]*GBPublisher)
 
-	fmt.Println(Green("server gb28181 start at"), BrightBlue(config.SipIP+":"+strconv.Itoa(int(config.SipPort))))
+	plugin.Info(fmt.Sprint(Green("Server gb28181 start at"), BrightBlue(config.SipIP+":"+strconv.Itoa(int(config.SipPort)))))
 
 	s := transaction.NewCore(&config.Config)
 	s.RegistHandler(sip.REGISTER, config.OnRegister)
@@ -80,7 +81,7 @@ func (config *GB28181Config) startServer() {
 		go removeBanDevice(config)
 	}
 
-	s.StartAndWait()
+	go s.StartAndWait()
 }
 
 func (config *GB28181Config) startMediaServer() {
@@ -127,16 +128,17 @@ func listenMediaUDP(config *GB28181Config) {
 	conn, err := net.ListenUDP("udp", mediaAddr)
 
 	if err != nil {
-		fmt.Printf("listen udp %s err: %v", addr, err)
+		plugin.Error("listen media server udp err", zap.String("addr", addr), zap.Error(err))
 		return
 	}
 	bufUDP := make([]byte, networkBuffer)
-	fmt.Printf("udp server start listen video port[%d]", config.MediaPort)
-	defer fmt.Printf("udp server stop listen video port[%d]", config.MediaPort)
+	plugin.Info("Media udp server start.", zap.Uint16("port", config.MediaPort))
+	defer plugin.Info("Media udp server stop", zap.Uint16("port", config.MediaPort))
+
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
-			fmt.Println("gb28181 decode rtp error:", err)
+			plugin.Error("Decode rtp error:", zap.Error(err))
 		}
 		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
 			publisher.PushPS(&rtpPacket)

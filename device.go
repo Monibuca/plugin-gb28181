@@ -59,6 +59,7 @@ type Device struct {
 	to                *sip.Contact
 	Addr              string
 	SipIP             string //暴露的IP
+	MediaIP           string //Media Server 暴露的IP
 	SourceAddr        net.Addr
 	channelMap        map[string]*Channel
 	channelMutex      sync.RWMutex
@@ -76,7 +77,7 @@ func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *si
 		d.UpdateTime = time.Now()
 		d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
 		d.to = req.To
-		d.Addr = req.Via.GetSendBy()
+		d.Addr = req.SourceAdd.String()
 		//TODO: Should we send  GetDeviceInf request?
 		//message := d.CreateMessage(sip.MESSAGE)
 		//message.Body = sip.GetDeviceInfoXML(d.ID)
@@ -97,8 +98,9 @@ func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *si
 			Core:         s,
 			from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
 			to:           req.To,
-			Addr:         req.Via.GetSendBy(),
+			Addr:         req.SourceAdd.String(),
 			SipIP:        config.SipIP,
+			MediaIP:      config.MediaIP,
 			channelMap:   make(map[string]*Channel),
 			config:       config,
 		}
@@ -276,7 +278,7 @@ func (d *Device) Catalog() int {
 func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		fmt.Printf("device.QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr)
+		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr))
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -291,7 +293,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 				d.SipIP = response.Via.Params["received"]
 			}
 			if response.GetStatusCode() != 200 {
-				fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
+				plugin.Error(fmt.Sprintf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode()))
 			} else {
 				d.Subscribe()
 				break

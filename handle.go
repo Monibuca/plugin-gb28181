@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/logrusorgru/aurora"
-	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/sip"
 	"m7s.live/plugin/gb28181/v4/transaction"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -71,9 +70,6 @@ func (config *GB28181Config) OnRegister(req *sip.Request, tx *transaction.GBTx) 
 	}
 }
 func (config *GB28181Config) OnMessage(req *sip.Request, tx *transaction.GBTx) {
-
-	plugin.Debug("OnMessage", zap.String("event", req.Message.Event))
-
 	if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
 		d := v.(*Device)
 		d.SourceAddr = req.SourceAdd

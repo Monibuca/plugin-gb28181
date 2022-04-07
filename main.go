@@ -15,6 +15,7 @@ type GB28181Config struct {
 	AutoInvite     bool
 	AutoCloseAfter int
 	PreFetchRecord bool
+	UdpCacheSize   int
 	config.Publish
 	Server
 	transaction.Config
@@ -52,6 +53,7 @@ var conf = &GB28181Config{
 	AutoInvite:     true,
 	AutoCloseAfter: -1,
 	PreFetchRecord: false,
+	UdpCacheSize:   0,
 	Server: Server{
 		MediaNetwork: "udp",
 	},

@@ -203,7 +203,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
-		"c=IN IP4 " + d.SipIP,
+		"c=IN IP4 " + d.MediaIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
@@ -224,7 +224,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	if response == nil {
 		return http.StatusRequestTimeout
 	}
-	fmt.Printf("Channel :%s invite response status code: %d\n", channel.DeviceID, response.GetStatusCode())
+	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.GetStatusCode()))
 
 	if response.GetStatusCode() == 200 {
 		ds := strings.Split(response.Body, "\r\n")
@@ -241,10 +241,11 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		}
 		publisher := &GBPublisher{
 			StreamPath: streamPath,
+			config:     config,
 		}
-		// if config.UdpCacheSize > 0 && !config.IsMediaNetworkTCP() {
-		// 	publisher.udpCache = utils.NewPqRtp()
-		// }
+		if config.UdpCacheSize > 0 && !config.IsMediaNetworkTCP() {
+			publisher.udpCache = utils.NewPqRtp()
+		}
 		publishers := &config.publishers
 		if start == "" {
 			publisher.Type = "GB28181 Live"
