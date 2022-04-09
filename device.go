@@ -2,12 +2,14 @@ package gb28181
 
 import (
 	"fmt"
-	"github.com/logrusorgru/aurora"
+	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/logrusorgru/aurora"
 
 	"github.com/Monibuca/engine/v3"
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
@@ -191,6 +193,9 @@ func (d *Device) Subscribe(req *sip.Request) int {
 	requestMsg.Event = "Catalog"
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(requestMsg.Expires))
 	requestMsg.ContentType = "Application/MANSCDP+xml"
+	requestMsg.Contact = &sip.Contact{
+		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
+	}
 	requestMsg.Body = sip.BuildCatalogXML(d.sn, requestMsg.To.Uri.UserInfo())
 	requestMsg.ContentLength = len(requestMsg.Body)
 
@@ -227,5 +232,125 @@ func (d *Device) Query(req *sip.Request) {
 			d.Subscribe(req)
 			break
 		}
+	}
+}
+
+// MobilePositionSubscribe 移动位置订阅
+func (d *Device) MobilePositionSubscribe(id string, expires int, interval int) (code int) {
+	mobilePosition := d.CreateMessage(sip.SUBSCRIBE)
+	if d.subscriber.CallID != "" {
+		mobilePosition.CallID = d.subscriber.CallID
+	}
+	mobilePosition.Expires = expires
+	mobilePosition.Event = "presence"
+	mobilePosition.Contact = &sip.Contact{
+		Uri: sip.NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
+	}
+	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(mobilePosition.Expires))
+	mobilePosition.ContentType = "Application/MANSCDP+xml"
+	mobilePosition.Body = sip.BuildDevicePositionXML(d.sn, id, interval)
+	mobilePosition.ContentLength = len(mobilePosition.Body)
+	msg := &sip.Request{Message: mobilePosition}
+	response, err := d.Core.SipRequestForResponse(msg)
+	if err == nil && response != nil {
+		if response.GetStatusCode() == 200 {
+			d.subscriber.CallID = mobilePosition.CallID
+		} else {
+			d.subscriber.CallID = ""
+		}
+		return response.GetStatusCode()
+	}
+	return http.StatusRequestTimeout
+}
+
+// UpdateChannelPosition 更新通道GPS坐标
+func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng string, lat string) {
+	if c, ok := d.channelMap[channelId]; ok {
+		c.ChannelEx.GpsTime, _ = time.ParseInLocation("2006-01-02 15:04:05", gpsTime, time.Local)
+		c.ChannelEx.Longitude = lng
+		c.ChannelEx.Latitude = lat
+		log.Printf("更新通道[%s]坐标成功\n", c.Name)
+	} else {
+		log.Printf("更新失败，未找到通道[%s]\n", channelId)
+	}
+}
+
+// UpdateChannelStatus 目录订阅消息处理：新增/移除/更新通道或者更改通道状态
+func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
+	for _, v := range deviceList {
+		switch v.Event {
+		case "ON":
+			log.Println("收到通道上线通知")
+			d.channelOnline(v.DeviceID)
+		case "OFF":
+			log.Println("收到通道离线通知")
+			d.channelOffline(v.DeviceID)
+		case "VLOST":
+			log.Println("收到通道视频丢失通知")
+			d.channelOffline(v.DeviceID)
+		case "DEFECT":
+			log.Println("收到通道故障通知")
+			d.channelOffline(v.DeviceID)
+		case "ADD":
+			log.Println("收到通道新增通知")
+			channel := Channel{
+				DeviceID:     v.DeviceID,
+				ParentID:     v.ParentID,
+				Name:         v.Name,
+				Manufacturer: v.Manufacturer,
+				Model:        v.Model,
+				Owner:        v.Owner,
+				CivilCode:    v.CivilCode,
+				Address:      v.Address,
+				Parental:     v.Parental,
+				SafetyWay:    v.SafetyWay,
+				RegisterWay:  v.RegisterWay,
+				Secrecy:      v.Secrecy,
+				Status:       v.Status,
+			}
+			d.addChannel(&channel)
+		case "DEL":
+			//删除
+			log.Println("收到通道删除通知")
+			delete(d.channelMap, v.DeviceID)
+		case "UPDATE":
+			fmt.Println("收到通道更新通知")
+			// 更新通道
+			channel := &Channel{
+				DeviceID:     v.DeviceID,
+				ParentID:     v.ParentID,
+				Name:         v.Name,
+				Manufacturer: v.Manufacturer,
+				Model:        v.Model,
+				Owner:        v.Owner,
+				CivilCode:    v.CivilCode,
+				Address:      v.Address,
+				Parental:     v.Parental,
+				SafetyWay:    v.SafetyWay,
+				RegisterWay:  v.RegisterWay,
+				Secrecy:      v.Secrecy,
+				Status:       v.Status,
+			}
+			channels := []*Channel{channel}
+			d.UpdateChannels(channels)
+		}
+	}
+}
+
+func (d *Device) channelOnline(DeviceID string) {
+	if c, ok := d.channelMap[DeviceID]; ok {
+		c.Status = "ON"
+		log.Printf("通道[%s]在线\n", c.Name)
+	} else {
+		log.Printf("更新通道[%s]状态失败，未找到\n", DeviceID)
+	}
+}
+
+func (d *Device) channelOffline(DeviceID string) {
+	if c, ok := d.channelMap[DeviceID]; ok {
+		c.Status = "OFF"
+		log.Printf("通道[%s]离线\n", c.Name)
+	} else {
+		log.Printf("更新通道[%s]状态失败，未找到\n", DeviceID)
 	}
 }

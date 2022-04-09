@@ -28,6 +28,9 @@ type ChannelEx struct {
 	recordEndTime   time.Time
 	state           int32
 	tcpPortIndex    uint16
+	GpsTime         time.Time //gps时间
+	Longitude       string    //经度
+	Latitude        string    //纬度
 }
 
 // Channel 通道
