@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Monibuca/engine/v3"
-	"github.com/Monibuca/plugin-gb28181/v3/sip"
-	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	. "github.com/Monibuca/utils/v3"
+	"go.uber.org/zap"
+	"m7s.live/engine/v4"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/utils"
 	// . "github.com/logrusorgru/aurora"
 )
 
@@ -43,6 +43,7 @@ var (
 
 type Device struct {
 	*transaction.Core `json:"-"`
+	config            *GB28181Config
 	ID                string
 	Name              string
 	Manufacturer      string
@@ -58,12 +59,53 @@ type Device struct {
 	to                *sip.Contact
 	Addr              string
 	SipIP             string //暴露的IP
+	MediaIP           string //Media Server 暴露的IP
 	SourceAddr        net.Addr
 	channelMap        map[string]*Channel
 	channelMutex      sync.RWMutex
 	subscriber        struct {
 		CallID  string
 		Timeout time.Time
+	}
+}
+
+func (config *GB28181Config) StoreDevice(id string, s *transaction.Core, req *sip.Message) {
+	var d *Device
+	plugin.Debug("StoreDevice", zap.String("id", id))
+	if _d, loaded := Devices.Load(id); loaded {
+		d = _d.(*Device)
+		d.UpdateTime = time.Now()
+		d.from = &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)}
+		d.to = req.To
+		d.Addr = req.SourceAdd.String()
+		//TODO: Should we send  GetDeviceInf request?
+		//message := d.CreateMessage(sip.MESSAGE)
+		//message.Body = sip.GetDeviceInfoXML(d.ID)
+
+		//request := &sip.Request{Message: message}
+		//if newTx, err := s.Request(request); err == nil {
+		//	if _, err = newTx.SipResponse(); err != nil {
+		//		Println("notify device after register,", err)
+		//		return
+		//	}
+		//}
+	} else {
+		d = &Device{
+			ID:           id,
+			RegisterTime: time.Now(),
+			UpdateTime:   time.Now(),
+			Status:       string(sip.REGISTER),
+			Core:         s,
+			from:         &sip.Contact{Uri: req.StartLine.Uri, Params: make(map[string]string)},
+			to:           req.To,
+			Addr:         req.SourceAdd.String(),
+			SipIP:        config.SipIP,
+			MediaIP:      config.MediaIP,
+			channelMap:   make(map[string]*Channel),
+			config:       config,
+		}
+		Devices.Store(id, d)
+		go d.Catalog()
 	}
 }
 
@@ -80,8 +122,8 @@ func (d *Device) CheckSubStream() {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	for _, c := range d.Channels {
-		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
-			c.LiveSubSP = s.StreamPath
+		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
+			c.LiveSubSP = s.Path
 		} else {
 			c.LiveSubSP = ""
 		}
@@ -91,9 +133,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	for _, c := range list {
-		if _, ok := Ignores[c.DeviceID]; ok {
-			continue
-		}
 		if c.ParentID != "" {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
@@ -109,7 +148,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
-			if config.PreFetchRecord {
+			if d.config.PreFetchRecord {
 				n := time.Now()
 				n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
 				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
@@ -117,8 +156,8 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
-			if config.AutoInvite &&
-				(c.LivePublisher == nil || (c.LivePublisher.VideoTracks.Size == 0 && c.LivePublisher.AudioTracks.Size == 0)) {
+			if d.config.AutoInvite &&
+				(c.LivePublisher == nil) {
 				c.Invite("", "")
 			}
 
@@ -126,12 +165,12 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
-			if config.AutoInvite {
+			if d.config.AutoInvite {
 				c.Invite("", "")
 			}
 		}
-		if s := engine.FindStream("sub/" + c.DeviceID); s != nil {
-			c.LiveSubSP = s.StreamPath
+		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
+			c.LiveSubSP = s.Path
 		} else {
 			c.LiveSubSP = ""
 		}
@@ -239,7 +278,7 @@ func (d *Device) Catalog() int {
 func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		Printf("device.QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr)
+		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr))
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -254,7 +293,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 				d.SipIP = response.Via.Params["received"]
 			}
 			if response.GetStatusCode() != 200 {
-				Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
+				plugin.Error(fmt.Sprintf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode()))
 			} else {
 				d.Subscribe()
 				break

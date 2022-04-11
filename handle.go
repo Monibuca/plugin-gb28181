@@ -3,18 +3,20 @@ package gb28181
 import (
 	"bytes"
 	"encoding/xml"
-	"github.com/Monibuca/plugin-gb28181/v3/sip"
-	"github.com/Monibuca/plugin-gb28181/v3/transaction"
-	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	"github.com/logrusorgru/aurora"
+	"fmt"
 
-	. "github.com/Monibuca/utils/v3"
-	"golang.org/x/net/html/charset"
+	"github.com/logrusorgru/aurora"
+	"m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/transaction"
+	"m7s.live/plugin/gb28181/v4/utils"
+
 	"net/http"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
-func OnRegister(req *sip.Request, tx *transaction.GBTx) {
+func (config *GB28181Config) OnRegister(req *sip.Request, tx *transaction.GBTx) {
 	id := req.From.Uri.UserInfo()
 
 	passAuth := false
@@ -50,7 +52,7 @@ func OnRegister(req *sip.Request, tx *transaction.GBTx) {
 
 	}
 	if passAuth {
-		storeDevice(id, tx.Core, req.Message)
+		config.StoreDevice(id, tx.Core, req.Message)
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
 		m := req.BuildOK()
@@ -67,8 +69,7 @@ func OnRegister(req *sip.Request, tx *transaction.GBTx) {
 		_ = tx.Respond(&response)
 	}
 }
-func OnMessage(req *sip.Request, tx *transaction.GBTx) {
-
+func (config *GB28181Config) OnMessage(req *sip.Request, tx *transaction.GBTx) {
 	if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
 		d := v.(*Device)
 		d.SourceAddr = req.SourceAdd
@@ -94,7 +95,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		if err != nil {
 			err = utils.DecodeGbk(temp, []byte(req.Body))
 			if err != nil {
-				Printf("decode catelog err: %s", err)
+				fmt.Printf("decode catelog err: %s", err)
 			}
 		}
 		var body string
@@ -110,7 +111,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 				} else {
 					for _, c := range d.Channels {
 						if config.AutoInvite &&
-							(c.LivePublisher == nil || (c.LivePublisher.VideoTracks.Size == 0 && c.LivePublisher.AudioTracks.Size == 0)) {
+							(c.LivePublisher == nil) {
 							c.Invite("", "")
 						}
 					}
@@ -131,7 +132,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 			d.Status = "Alarmed"
 			body = sip.BuildAlarmResponseXML(d.ID)
 		default:
-			Println("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:\n", req.Body)
+			fmt.Println("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:\n", req.Body)
 			response := &sip.Response{req.BuildResponse(http.StatusBadRequest)}
 			tx.Respond(response)
 			return
@@ -143,7 +144,7 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 		tx.Respond(response)
 	}
 }
-func onBye(req *sip.Request, tx *transaction.GBTx) {
+func (config *GB28181Config) onBye(req *sip.Request, tx *transaction.GBTx) {
 	response := &sip.Response{req.BuildOK()}
 	_ = tx.Respond(response)
 }

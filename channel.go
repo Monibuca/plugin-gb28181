@@ -9,18 +9,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Monibuca/engine/v3"
-	. "github.com/Monibuca/plugin-gb28181/v3/sip"
-	"github.com/Monibuca/plugin-gb28181/v3/utils"
-	. "github.com/Monibuca/utils/v3"
+	. "m7s.live/plugin/gb28181/v4/sip"
+	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 type ChannelEx struct {
 	device          *Device   `json:"-"`
 	inviteRes       *Response `json:"-"`
 	recordInviteRes *Response `json:"-"`
-	RecordPublisher *Publisher
-	LivePublisher   *Publisher
+	RecordPublisher *GBPublisher
+	LivePublisher   *GBPublisher
 	LiveSubSP       string //实时子码流
 	Records         []*Record
 	RecordStartTime string
@@ -58,7 +56,7 @@ func (c *Channel) CreateRequst(Method Method) (request *Request) {
 		Uri: request.Message.StartLine.Uri,
 	}
 	request.Message.From = &Contact{
-		Uri:    NewURI(config.Serial + "@" + config.Realm),
+		Uri:    NewURI(c.device.config.Serial + "@" + c.device.config.Realm),
 		Params: map[string]string{"tag": utils.RandNumString(9)},
 	}
 	return
@@ -183,7 +181,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	} else {
 		ssrc[0] = '0'
 	}
-
+	config := channel.device.config
 	// size := 1
 	// fps := 15
 	// bitrate := 200
@@ -193,10 +191,10 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
 	protocol := ""
 	port := config.MediaPort
-	if config.TCP {
+	if config.IsMediaNetworkTCP() {
 		protocol = "TCP/"
 		port = config.MediaPort + channel.tcpPortIndex
-		if channel.tcpPortIndex++; channel.tcpPortIndex >= config.TCPMediaPortNum {
+		if port+1 >= config.MediaPortMax {
 			channel.tcpPortIndex = 0
 		}
 	}
@@ -205,13 +203,13 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
-		"c=IN IP4 " + d.SipIP,
+		"c=IN IP4 " + d.MediaIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 	}
-	if config.TCP {
+	if config.IsMediaNetworkTCP() {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
 	invite := channel.CreateRequst(INVITE)
@@ -226,7 +224,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	if response == nil {
 		return http.StatusRequestTimeout
 	}
-	Printf("Channel :%s invite response status code: %d\n", channel.DeviceID, response.GetStatusCode())
+	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.GetStatusCode()))
 
 	if response.GetStatusCode() == 200 {
 		ds := strings.Split(response.Body, "\r\n")
@@ -241,15 +239,14 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				}
 			}
 		}
-		publisher := &Publisher{
-			Stream: &engine.Stream{
-				StreamPath:     streamPath,
-				AutoCloseAfter: &config.AutoCloseAfter,
-			},
+		publisher := &GBPublisher{
+			StreamPath: streamPath,
+			config:     config,
 		}
-		if config.UdpCacheSize > 0 && !config.TCP {
+		if config.UdpCacheSize > 0 && !config.IsMediaNetworkTCP() {
 			publisher.udpCache = utils.NewPqRtp()
 		}
+		publishers := &config.publishers
 		if start == "" {
 			publisher.Type = "GB28181 Live"
 			publisher.OnClose = func() {
