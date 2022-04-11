@@ -158,6 +158,7 @@ func run() {
 	s := transaction.NewCore(serverConfig)
 	s.RegistHandler(sip.REGISTER, OnRegister)
 	s.RegistHandler(sip.MESSAGE, OnMessage)
+	s.RegistHandler(sip.NOTIFY, OnNotify)
 	s.RegistHandler(sip.BYE, onBye)
 
 	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
@@ -249,6 +250,26 @@ func run() {
 		live := r.URL.Query().Get("live")
 		if c := FindChannel(id, channel); c != nil {
 			w.WriteHeader(c.Bye(live != "false"))
+		} else {
+			w.WriteHeader(404)
+		}
+	})
+	http.HandleFunc("/api/gb28181/position", func(w http.ResponseWriter, r *http.Request) {
+		CORS(w, r)
+		query := r.URL.Query()
+		//设备id
+		id := query.Get("id")
+		//订阅周期(单位：秒)
+		expires := query.Get("expires")
+		//订阅间隔（单位：秒）
+		interval := query.Get("interval")
+
+		expiresInt, _ := strconv.Atoi(expires)
+		intervalInt, _ := strconv.Atoi(interval)
+
+		if v, ok := Devices.Load(id); ok {
+			d := v.(*Device)
+			w.WriteHeader(d.MobilePositionSubscribe(id, expiresInt, intervalInt))
 		} else {
 			w.WriteHeader(404)
 		}

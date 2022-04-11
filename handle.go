@@ -3,15 +3,17 @@ package gb28181
 import (
 	"bytes"
 	"encoding/xml"
+
 	"github.com/Monibuca/plugin-gb28181/v3/sip"
 	"github.com/Monibuca/plugin-gb28181/v3/transaction"
 	"github.com/Monibuca/plugin-gb28181/v3/utils"
 	"github.com/logrusorgru/aurora"
 
-	. "github.com/Monibuca/utils/v3"
-	"golang.org/x/net/html/charset"
 	"net/http"
 	"time"
+
+	. "github.com/Monibuca/utils/v3"
+	"golang.org/x/net/html/charset"
 )
 
 func OnRegister(req *sip.Request, tx *transaction.GBTx) {
@@ -146,4 +148,72 @@ func OnMessage(req *sip.Request, tx *transaction.GBTx) {
 func onBye(req *sip.Request, tx *transaction.GBTx) {
 	response := &sip.Response{req.BuildOK()}
 	_ = tx.Respond(response)
+}
+
+// OnNotify 订阅通知处理
+func OnNotify(req *sip.Request, tx *transaction.GBTx) {
+	if v, ok := Devices.Load(req.From.Uri.UserInfo()); ok {
+		d := v.(*Device)
+		d.UpdateTime = time.Now()
+		temp := &struct {
+			XMLName   xml.Name
+			CmdType   string
+			DeviceID  string
+			Time      string //位置订阅-GPS时间
+			Longitude string //位置订阅-经度
+			Latitude  string //位置订阅-维度
+			// Speed      string           //位置订阅-速度(km/h)(可选)
+			// Direction  string           //位置订阅-方向(取值为当前摄像头方向与正北方的顺时针夹角,取值范围0°~360°,单位:°)(可选)
+			// Altitude   string           //位置订阅-海拔高度,单位:m(可选)
+			DeviceList []*notifyMessage `xml:"DeviceList>Item"` //目录订阅
+		}{}
+		decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body)))
+		decoder.CharsetReader = charset.NewReaderLabel
+		err := decoder.Decode(temp)
+		if err != nil {
+			err = utils.DecodeGbk(temp, []byte(req.Body))
+			if err != nil {
+				Printf("decode catelog err: %s", err)
+			}
+		}
+		var body string
+		switch temp.CmdType {
+		case "Catalog":
+			//目录状态
+			d.UpdateChannelStatus(temp.DeviceList)
+		case "MobilePosition":
+			//更新channel的坐标
+			d.UpdateChannelPosition(temp.DeviceID, temp.Time, temp.Longitude, temp.Latitude)
+		// case "Alarm":
+		// 	//报警事件通知 TODO
+		default:
+			Println("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:\n", req.Body)
+			response := &sip.Response{req.BuildResponse(http.StatusBadRequest)}
+			tx.Respond(response)
+			return
+		}
+
+		buildOK := req.BuildOK()
+		buildOK.Body = body
+		response := &sip.Response{buildOK}
+		tx.Respond(response)
+	}
+}
+
+type notifyMessage struct {
+	DeviceID     string
+	ParentID     string
+	Name         string
+	Manufacturer string
+	Model        string
+	Owner        string
+	CivilCode    string
+	Address      string
+	Parental     int
+	SafetyWay    int
+	RegisterWay  int
+	Secrecy      int
+	Status       string
+	//状态改变事件 ON:上线,OFF:离线,VLOST:视频丢失,DEFECT:故障,ADD:增加,DEL:删除,UPDATE:更新(必选)
+	Event string
 }
