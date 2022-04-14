@@ -59,7 +59,7 @@ var conf = &GB28181Config{
 	},
 	Config: transaction.Config{
 		SipNetwork: "udp",
-		SipIP:      "127.0.0.1",
+		SipIP:      "192.168.21.39",
 		SipPort:    5060,
 		Serial:     "34020000002000000001",
 		Realm:      "3402000000",
@@ -72,7 +72,7 @@ var conf = &GB28181Config{
 		HeartbeatInterval: 60,
 		HeartbeatRetry:    3,
 
-		MediaIP:          "127.0.0.1",
+		MediaIP:          "192.168.21.39",
 		MediaPort:        58200,
 		MediaIdleTimeout: 30,
 

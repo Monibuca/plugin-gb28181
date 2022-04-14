@@ -377,13 +377,15 @@ func Decode(data []byte) (msg *Message, err error) {
 		case "content-type":
 			msg.ContentType = v
 		case "route":
-			//msg.Route = new(Contact)
-			//msg.Route.Parse(v)
+			msg.Route = new(Contact)
+			msg.Route.Parse(v)
 		case "www-authenticate":
 			msg.WwwAuthenticate = &WwwAuthenticate{}
 			msg.WwwAuthenticate.Parse(v)
 		case "event":
 			msg.Event = v
+		case "subscription-state":
+			// ignored
 		default:
 			fmt.Printf("invalid sip head: %s,%s\n", k, v)
 		}

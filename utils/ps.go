@@ -159,7 +159,7 @@ again:
 		return err
 	}
 	var video []byte
-	var nextStartCode uint32
+	var nextStartCode, videoTs, videoCts uint32
 loop:
 	for err == nil {
 		if nextStartCode, err = dec.Uint32(); err != nil {
@@ -172,14 +172,19 @@ loop:
 		case StartCodeMAP:
 			err = dec.decProgramStreamMap()
 		case StartCodeVideo:
+			var cts uint32
 			if err = dec.decPESPacket(); err == nil {
 				if len(video) == 0 {
 					if dec.PTS == 0 {
 						dec.PTS = ts
 					}
-					if dec.DTS == 0 {
+					if dec.DTS != 0 {
+						cts = dec.PTS - dec.DTS
+					} else {
 						dec.DTS = dec.PTS
 					}
+					videoTs = dec.DTS / 90
+					videoCts = cts / 90
 				}
 				video = append(video, dec.Payload...)
 			} else {
@@ -202,7 +207,7 @@ loop:
 		}
 	}
 	if len(video) > 0 {
-		pusher.PushVideo(dec.PTS, dec.DTS, video)
+		pusher.PushVideo(videoTs, videoCts, video)
 	}
 	if nextStartCode == StartCodePS {
 		fmt.Println(aurora.Red("StartCodePS recursion..."), err)

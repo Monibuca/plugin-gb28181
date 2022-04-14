@@ -61,6 +61,7 @@ func (config *GB28181Config) startServer() {
 	s := transaction.NewCore(&config.Config)
 	s.RegistHandler(sip.REGISTER, config.OnRegister)
 	s.RegistHandler(sip.MESSAGE, config.OnMessage)
+	s.RegistHandler(sip.NOTIFY, config.OnNotify)
 	s.RegistHandler(sip.BYE, config.onBye)
 
 	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
