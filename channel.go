@@ -14,9 +14,9 @@ import (
 )
 
 type ChannelEx struct {
-	device          *Device   `json:"-"`
-	inviteRes       *Response `json:"-"`
-	recordInviteRes *Response `json:"-"`
+	device          *Device       `json:"-"`
+	inviteRes       *sip.Response `json:"-"`
+	recordInviteRes *sip.Response `json:"-"`
 	RecordPublisher *GBPublisher
 	LivePublisher   *GBPublisher
 	LiveSubSP       string //实时子码流
@@ -202,7 +202,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.Serial, d.SipIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.SipIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.MediaIP,
@@ -214,22 +214,24 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	if config.IsMediaNetworkTCP() {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	}
-	invite := channel.CreateRequst(INVITE)
-	invite.ContentType = "application/sdp"
-	invite.Contact = &Contact{
-		Uri: NewURI(fmt.Sprintf("%s@%s:%d", d.Serial, d.SipIP, d.SipPort)),
+	invite := channel.CreateRequst(sip.INVITE)
+	contentType := sip.ContentType("application/sdp")
+	invite.AppendHeader(&contentType)
+
+	invite.SetBody(strings.Join(sdpInfo, "\r\n")+"\r\ny="+string(ssrc)+"\r\n", true)
+
+	subject := sip.GenericHeader{
+		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial),
 	}
-	invite.Body = strings.Join(sdpInfo, "\r\n") + "\r\ny=" + string(ssrc) + "\r\n"
-	invite.ContentLength = len(invite.Body)
-	invite.Subject = fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial)
-	response, _ := d.Core.SipRequestForResponse(invite)
+	invite.AppendHeader(&subject)
+	response, _ := d.SipRequestForResponse(invite)
 	if response == nil {
 		return http.StatusRequestTimeout
 	}
-	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.GetStatusCode()))
+	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.StatusCode()))
 
-	if response.GetStatusCode() == 200 {
-		ds := strings.Split(response.Body, "\r\n")
+	if response.StatusCode() == 200 {
+		ds := strings.Split(response.Body(), "\r\n")
 		_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
 		SSRC := uint32(_SSRC)
 		for _, l := range ds {
@@ -254,7 +256,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.LivePublisher = nil
-				channel.ByeBye((*Request)(channel.inviteRes))
+				channel.ByeBye(channel.inviteRes)
 				channel.inviteRes = nil
 				atomic.StoreInt32(&channel.state, 0)
 				if config.AutoInvite {
@@ -266,7 +268,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.RecordPublisher = nil
-				channel.ByeBye((*Request)(channel.recordInviteRes))
+				channel.ByeBye(channel.recordInviteRes)
 				channel.recordInviteRes = nil
 			}
 		}
@@ -275,28 +277,24 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		}
 		publishers.Add(SSRC, publisher)
 		if start == "" {
-			channel.inviteRes = response
+			channel.inviteRes = &response
 			channel.LivePublisher = publisher
 		} else {
 			channel.RecordPublisher = publisher
-			channel.recordInviteRes = response
+			channel.recordInviteRes = &response
 		}
-		ack := d.CreateMessage(ACK)
-		ack.StartLine = &StartLine{
-			Uri:    NewURI(channel.DeviceID + "@" + d.to.Uri.Domain()),
-			Method: ACK,
-		}
-		ack.From = response.From
-		ack.To = response.To
-		ack.CallID = response.CallID
-		ack.CSeq.ID = invite.CSeq.ID
-		d.Respond(&Response{Message: ack})
+		// ack := d.CreateRequest(sip.ACK)
+		// ack.From = response.From
+		// ack.To = response.To
+		// ack.CallID = response.CallID
+		// ack.CSeq.ID = invite.CSeq.ID
+		// d.Respond(&Response{Message: ack})
 	} else if start == "" && config.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite("", "")
 		})
 	}
-	return response.GetStatusCode()
+	return int(response.StatusCode())
 }
 func (channel *Channel) Bye(live bool) int {
 	if live && channel.inviteRes != nil {
@@ -306,7 +304,7 @@ func (channel *Channel) Bye(live bool) int {
 				channel.LivePublisher.Close()
 			}
 		}()
-		return channel.ByeBye((*Request)(channel.inviteRes)).GetStatusCode()
+		return int((*channel.ByeBye(channel.inviteRes)).StatusCode())
 	}
 	if !live && channel.recordInviteRes != nil {
 		defer func() {
@@ -315,27 +313,26 @@ func (channel *Channel) Bye(live bool) int {
 				channel.RecordPublisher.Close()
 			}
 		}()
-		return channel.ByeBye((*Request)(channel.recordInviteRes)).GetStatusCode()
+		return int((*channel.ByeBye(channel.recordInviteRes)).StatusCode())
 	}
 	return 404
 }
-func (c *Channel) ByeBye(res *Request) *Response {
+func (c *Channel) ByeBye(res *sip.Response) *sip.Response {
 	if res == nil {
 		return nil
 	}
-	d := c.device
-	bye := c.device.CreateMessage(BYE)
-	bye.StartLine = &StartLine{
-		Uri:    NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain()),
-		Method: BYE,
-	}
-	bye.From = res.From
-	bye.To = res.To
-	bye.CallID = res.CallID
-	req := &Request{}
-	req.Message = bye
 
-	resp, _ := d.SipRequestForResponse(req)
-	return resp
+	d := c.device
+	bye := c.CreateRequst(sip.BYE)
+	from, _ := (*res).From()
+	to, _ := (*res).To()
+	callId, _ := (*res).CallID()
+
+	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
+	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
+	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})
+
+	resp, _ := d.SipRequestForResponse(bye)
+	return &resp
 
 }

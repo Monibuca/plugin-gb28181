@@ -61,10 +61,17 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		_ = tx.Respond(sip.NewResponseFromRequest("", req, http.StatusOK, "OK", ""))
 	} else {
 		response := sip.NewResponseFromRequest("", req, http.StatusUnauthorized, "Unauthorized", "")
-		// _nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
-		// response.WwwAuthenticate = sip.NewWwwAuthenticate(config.Realm, _nonce.(string), sip.DIGEST_ALGO_MD5)
-		// response.SourceAdd = req.DestAdd
-		// response.DestAdd = req.SourceAdd
+		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
+		auth := fmt.Sprintf(
+			`Digest realm="%s",algorithm=%s,nonce="%s"`,
+			config.Realm,
+			"MD5",
+			_nonce.(string),
+		)
+		response.AppendHeader(&sip.GenericHeader{
+			HeaderName: "WWW-Authenticate",
+			Contents:   auth,
+		})
 		_ = tx.Respond(response)
 	}
 }

@@ -208,6 +208,14 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			Params:          sip.NewParams(),
 		},
 	}
+	contact := sip.Address{
+		DisplayName: sip.String{d.ID},
+		Uri: &sip.SipUri{
+			FUser: sip.String{d.ID},
+			FHost: d.SipIP,
+			FPort: (*sip.Port)(&d.config.SipPort),
+		},
+	}
 
 	req = sip.NewRequest(
 		"",
@@ -221,6 +229,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			&userAgent,
 			&cseq,
 			&via,
+			contact.AsContactHeader(),
 		},
 		"",
 		nil,
@@ -260,11 +269,12 @@ func (d *Device) Subscribe() int {
 		callId := sip.CallID(utils.RandNumString(10))
 		request.AppendHeader(&callId)
 	}
-	// requestMsg.Expires = 3600
-	// requestMsg.Event = "Catalog"
-	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(3600))
+	expires := sip.Expires(3600)
+	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
+	request.AppendHeader(&expires)
+
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
 
 	response, err := d.SipRequestForResponse(request)
@@ -282,11 +292,12 @@ func (d *Device) Subscribe() int {
 
 func (d *Device) Catalog() int {
 	request := d.CreateRequest(sip.MESSAGE)
-	//requestMsg.Expires = 3600
-	// requestMsg.Event = "Catalog"
-	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(3600))
+	expires := sip.Expires(3600)
+	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
+	request.AppendHeader(&expires)
+
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
 
 	resp, err := d.SipRequestForResponse(request)
