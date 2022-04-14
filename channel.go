@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "m7s.live/plugin/gb28181/v4/sip"
+	"github.com/ghettovoice/gosip/sip"
 	"m7s.live/plugin/gb28181/v4/utils"
 )
 
@@ -48,18 +48,19 @@ type Channel struct {
 	*ChannelEx              //自定义属性
 }
 
-func (c *Channel) CreateRequst(Method Method) (request *Request) {
-	request = &Request{}
-	request.Message = c.device.CreateMessage(Method)
-	request.Message.StartLine.Uri = NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
-	request.Message.To = &Contact{
-		Uri: request.Message.StartLine.Uri,
-	}
-	request.Message.From = &Contact{
-		Uri:    NewURI(c.device.config.Serial + "@" + c.device.config.Realm),
-		Params: map[string]string{"tag": utils.RandNumString(9)},
-	}
-	return
+func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
+	return c.device.CreateRequest(Method)
+	// request = &Request{}
+	// request.Message = c.device.CreateMessage(Method)
+	// request.Message.StartLine.Uri = NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
+	// request.Message.To = &Contact{
+	// 	Uri: request.Message.StartLine.Uri,
+	// }
+	// request.Message.From = &Contact{
+	// 	Uri:    NewURI(c.device.config.Serial + "@" + c.device.config.Realm),
+	// 	Params: map[string]string{"tag": utils.RandNumString(9)},
+	// }
+	// return req
 }
 func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	d := channel.device
@@ -68,43 +69,44 @@ func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	channel.recordStartTime, _ = time.Parse(TIME_LAYOUT, startTime)
 	channel.recordEndTime, _ = time.Parse(TIME_LAYOUT, endTime)
 	channel.Records = nil
-	requestMsg := channel.CreateRequst(MESSAGE)
-	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
-<Query>
-<CmdType>RecordInfo</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-<StartTime>%s</StartTime>
-<EndTime>%s</EndTime>
-<Secrecy>0</Secrecy>
-<Type>all</Type>
-</Query>`, d.sn, requestMsg.To.Uri.UserInfo(), startTime, endTime)
-	requestMsg.ContentLength = len(requestMsg.Body)
-	resp, err := d.SipRequestForResponse(requestMsg)
+	request := d.CreateRequest(sip.MESSAGE)
+	contentType := sip.ContentType("Application/MANSCDP+xml")
+	request.AppendHeader(&contentType)
+	body := fmt.Sprintf(`<?xml version="1.0"?>
+		<Query>
+		<CmdType>RecordInfo</CmdType>
+		<SN>%d</SN>
+		<DeviceID>%s</DeviceID>
+		<StartTime>%s</StartTime>
+		<EndTime>%s</EndTime>
+		<Secrecy>0</Secrecy>
+		<Type>all</Type>
+		</Query>`, d.sn, d.ID, startTime, endTime)
+	request.SetBody(body, true)
+	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
 		return http.StatusRequestTimeout
 	}
-	return resp.GetStatusCode()
-
+	return int(resp.StatusCode())
 }
 func (channel *Channel) Control(PTZCmd string) int {
 	d := channel.device
-	requestMsg := channel.CreateRequst(MESSAGE)
-	requestMsg.ContentType = "Application/MANSCDP+xml"
-	requestMsg.Body = fmt.Sprintf(`<?xml version="1.0"?>
-<Control>
-<CmdType>DeviceControl</CmdType>
-<SN>%d</SN>
-<DeviceID>%s</DeviceID>
-<PTZCmd>%s</PTZCmd>
-</Control>`, d.sn, requestMsg.To.Uri.UserInfo(), PTZCmd)
-	requestMsg.ContentLength = len(requestMsg.Body)
-	resp, err := d.SipRequestForResponse(requestMsg)
+	request := d.CreateRequest(sip.MESSAGE)
+	contentType := sip.ContentType("Application/MANSCDP+xml")
+	request.AppendHeader(&contentType)
+	body := fmt.Sprintf(`<?xml version="1.0"?>
+		<Control>
+		<CmdType>DeviceControl</CmdType>
+		<SN>%d</SN>
+		<DeviceID>%s</DeviceID>
+		<PTZCmd>%s</PTZCmd>
+		</Control>`, d.sn, d.ID, PTZCmd)
+	request.SetBody(body, true)
+	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
 		return http.StatusRequestTimeout
 	}
-	return resp.GetStatusCode()
+	return int(resp.StatusCode())
 }
 
 /*

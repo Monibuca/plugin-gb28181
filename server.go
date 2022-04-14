@@ -10,9 +10,13 @@ import (
 	. "github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
 	"go.uber.org/zap"
-	"m7s.live/plugin/gb28181/v4/sip"
-	"m7s.live/plugin/gb28181/v4/transaction"
+
+	"github.com/ghettovoice/gosip"
+	"github.com/ghettovoice/gosip/log"
+	"github.com/ghettovoice/gosip/sip"
 )
+
+var srv *gosip.Server
 
 type Server struct {
 	Ignores      map[string]struct{}
@@ -53,15 +57,29 @@ func (p *Publishers) Get(key uint32) *GBPublisher {
 	return p.data[key]
 }
 
+func GetSipServer() *gosip.Server {
+	return srv
+}
+
 func (config *GB28181Config) startServer() {
 	config.publishers.data = make(map[uint32]*GBPublisher)
 
 	plugin.Info(fmt.Sprint(Green("Server gb28181 start at"), BrightBlue(config.SipIP+":"+strconv.Itoa(int(config.SipPort)))))
+	logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 
-	s := transaction.NewCore(&config.Config)
-	s.RegistHandler(sip.REGISTER, config.OnRegister)
-	s.RegistHandler(sip.MESSAGE, config.OnMessage)
-	s.RegistHandler(sip.BYE, config.onBye)
+	srvConf := gosip.ServerConfig{}
+
+	srv := gosip.NewServer(srvConf, nil, nil, logger)
+	srv.OnRequest(sip.REGISTER, config.OnRegister)
+	srv.OnRequest(sip.MESSAGE, config.OnMessage)
+	srv.OnRequest(sip.BYE, config.onBye)
+
+	go srv.Listen("udp", "0.0.0.0:5060")
+
+	// s := transaction.NewCore(&config.Config)
+	// s.RegistHandler(sip.REGISTER, config.OnRegister)
+	// s.RegistHandler(sip.MESSAGE, config.OnMessage)
+	// s.RegistHandler(sip.BYE, config.onBye)
 
 	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
 	//	Devices.Range(func(key, value interface{}) bool {
@@ -81,7 +99,6 @@ func (config *GB28181Config) startServer() {
 		go removeBanDevice(config)
 	}
 
-	go s.StartAndWait()
 }
 
 func (config *GB28181Config) startMediaServer() {
