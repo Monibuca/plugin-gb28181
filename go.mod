@@ -3,6 +3,7 @@ module m7s.live/plugin/gb28181/v4
 go 1.18
 
 require (
+	github.com/ghettovoice/gosip v0.0.0-20220203123749-bc456081bd7a
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/pion/rtp v1.7.9
 	go.uber.org/zap v1.21.0
@@ -14,7 +15,6 @@ require (
 require (
 	github.com/cnotch/ipchub v1.1.0 // indirect
 	github.com/discoviking/fsm v0.0.0-20150126104936-f4a273feecca // indirect
-	github.com/ghettovoice/gosip v0.0.0-20220203123749-bc456081bd7a // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect

@@ -33,7 +33,35 @@ var (
 <DeviceID>%s</DeviceID>
 </Query>
 `
+	// DevicePositionXML 订阅设备位置
+	DevicePositionXML = `<?xml version="1.0"?>
+<Query>
+<CmdType>MobilePosition</CmdType>
+<SN>%d</SN>
+<DeviceID>%s</DeviceID>
+<Interval>%d</Interval>
+</Query>`
 )
+
+// BuildDeviceInfoXML 获取设备详情指令
+func BuildDeviceInfoXML(sn int, id string) string {
+	return fmt.Sprintf(DeviceInfoXML, sn, id)
+}
+
+// BuildCatalogXML 获取NVR下设备列表指令
+func BuildCatalogXML(sn int, id string) string {
+	return fmt.Sprintf(CatalogXML, sn, id)
+}
+
+// BuildRecordInfoXML 获取录像文件列表指令
+func BuildRecordInfoXML(sn int, id string, start, end int64) string {
+	return fmt.Sprintf(RecordInfoXML, sn, id, time.Unix(start, 0).Format("2006-01-02T15:04:05"), time.Unix(end, 0).Format("2006-01-02T15:04:05"))
+}
+
+// BuildDevicePositionXML 订阅设备位置
+func BuildDevicePositionXML(sn int, id string, interval int) string {
+	return fmt.Sprintf(DevicePositionXML, sn, id, interval)
+}
 
 // AlarmResponseXML alarm response xml样式
 var (
@@ -49,19 +77,4 @@ var (
 // BuildRecordInfoXML 获取录像文件列表指令
 func BuildAlarmResponseXML(id string) string {
 	return fmt.Sprintf(AlarmResponseXML, id)
-}
-
-// BuildDeviceInfoXML 获取设备详情指令
-func BuildDeviceInfoXML(sn int, id string) string {
-	return fmt.Sprintf(DeviceInfoXML, sn, id)
-}
-
-// BuildCatalogXML 获取NVR下设备列表指令
-func BuildCatalogXML(sn int, id string) string {
-	return fmt.Sprintf(CatalogXML, sn, id)
-}
-
-// BuildRecordInfoXML 获取录像文件列表指令
-func BuildRecordInfoXML(sn int, id string, start, end int64) string {
-	return fmt.Sprintf(RecordInfoXML, sn, id, time.Unix(start, 0).Format("2006-01-02T15:04:05"), time.Unix(end, 0).Format("2006-01-02T15:04:05"))
 }
