@@ -198,16 +198,16 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
-	via := sip.ViaHeader{
-		&sip.ViaHop{
-			ProtocolName:    "SIP",
-			ProtocolVersion: "2.0",
-			Transport:       "UDP",
-			Host:            d.SipIP,
-			Port:            (*sip.Port)(&d.config.SipPort),
-			Params:          sip.NewParams(),
-		},
-	}
+	// via := sip.ViaHeader{
+	// 	&sip.ViaHop{
+	// 		ProtocolName:    "SIP",
+	// 		ProtocolVersion: "2.0",
+	// 		Transport:       "UDP",
+	// 		Host:            d.SipIP,
+	// 		Port:            (*sip.Port)(&d.config.SipPort),
+	// 		Params:          sip.NewParams(),
+	// 	},
+	// }
 	contact := sip.Address{
 		DisplayName: sip.String{d.ID},
 		Uri: &sip.SipUri{
@@ -228,7 +228,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			&callId,
 			&userAgent,
 			&cseq,
-			&via,
+			//&via,
 			contact.AsContactHeader(),
 		},
 		"",

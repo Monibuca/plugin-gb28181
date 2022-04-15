@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/ghettovoice/gosip/sip"
 )
 
-var srv *gosip.Server
+var srv gosip.Server
 
 type Server struct {
 	Ignores      map[string]struct{}
@@ -58,7 +59,7 @@ func (p *Publishers) Get(key uint32) *GBPublisher {
 }
 
 func GetSipServer() *gosip.Server {
-	return srv
+	return &srv
 }
 
 func (config *GB28181Config) startServer() {
@@ -69,12 +70,13 @@ func (config *GB28181Config) startServer() {
 
 	srvConf := gosip.ServerConfig{}
 
-	srv := gosip.NewServer(srvConf, nil, nil, logger)
+	srv = gosip.NewServer(srvConf, nil, nil, logger)
 	srv.OnRequest(sip.REGISTER, config.OnRegister)
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)
 	srv.OnRequest(sip.BYE, config.onBye)
 
-	go srv.Listen("udp", "0.0.0.0:5060")
+	addr := config.SipIP + ":" + strconv.Itoa(int(config.SipPort))
+	go srv.Listen(strings.ToLower(config.SipNetwork), addr)
 
 	// s := transaction.NewCore(&config.Config)
 	// s.RegistHandler(sip.REGISTER, config.OnRegister)

@@ -77,7 +77,8 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 }
 func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
-	if v, ok := Devices.Load(from.Address.User()); ok {
+	id := from.Address.User().String()
+	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
 		//d.SourceAddr = req.
 		if d.Status == string(sip.REGISTER) {
