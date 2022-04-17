@@ -18,33 +18,33 @@ _ "m7s.live/plugin/gb28181/v4"
 
 ```yml
 gb28181:
-	AutoInvite:     true
-	AutoCloseAfter: -1
-	PreFetchRecord: false
-	UdpCacheSize:   0
-	SipNetwork:     udp
-	SipIP:          127.0.0.1
-	SipPort:        5060
-	Serial:         34020000002000000001
-	Realm:          3402000000
-	Username:       ""
-	Password:       ""
-
-	AckTimeout:        10
-	RegisterValidity:  60
-	RegisterInterval:  60
-	HeartbeatInterval: 60
-	HeartbeatRetry:    3
-
-	MediaIP:          127.0.0.1
-	MediaPort:        58200
-	MediaIdleTimeout: 30
-	MediaNetwork:     udp
-
-	RemoveBanInterval: 600
-	LogVerbose:        false
-	AudioEnable:       true
-	WaitKeyFrame:      true
+  autoInvite:     true
+  autoCloseAfter: -1
+  preFetchRecord: false
+  udpCacheSize:   0
+  sipNetwork:     udp
+  sipIP:          127.0.0.1
+  sipPort:        5060
+  serial:         "34020000002000000001"
+  realm:          "3402000000"
+  username:       ""
+  password:       ""
+  
+  ackTimeout:        10
+  registerValidity:  60
+  registerInterval:  60
+  heartbeatInterval: 60
+  heartbeatRetry:    3
+  
+  mediaIP:          127.0.0.1
+  mediaPort:        58200
+  mediaIdleTimeout: 30
+  mediaNetwork:     udp
+  
+  removeBanInterval: 600
+  logVerbose:        false
+  audioEnable:       true
+  waitKeyFrame:      true
 ```
 
 - `AutoInvite`     bool 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
