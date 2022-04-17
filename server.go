@@ -1,14 +1,17 @@
 package gb28181
 
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	. "github.com/logrusorgru/aurora"
+	"github.com/logrusorgru/aurora"
 	"github.com/pion/rtp"
 	"go.uber.org/zap"
 
@@ -20,9 +23,8 @@ import (
 var srv gosip.Server
 
 type Server struct {
-	Ignores      map[string]struct{}
-	publishers   Publishers
-	MediaNetwork string
+	Ignores    map[string]struct{}
+	publishers Publishers
 }
 
 const MaxRegisterCount = 3
@@ -65,7 +67,7 @@ func GetSipServer() *gosip.Server {
 func (config *GB28181Config) startServer() {
 	config.publishers.data = make(map[uint32]*GBPublisher)
 
-	plugin.Info(fmt.Sprint(Green("Server gb28181 start at"), BrightBlue(config.SipIP+":"+strconv.Itoa(int(config.SipPort)))))
+	plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(":"+strconv.Itoa(int(config.SipPort)))))
 	logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 
 	srvConf := gosip.ServerConfig{}
@@ -75,32 +77,14 @@ func (config *GB28181Config) startServer() {
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)
 	srv.OnRequest(sip.BYE, config.onBye)
 
-	addr := config.SipIP + ":" + strconv.Itoa(int(config.SipPort))
+	addr := ":" + strconv.Itoa(int(config.SipPort))
 	go srv.Listen(strings.ToLower(config.SipNetwork), addr)
-
-	// s := transaction.NewCore(&config.Config)
-	// s.RegistHandler(sip.REGISTER, config.OnRegister)
-	// s.RegistHandler(sip.MESSAGE, config.OnMessage)
-	// s.RegistHandler(sip.BYE, config.onBye)
-
-	//OnStreamClosedHooks.AddHook(func(stream *Stream) {
-	//	Devices.Range(func(key, value interface{}) bool {
-	//		device:=value.(*Device)
-	//		for _,channel := range device.Channels {
-	//			if stream.StreamPath == channel.RecordSP {
-	//
-	//			}
-	//		}
-	//	})
-	//})
 
 	go config.startMediaServer()
 
-	// go queryCatalog(config)
 	if config.Username != "" || config.Password != "" {
 		go removeBanDevice(config)
 	}
-
 }
 
 func (config *GB28181Config) startMediaServer() {
@@ -111,38 +95,55 @@ func (config *GB28181Config) startMediaServer() {
 	}
 }
 
+func processTcpMediaConn(config *GB28181Config, conn net.Conn) {
+	var rtpPacket rtp.Packet
+	reader := bufio.NewReader(conn)
+	lenBuf := make([]byte, 2)
+	defer conn.Close()
+	var err error
+	for err == nil {
+		if _, err = io.ReadFull(reader, lenBuf); err != nil {
+			return
+		}
+		ps := make([]byte, binary.BigEndian.Uint16(lenBuf))
+		if _, err = io.ReadFull(reader, ps); err != nil {
+			return
+		}
+		if err := rtpPacket.Unmarshal(ps); err != nil {
+			plugin.Error("gb28181 decode rtp error:", zap.Error(err))
+		} else if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+			publisher.PushPS(&rtpPacket)
+		}
+	}
+}
+
 func listenMediaTCP(config *GB28181Config) {
-	// for i := uint16(0); i < config.TCPMediaPortNum; i++ {
-	// 	addr := ":" + strconv.Itoa(int(config.MediaPort+i))
-	// 	go ListenTCP(addr, func(conn net.Conn) {
-	// 		var rtpPacket rtp.Packet
-	// 		reader := bufio.NewReader(conn)
-	// 		lenBuf := make([]byte, 2)
-	// 		defer conn.Close()
-	// 		var err error
-	// 		for err == nil {
-	// 			if _, err = io.ReadFull(reader, lenBuf); err != nil {
-	// 				return
-	// 			}
-	// 			ps := make([]byte, BigEndian.Uint16(lenBuf))
-	// 			if _, err = io.ReadFull(reader, ps); err != nil {
-	// 				return
-	// 			}
-	// 			if err := rtpPacket.Unmarshal(ps); err != nil {
-	// 				Println("gb28181 decode rtp error:", err)
-	// 			} else if publisher := publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
-	// 				publisher.PushPS(&rtpPacket)
-	// 			}
-	// 		}
-	// 	})
-	// }
+	addr := ":" + strconv.Itoa(int(config.MediaPort))
+	mediaAddr, _ := net.ResolveTCPAddr("tcp", addr)
+	listen, err := net.ListenTCP("tcp", mediaAddr)
+
+	if err != nil {
+		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
+		return
+	}
+	plugin.Info("Media tcp server start.", zap.Uint16("port", config.MediaPort))
+	defer listen.Close()
+	defer plugin.Info("Media tcp server stop", zap.Uint16("port", config.MediaPort))
+
+	for {
+		conn, err := listen.Accept()
+		if err != nil {
+			plugin.Error("Accept err=", zap.Error(err))
+		}
+		go processTcpMediaConn(config, conn)
+	}
 }
 
 func listenMediaUDP(config *GB28181Config) {
 	var rtpPacket rtp.Packet
 	networkBuffer := 1048576
 
-	addr := config.MediaIP + ":" + strconv.Itoa(int(config.MediaPort))
+	addr := ":" + strconv.Itoa(int(config.MediaPort))
 	mediaAddr, _ := net.ResolveUDPAddr("udp", addr)
 	conn, err := net.ListenUDP("udp", mediaAddr)
 

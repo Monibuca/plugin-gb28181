@@ -3,7 +3,6 @@ package gb28181
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -56,13 +55,9 @@ type Device struct {
 	Status          string
 	Channels        []*Channel
 	sn              int
-	from            *sip.FromHeader
-	to              *sip.ToHeader
+	addr            sip.Address
 	tx              *sip.ServerTransaction
-	Addr            string
-	SipIP           string //暴露的IP
-	MediaIP         string //Media Server 暴露的IP
-	SourceAddr      net.Addr
+	netAddr         string
 	channelMap      map[string]*Channel
 	channelMutex    sync.RWMutex
 	subscriber      struct {
@@ -74,37 +69,27 @@ type Device struct {
 func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.ServerTransaction) {
 	var d *Device
 	plugin.Debug("StoreDevice", zap.String("id", id))
+
+	from, _ := req.From()
+	deviceAddr := sip.Address{
+		DisplayName: from.DisplayName,
+		Uri:         from.Address,
+	}
+
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
-		d.from, _ = req.From()
-		d.to, _ = req.To()
-		d.Addr = req.Source()
-		//TODO: Should we send  GetDeviceInf request?
-		//message := d.CreateMessage(sip.MESSAGE)
-		//message.Body = sip.GetDeviceInfoXML(d.ID)
-
-		//request := &sip.Request{Message: message}
-		//if newTx, err := s.Request(request); err == nil {
-		//	if _, err = newTx.SipResponse(); err != nil {
-		//		Println("notify device after register,", err)
-		//		return
-		//	}
-		//}
+		d.netAddr = req.Source()
+		d.addr = deviceAddr
 	} else {
-		from, _ := req.From()
-		to, _ := req.To()
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
 			Status:       string(sip.REGISTER),
-			from:         from,
-			to:           to,
+			addr:         deviceAddr,
 			tx:           tx,
-			Addr:         req.Source(),
-			SipIP:        config.SipIP,
-			MediaIP:      config.MediaIP,
+			netAddr:      req.Source(),
 			channelMap:   make(map[string]*Channel),
 			config:       config,
 		}
@@ -198,45 +183,33 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
-	// via := sip.ViaHeader{
-	// 	&sip.ViaHop{
-	// 		ProtocolName:    "SIP",
-	// 		ProtocolVersion: "2.0",
-	// 		Transport:       "UDP",
-	// 		Host:            d.SipIP,
-	// 		Port:            (*sip.Port)(&d.config.SipPort),
-	// 		Params:          sip.NewParams(),
-	// 	},
-	// }
-	contact := sip.Address{
-		DisplayName: sip.String{d.ID},
+	serverAddr := sip.Address{
+		DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
-			FUser: sip.String{d.ID},
-			FHost: d.SipIP,
-			FPort: (*sip.Port)(&d.config.SipPort),
+			FUser: sip.String{Str: d.config.Serial},
+			FHost: d.config.Realm,
 		},
 	}
 
 	req = sip.NewRequest(
 		"",
 		Method,
-		d.from.Address,
+		d.addr.Uri,
 		"SIP/2.0",
 		[]sip.Header{
-			d.to,
-			d.from,
+			d.addr.AsToHeader(),
+			serverAddr.AsFromHeader(),
 			&callId,
 			&userAgent,
 			&cseq,
-			//&via,
-			contact.AsContactHeader(),
+			serverAddr.AsContactHeader(),
 		},
 		"",
 		nil,
 	)
 
-	req.SetDestination(d.Addr)
-	req.SetRecipient(d.from.Address)
+	req.SetTransport(d.config.SipNetwork)
+	req.SetDestination(d.netAddr)
 
 	// requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
 	// if err2 != nil {
@@ -311,7 +284,7 @@ func (d *Device) Catalog() int {
 func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr))
+		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.netAddr))
 		time.Sleep(time.Second * i)
 		request := d.CreateRequest(sip.MESSAGE)
 		contentType := sip.ContentType("Application/MANSCDP+xml")
@@ -320,12 +293,12 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 
 		response, _ := d.SipRequestForResponse(request)
 		if response != nil {
-			via, _ := response.ViaHop()
+			// via, _ := response.ViaHop()
 
-			if via != nil && via.Params.Has("received") {
-				received, _ := via.Params.Get("received")
-				d.SipIP = received.String()
-			}
+			// if via != nil && via.Params.Has("received") {
+			// 	received, _ := via.Params.Get("received")
+			// 	d.SipIP = received.String()
+			// }
 			if response.StatusCode() != 200 {
 				plugin.Error(fmt.Sprintf("device %s send Catalog : %d\n", d.ID, response.StatusCode()))
 			} else {

@@ -202,18 +202,18 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.SipIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.config.SipIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
-		"c=IN IP4 " + d.MediaIP,
+		"c=IN IP4 " + d.config.MediaIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 	}
-	if config.IsMediaNetworkTCP() {
-		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
-	}
+	// if config.IsMediaNetworkTCP() {
+	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
+	// }
 	invite := channel.CreateRequst(sip.INVITE)
 	contentType := sip.ContentType("application/sdp")
 	invite.AppendHeader(&contentType)
@@ -224,8 +224,8 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial),
 	}
 	invite.AppendHeader(&subject)
-	response, _ := d.SipRequestForResponse(invite)
-	if response == nil {
+	response, err := d.SipRequestForResponse(invite)
+	if response == nil || err != nil {
 		return http.StatusRequestTimeout
 	}
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.StatusCode()))
@@ -283,12 +283,8 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			channel.RecordPublisher = publisher
 			channel.recordInviteRes = &response
 		}
-		// ack := d.CreateRequest(sip.ACK)
-		// ack.From = response.From
-		// ack.To = response.To
-		// ack.CallID = response.CallID
-		// ack.CSeq.ID = invite.CSeq.ID
-		// d.Respond(&Response{Message: ack})
+		ack := sip.NewAckRequest("", invite, response, "", nil)
+		(*GetSipServer()).Send(ack)
 	} else if start == "" && config.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite("", "")

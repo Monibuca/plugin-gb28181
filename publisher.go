@@ -49,12 +49,19 @@ func (p *GBPublisher) Publish() (result bool) {
 		p.pushAudio = func(ts uint32, payload common.AVCCFrame) {
 			switch p.parser.AudioStreamType {
 			case utils.G711A:
-			case utils.G711A + 1:
 				at := NewG711(p.Stream, true)
 				at.SampleRate = 8000
 				at.SampleSize = 16
 				at.Channels = 1
-				// at.ExtraData = []byte{(at.CodecID << 4) | (1 << 1)}
+				at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
+				at.WriteAVCC(ts, payload)
+				p.pushAudio = at.WriteAVCC
+			case utils.G711A + 1:
+				at := NewG711(p.Stream, false)
+				at.SampleRate = 8000
+				at.SampleSize = 16
+				at.Channels = 1
+				at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
 				at.WriteAVCC(ts, payload)
 				p.pushAudio = at.WriteAVCC
 			}
