@@ -75,6 +75,7 @@ func (config *GB28181Config) startServer() {
 	srv = gosip.NewServer(srvConf, nil, nil, logger)
 	srv.OnRequest(sip.REGISTER, config.OnRegister)
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)
+	srv.OnRequest(sip.NOTIFY, config.OnNotify)
 	srv.OnRequest(sip.BYE, config.onBye)
 
 	addr := ":" + strconv.Itoa(int(config.SipPort))

@@ -27,6 +27,9 @@ type ChannelEx struct {
 	recordEndTime   time.Time
 	state           int32
 	tcpPortIndex    uint16
+	GpsTime         time.Time //gps时间
+	Longitude       string    //经度
+	Latitude        string    //纬度
 }
 
 // Channel 通道
@@ -196,7 +199,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	if config.IsMediaNetworkTCP() {
 		protocol = "TCP/"
 		port = config.MediaPort + channel.tcpPortIndex
-		if port+1 >= config.MediaPortMax {
+		if channel.tcpPortIndex++; channel.tcpPortIndex >= config.MediaPortMax {
 			channel.tcpPortIndex = 0
 		}
 	}
