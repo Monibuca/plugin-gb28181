@@ -1,14 +1,9 @@
-package sip
+package gb28181
 
 import (
 	"fmt"
 	"time"
 )
-
-// Request Request
-type Request struct {
-	*Message
-}
 
 var (
 	// CatalogXML 获取设备列表xml样式
@@ -66,4 +61,20 @@ func BuildRecordInfoXML(sn int, id string, start, end int64) string {
 // BuildDevicePositionXML 订阅设备位置
 func BuildDevicePositionXML(sn int, id string, interval int) string {
 	return fmt.Sprintf(DevicePositionXML, sn, id, interval)
+}
+
+// AlarmResponseXML alarm response xml样式
+var (
+	AlarmResponseXML = `<?xml version="1.0"?>
+<Response>
+<CmdType>Alarm</CmdType>
+<SN>17430</SN>
+<DeviceID>%s</DeviceID>
+</Response>
+`
+)
+
+// BuildRecordInfoXML 获取录像文件列表指令
+func BuildAlarmResponseXML(id string) string {
+	return fmt.Sprintf(AlarmResponseXML, id)
 }
