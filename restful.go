@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"m7s.live/engine/v4/util"
@@ -79,6 +80,27 @@ func (conf *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	live := r.URL.Query().Get("live")
 	if c := FindChannel(id, channel); c != nil {
 		w.WriteHeader(c.Bye(live != "false"))
+	} else {
+		w.WriteHeader(404)
+	}
+}
+
+func (conf *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) {
+	//CORS(w, r)
+	query := r.URL.Query()
+	//设备id
+	id := query.Get("id")
+	//订阅周期(单位：秒)
+	expires := query.Get("expires")
+	//订阅间隔（单位：秒）
+	interval := query.Get("interval")
+
+	expiresInt, _ := strconv.Atoi(expires)
+	intervalInt, _ := strconv.Atoi(interval)
+
+	if v, ok := Devices.Load(id); ok {
+		d := v.(*Device)
+		w.WriteHeader(d.MobilePositionSubscribe(id, expiresInt, intervalInt))
 	} else {
 		w.WriteHeader(404)
 	}

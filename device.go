@@ -57,7 +57,7 @@ type Device struct {
 	sn              int
 	addr            sip.Address
 	tx              *sip.ServerTransaction
-	netAddr         string
+	NetAddr         string
 	channelMap      map[string]*Channel
 	channelMutex    sync.RWMutex
 	subscriber      struct {
@@ -79,7 +79,7 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
-		d.netAddr = req.Source()
+		d.NetAddr = req.Source()
 		d.addr = deviceAddr
 	} else {
 		d = &Device{
@@ -89,7 +89,7 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 			Status:       string(sip.REGISTER),
 			addr:         deviceAddr,
 			tx:           tx,
-			netAddr:      req.Source(),
+			NetAddr:      req.Source(),
 			channelMap:   make(map[string]*Channel),
 			config:       config,
 		}
@@ -212,7 +212,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 	)
 
 	req.SetTransport(d.config.SipNetwork)
-	req.SetDestination(d.netAddr)
+	req.SetDestination(d.NetAddr)
 
 	// requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
 	// if err2 != nil {
@@ -287,7 +287,7 @@ func (d *Device) Catalog() int {
 func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.netAddr))
+		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.NetAddr))
 		time.Sleep(time.Second * i)
 		request := d.CreateRequest(sip.MESSAGE)
 		contentType := sip.ContentType("Application/MANSCDP+xml")

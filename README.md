@@ -10,41 +10,73 @@ github.com/Monibuca/plugin-gb28181
 
 ```go
 import (
-_ "github.com/Monibuca/plugin-gb28181"
+_ "m7s.live/plugin/gb28181/v4"
 )
 ```
 
 ## 默认插件配置
 
-```toml
-[GB28181]
-Serial = "34020000002000000001"
-Realm = "3402000000"
-Expires = 3600
-ListenAddr = "127.0.0.1:5060"
-AutoCloseAfter = -1
-AutoInvite = false
-MediaPort = 58200
-CatalogInterval = 30
-RemoveBanInterval = 600
-Username = ""
-Password = ""
-UdpCacheSize = 0 
-TCP = false
+```yml
+gb28181:
+	AutoInvite:     true
+	AutoCloseAfter: -1
+	PreFetchRecord: false
+	UdpCacheSize:   0
+	SipNetwork:     udp
+	SipIP:          127.0.0.1
+	SipPort:        5060
+	Serial:         34020000002000000001
+	Realm:          3402000000
+	Username:       ""
+	Password:       ""
+
+	AckTimeout:        10
+	RegisterValidity:  60
+	RegisterInterval:  60
+	HeartbeatInterval: 60
+	HeartbeatRetry:    3
+
+	MediaIP:          127.0.0.1
+	MediaPort:        58200
+	MediaIdleTimeout: 30
+	MediaNetwork:     udp
+
+	RemoveBanInterval: 600
+	LogVerbose:        false
+	AudioEnable:       true
+	WaitKeyFrame:      true
 ```
 
-- `ListenAddr`是监听的地址，这里需要注意的是必须要带上Server的IP地址，这个IP地址是向设备发送信息的时候需要带上的。
-- `Serial` Server（SIP）的编号
-- `Realm` Server（SIP）的域
-- `AutoCloseAfter` 如果设置大于等于0，则当某个流最后一个订阅者取消订阅时会延迟N秒，会自动发送bye，节省流量。如果为了响应及时，可以设置成-1，保持流的连接
-- `AutoInvite` 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
-- `MediaPort` 表示用于接收设备流的端口号
-- `CatalogInterval` 定时获取设备目录的间隔，单位秒
-- `RemoveBanInterval` 定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
-- `Username` 国标用户名
-- `Password` 国标密码
-- `TCP` 是否开启TCP接收国标流，默认false
-- `UdpCacheSize` 表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
+- `AutoInvite`     bool 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
+- `AutoCloseAfter` int 如果设置大于等于0，则当某个流最后一个订阅者取消订阅时会延迟N秒，会自动发送bye，节省流量。如果为了响应及时，可以设置成-1，保持流的连接
+- `PreFetchRecord` bool
+
+* sip服务器的配置
+- `SipNetwork` string 传输协议，默认UDP，可选TCP
+- `SipIP`      string sip 服务器公网IP
+- `SipPort`    uint16 sip 服务器端口，默认 5060
+- `Serial`     string sip 服务器 id, 默认 34020000002000000001
+- `Realm`      string sip 服务器域，默认 3402000000
+- `Username`   string sip 服务器账号
+- `Password`   string sip 服务器密码
+
+- `AckTimeout`        uint16 sip 服务应答超时，单位秒
+- `RegisterValidity`  int    注册有效期，单位秒，默认 3600
+- `RegisterInterval`  int    注册间隔，单位秒，默认 60
+- `HeartbeatInterval` int    心跳间隔，单位秒，默认 60
+- `HeartbeatRetry`    int    心跳超时次数，默认 3
+
+* 媒体服务器配置
+- `MediaIP`          string 媒体服务器地址
+- `MediaPort`        uint16 媒体服务器端口
+- `MediaNetwork`     string 媒体传输协议，默认UDP，可选TCP
+- `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连
+
+- `AudioEnable`       bool 是否开启音频
+- `LogVerbose`        bool
+- `WaitKeyFrame`      bool 是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
+- `RemoveBanInterval` int  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
+- `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 
 **注意某些摄像机没有设置用户名的地方，摄像机会以自身的国标id作为用户名，这个时候m7s会忽略使用摄像机的用户名，忽略配置的用户名**
 如果设备配置了错误的用户名和密码，连续三次上报错误后，m7s会记录设备id，并在10分钟内禁止设备注册
@@ -58,6 +90,7 @@ TCP = false
 - 发送RecordInfo命令查询设备对录像数据
 - 发送Invite命令获取设备的实时视频或者录像视频
 - 发送PTZ命令来控制摄像头云台
+- 自动同步设备位置
 
 ### 作为GB28281的流媒体服务器接受设备的媒体流
 
@@ -77,20 +110,17 @@ TCP = false
 
 ```go
 type Device struct {
-*transaction.Core `json:"-"`
-ID                string
-RegisterTime      time.Time
-UpdateTime        time.Time
-Status            string
-Channels          []*Channel
-queryChannel      bool
-sn                int
-from              *sip.Contact
-to                *sip.Contact
-Addr              string
-SipIP             string //暴露的IP
-channelMap        map[string]*Channel
-channelMutex      sync.RWMutex
+	ID              string
+	Name            string
+	Manufacturer    string
+	Model           string
+	Owner           string
+	RegisterTime    time.Time
+	UpdateTime      time.Time
+	LastKeepaliveAt time.Time
+	Status          string
+	Channels        []*Channel
+	NetAddr         string
 }
 ```
 
