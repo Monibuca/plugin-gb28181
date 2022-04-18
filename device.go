@@ -186,22 +186,25 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
+	port := sip.Port(d.config.SipPort)
 	serverAddr := sip.Address{
-		DisplayName: sip.String{Str: d.config.Serial},
+		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
 			FUser: sip.String{Str: d.config.Serial},
-			FHost: d.config.Realm,
+			FHost: d.config.SipIP,
+			FPort: &port,
 		},
+		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
 	}
-
 	req = sip.NewRequest(
 		"",
 		Method,
 		d.addr.Uri,
 		"SIP/2.0",
 		[]sip.Header{
-			d.addr.AsToHeader(),
+			//&sip.GenericHeader{HeaderName: "From", Contents: serverAddr.AsFromHeader().String() + ";tag=" + utils.RandNumString(9)},
 			serverAddr.AsFromHeader(),
+			d.addr.AsToHeader(),
 			&callId,
 			&userAgent,
 			&cseq,
@@ -213,7 +216,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 
 	req.SetTransport(d.config.SipNetwork)
 	req.SetDestination(d.NetAddr)
-
+	//fmt.Printf("构建请求参数:%s", *&req)
 	// requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
 	// if err2 != nil {
 	// 	return nil
@@ -271,13 +274,14 @@ func (d *Device) Catalog() int {
 	expires := sip.Expires(3600)
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
 	contentType := sip.ContentType("Application/MANSCDP+xml")
+	//request.AppendHeader(&sip.GenericHeader{HeaderName: "Event", Contents: "Catalog"})
+	//request.AppendHeader(&sip.GenericHeader{HeaderName: "Max-Forwards", Contents: "70"})
 	request.AppendHeader(&contentType)
 	request.AppendHeader(&expires)
-
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
-
+	// 输出Sip请求设备通道信息信令
+	plugin.Sugar().Debugf("SIP->Catalog:%s", request)
 	resp, err := d.SipRequestForResponse(request)
-
 	if err == nil && resp != nil {
 		return int(resp.StatusCode())
 	}
