@@ -78,7 +78,7 @@ func (config *GB28181Config) startServer() {
 	srv.OnRequest(sip.NOTIFY, config.OnNotify)
 	srv.OnRequest(sip.BYE, config.onBye)
 
-	addr := ":" + strconv.Itoa(int(config.SipPort))
+	addr := "0.0.0.0:" + strconv.Itoa(int(config.SipPort))
 	go srv.Listen(strings.ToLower(config.SipNetwork), addr)
 
 	go config.startMediaServer()
