@@ -71,6 +71,12 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 	plugin.Debug("StoreDevice", zap.String("id", id))
 
 	from, _ := req.From()
+	// 存储注册时远端上报的地址；
+	//recipient := req.Recipient()
+	//from.Address.SetHost("117.28.155.29")
+	//var port uint16 = 38986
+	//newPort := sip.Port(port)
+	//from.Address.SetPort(&newPort)
 	deviceAddr := sip.Address{
 		DisplayName: from.DisplayName,
 		Uri:         from.Address,
@@ -186,7 +192,10 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
+
 	port := sip.Port(d.config.SipPort)
+	// 模拟外网通讯地址；
+	//port := sip.Port(38986)
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
@@ -208,7 +217,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			&callId,
 			&userAgent,
 			&cseq,
-			serverAddr.AsContactHeader(),
+			//serverAddr.AsContactHeader(),
 		},
 		"",
 		nil,

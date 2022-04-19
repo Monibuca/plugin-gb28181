@@ -54,10 +54,10 @@ func (a *Authorization) getDigest(raw string) string {
 
 func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
-
 	id := from.Address.User().String()
 	plugin.Debug(id)
-
+	via, _ := req.Via()
+	fmt.Printf("%s", via.Value())
 	passAuth := false
 	// 不需要密码情况
 	if config.Username == "" && config.Password == "" {
