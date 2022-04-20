@@ -57,7 +57,7 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 	id := from.Address.User().String()
 	plugin.Debug(id)
 	via, _ := req.Via()
-	fmt.Printf("%s", via.Value())
+	fmt.Printf("%s\n", via.Value())
 	passAuth := false
 	// 不需要密码情况
 	if config.Username == "" && config.Password == "" {

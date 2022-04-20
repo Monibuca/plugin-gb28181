@@ -1,6 +1,7 @@
 package gb28181
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,7 +11,6 @@ import (
 
 func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 	sse := util.NewSSE(w, r.Context())
-
 	for {
 		var list []*Device
 		Devices.Range(func(key, value interface{}) bool {
@@ -28,6 +28,28 @@ func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 		case <-sse.Done():
 			return
 		}
+	}
+}
+
+// APIlistOnce 查询一次设备
+func (conf *GB28181Config) API_list_one(w http.ResponseWriter, r *http.Request) {
+	var list []*Device
+	Devices.Range(func(key, value interface{}) bool {
+		device := value.(*Device)
+		if time.Since(device.UpdateTime) > time.Duration(conf.RegisterValidity)*time.Second {
+			Devices.Delete(key)
+		} else {
+			list = append(list, device)
+		}
+		return true
+	})
+	//plugin.Sugar().Debug(list)
+	message, err := json.Marshal(list)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(message)
+	} else {
+		w.WriteHeader(404)
 	}
 }
 

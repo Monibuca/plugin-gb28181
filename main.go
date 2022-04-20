@@ -13,13 +13,14 @@ type GB28181Config struct {
 	PreFetchRecord bool
 
 	//sip服务器的配置
-	SipNetwork string //传输协议，默认UDP，可选TCP
-	SipIP      string //sip 服务器公网IP
-	SipPort    uint16 //sip 服务器端口，默认 5060
-	Serial     string //sip 服务器 id, 默认 34020000002000000001
-	Realm      string //sip 服务器域，默认 3402000000
-	Username   string //sip 服务器账号
-	Password   string //sip 服务器密码
+	SipNetwork    string //传输协议，默认UDP，可选TCP
+	SipIP         string //sip 服务器公网IP
+	SipPort       uint16 //sip 服务器端口，默认 5060
+	SipExtendPort uint16
+	Serial        string //sip 服务器 id, 默认 34020000002000000001
+	Realm         string //sip 服务器域，默认 3402000000
+	Username      string //sip 服务器账号
+	Password      string //sip 服务器密码
 
 	AckTimeout        uint16 //sip 服务应答超时，单位秒
 	RegisterValidity  int    //注册有效期，单位秒，默认 3600
@@ -64,6 +65,7 @@ var conf = &GB28181Config{
 	SipNetwork:     "udp",
 	SipIP:          "127.0.0.1",
 	SipPort:        5060,
+	SipExtendPort:  45060,
 	Serial:         "34020000002000000001",
 	Realm:          "3402000000",
 	Username:       "",

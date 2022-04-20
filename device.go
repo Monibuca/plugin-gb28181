@@ -3,7 +3,9 @@ package gb28181
 import (
 	"context"
 	"fmt"
+	"m7s.live/engine/v4/log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,6 +74,16 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 
 	from, _ := req.From()
 	// 存储注册时远端上报的地址；
+	via, _ := req.ViaHop()
+	if via != nil && via.Params.Has("received") && via.Params.Has("rport") {
+		received, _ := via.Params.Get("received")
+		report, _ := via.Params.Get("rport")
+		from.Address.SetHost(received.String())
+		val, _ := strconv.Atoi(report.String())
+		reportPort := sip.Port(uint16(val))
+		from.Address.SetPort(&reportPort)
+		log.Debugf("获取到received%s,以及report:%s,转换后的report:%s", received, report, *&reportPort)
+	}
 	//recipient := req.Recipient()
 	//from.Address.SetHost("117.28.155.29")
 	//var port uint16 = 38986
@@ -183,6 +195,63 @@ func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	d.channelMutex.RUnlock()
 }
 
+// CreateInviteRequest 构建INVITE请求参数，请求实时视频流
+func (d *Device) CreateInviteRequest(channelId string) (req sip.Request) {
+	Method := sip.INVITE
+	callId := sip.CallID(utils.RandNumString(32) + "@0.0.0.0")
+	userAgent := sip.UserAgentHeader("Monibuca")
+	cseq := sip.CSeq{
+		SeqNo:      uint32(d.sn),
+		MethodName: Method,
+	}
+	// Contact
+	port := sip.Port(d.config.SipExtendPort)
+	contactAddr := sip.Address{
+		Uri: &sip.SipUri{
+			FUser: sip.String{Str: d.config.Serial},
+			FHost: d.config.SipIP,
+			FPort: &port,
+		},
+	}
+	// From
+	fromAddr := sip.Address{
+		//DisplayName: sip.String{Str: d.config.Serial},
+		Uri: &sip.SipUri{
+			FUser: sip.String{Str: d.config.Serial},
+			FHost: d.config.Realm,
+		},
+		Params: sip.NewParams().Add("tag", sip.String{Str: "FromInvt" + utils.RandNumString(13)}),
+	}
+	// To
+	toAddr := sip.Address{
+		Uri: &sip.SipUri{
+			FUser: sip.String{Str: channelId},
+			FHost: d.config.Realm,
+		},
+	}
+
+	req = sip.NewRequest(
+		"",
+		Method,
+		d.addr.Uri,
+		"SIP/2.0",
+		[]sip.Header{
+			fromAddr.AsFromHeader(),
+			toAddr.AsToHeader(),
+			&callId,
+			&userAgent,
+			&cseq,
+			contactAddr.AsContactHeader(),
+		},
+		"",
+		nil,
+	)
+	req.SetTransport(d.config.SipNetwork)
+	plugin.Sugar().Debugf("SIP->目标地址:%s\n", d.NetAddr)
+	req.SetDestination(d.NetAddr)
+	return
+}
+
 func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 	d.sn++
 
@@ -193,7 +262,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		MethodName: Method,
 	}
 
-	port := sip.Port(d.config.SipPort)
+	port := sip.Port(d.config.SipExtendPort)
 	// 模拟外网通讯地址；
 	//port := sip.Port(38986)
 	serverAddr := sip.Address{
@@ -203,8 +272,16 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			FHost: d.config.SipIP,
 			FPort: &port,
 		},
-		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
+		//Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
 	}
+	// 组织通信地址
+	contact := serverAddr.AsContactHeader()
+	plugin.Sugar().Debugf("SIP->CONTACT:%s\n", contact)
+	var addrPoint *sip.Address
+	addrPoint = &serverAddr
+	addrPoint.Params = sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)})
+	from := serverAddr.AsFromHeader()
+	plugin.Sugar().Debugf("SIP->FROM:%s\n", from)
 	req = sip.NewRequest(
 		"",
 		Method,
@@ -212,12 +289,12 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		"SIP/2.0",
 		[]sip.Header{
 			//&sip.GenericHeader{HeaderName: "From", Contents: serverAddr.AsFromHeader().String() + ";tag=" + utils.RandNumString(9)},
-			serverAddr.AsFromHeader(),
+			from,
 			d.addr.AsToHeader(),
 			&callId,
 			&userAgent,
 			&cseq,
-			//serverAddr.AsContactHeader(),
+			contact,
 		},
 		"",
 		nil,
@@ -262,9 +339,8 @@ func (d *Device) Subscribe() int {
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
 	request.AppendHeader(&expires)
-
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
-
+	plugin.Sugar().Debugf("SIP->Request:%s", request)
 	response, err := d.SipRequestForResponse(request)
 	if err == nil && response != nil {
 		if response.StatusCode() == 200 {
@@ -289,9 +365,10 @@ func (d *Device) Catalog() int {
 	request.AppendHeader(&expires)
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
 	// 输出Sip请求设备通道信息信令
-	plugin.Sugar().Debugf("SIP->Catalog:%s", request)
+	plugin.Sugar().Debugf("SIP->Request:%s\n", *&request)
 	resp, err := d.SipRequestForResponse(request)
 	if err == nil && resp != nil {
+		//plugin.Sugar().Debugf("SIP->Catalog->Response:%s\n", resp.Body())
 		return int(resp.StatusCode())
 	}
 	return http.StatusRequestTimeout
@@ -306,7 +383,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 		contentType := sip.ContentType("Application/MANSCDP+xml")
 		request.AppendHeader(&contentType)
 		request.SetBody(BuildDeviceInfoXML(d.sn, d.ID), true)
-
+		plugin.Sugar().Debugf("SIP->Request:%s", *&request)
 		response, _ := d.SipRequestForResponse(request)
 		if response != nil {
 			// via, _ := response.ViaHop()

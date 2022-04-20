@@ -17,9 +17,9 @@ type ChannelEx struct {
 	device          *Device       `json:"-"`
 	inviteRes       *sip.Response `json:"-"`
 	recordInviteRes *sip.Response `json:"-"`
-	RecordPublisher *GBPublisher
-	LivePublisher   *GBPublisher
-	LiveSubSP       string //实时子码流
+	RecordPublisher *GBPublisher  `json:"-"`
+	LivePublisher   *GBPublisher  `json:"-"`
+	LiveSubSP       string        //实时子码流
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
@@ -51,8 +51,8 @@ type Channel struct {
 	*ChannelEx              //自定义属性
 }
 
-func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
-	return c.device.CreateRequest(Method)
+func (c *Channel) CreateRequst(Method sip.RequestMethod, channelId string) (req sip.Request) {
+	return c.device.CreateInviteRequest(channelId)
 	// request = &Request{}
 	// request.Message = c.device.CreateMessage(Method)
 	// request.Message.StartLine.Uri = NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
@@ -205,7 +205,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.config.SipIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.config.Serial, d.config.SipIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.config.MediaIP,
@@ -217,18 +217,19 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	// if config.IsMediaNetworkTCP() {
 	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
 	// }
-	invite := channel.CreateRequst(sip.INVITE)
-	contentType := sip.ContentType("application/sdp")
+	invite := channel.CreateRequst(sip.INVITE, channel.DeviceID)
+	contentType := sip.ContentType("APPLICATION/SDP")
 	invite.AppendHeader(&contentType)
 
 	invite.SetBody(strings.Join(sdpInfo, "\r\n")+"\r\ny="+string(ssrc)+"\r\n", true)
-
 	subject := sip.GenericHeader{
 		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial),
 	}
 	invite.AppendHeader(&subject)
+	plugin.Sugar().Debugf("SIP->Request:%s", invite)
 	response, err := d.SipRequestForResponse(invite)
 	if response == nil || err != nil {
+		plugin.Sugar().Debugf("SIP->INVITE:%s", err)
 		return http.StatusRequestTimeout
 	}
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.StatusCode()))
@@ -322,7 +323,7 @@ func (c *Channel) ByeBye(res *sip.Response) *sip.Response {
 	}
 
 	d := c.device
-	bye := c.CreateRequst(sip.BYE)
+	bye := c.CreateRequst(sip.BYE, c.DeviceID)
 	from, _ := (*res).From()
 	to, _ := (*res).To()
 	callId, _ := (*res).CallID()
