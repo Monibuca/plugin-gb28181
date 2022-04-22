@@ -6,6 +6,7 @@ import (
 	"github.com/pion/rtp"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/common"
+	"m7s.live/engine/v4/track"
 	. "m7s.live/engine/v4/track"
 	"m7s.live/plugin/gb28181/v4/utils"
 )
@@ -14,57 +15,60 @@ type GBPublisher struct {
 	Publisher
 	StreamPath string
 	parser     *utils.DecPSPackage
-	pushVideo  func(uint32, uint32, common.AnnexBFrame)
-	pushAudio  func(uint32, common.AVCCFrame)
 	OnClose    func()
 	lastSeq    uint16
 	udpCache   *utils.PriorityQueueRtp
 	config     *GB28181Config
+	vt         common.VideoTrack
+	at         *track.G711
 }
 
-func (p *GBPublisher) PushVideo(ts uint32, cts uint32, payload []byte) {
-	//p.VideoTrack.WriteAnnexB(ts, cts, payload)
-	p.pushVideo(ts, cts, payload)
+func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
+	if p.vt == nil {
+		switch p.parser.VideoStreamType {
+		case utils.StreamTypeH264:
+			p.vt = NewH264(p.Stream)
+		case utils.StreamTypeH265:
+			p.vt = NewH265(p.Stream)
+		default:
+			return
+		}
+	}
+	p.vt.WriteAnnexB(pts, 0, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
-	//p.VideoTrack.WriteAVCC(ts, payload)
-	p.pushAudio(ts, payload)
+	if p.at == nil {
+		switch p.parser.AudioStreamType {
+		case utils.G711A:
+			at := NewG711(p.Stream, true)
+			at.SampleRate = 8000
+			at.SampleSize = 16
+			at.Channels = 1
+			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
+			p.at = at
+		case utils.G711A + 1:
+			at := NewG711(p.Stream, false)
+			at.SampleRate = 8000
+			at.SampleSize = 16
+			at.Channels = 1
+			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
+			p.at = at
+		default:
+			return
+		}
+	}
+	p.at.WriteAVCC(ts, payload)
 }
 
 func (p *GBPublisher) Publish() (result bool) {
 	if err := plugin.Publish(p.StreamPath, p); err == nil {
-		p.pushVideo = func(pts uint32, dts uint32, frame common.AnnexBFrame) {
-			var vt common.VideoTrack
-			switch p.parser.VideoStreamType {
-			case utils.StreamTypeH264:
-				vt = NewH264(p.Stream)
-			case utils.StreamTypeH265:
-				vt = NewH265(p.Stream)
-			default:
-				return
-			}
-			vt.WriteAnnexB(pts, dts, frame)
-			p.pushVideo = vt.WriteAnnexB
+		if p.vt != nil {
+			p.vt.Detach()
+			p.vt = nil
 		}
-		p.pushAudio = func(ts uint32, payload common.AVCCFrame) {
-			switch p.parser.AudioStreamType {
-			case utils.G711A:
-				at := NewG711(p.Stream, true)
-				at.SampleRate = 8000
-				at.SampleSize = 16
-				at.Channels = 1
-				at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
-				at.WriteAVCC(ts, payload)
-				p.pushAudio = at.WriteAVCC
-			case utils.G711A + 1:
-				at := NewG711(p.Stream, false)
-				at.SampleRate = 8000
-				at.SampleSize = 16
-				at.Channels = 1
-				at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
-				at.WriteAVCC(ts, payload)
-				p.pushAudio = at.WriteAVCC
-			}
+		if p.at != nil {
+			p.at.Detach()
+			p.at = nil
 		}
 		return true
 	}

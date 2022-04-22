@@ -177,9 +177,9 @@ loop:
 					if dec.PTS == 0 {
 						dec.PTS = ts
 					}
-					if dec.DTS == 0 {
-						dec.DTS = dec.PTS
-					}
+					// if dec.DTS == 0 {
+					// 	dec.DTS = dec.PTS
+					// }
 				}
 				video = append(video, dec.Payload...)
 			} else {
@@ -202,7 +202,7 @@ loop:
 		}
 	}
 	if len(video) > 0 {
-		pusher.PushVideo(dec.PTS, dec.DTS, video)
+		pusher.PushVideo(dec.PTS/90, dec.DTS/90, video)
 	}
 	if nextStartCode == StartCodePS {
 		fmt.Println(aurora.Red("StartCodePS recursion..."), err)

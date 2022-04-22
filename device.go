@@ -202,7 +202,6 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		d.addr.Uri,
 		"SIP/2.0",
 		[]sip.Header{
-			//&sip.GenericHeader{HeaderName: "From", Contents: serverAddr.AsFromHeader().String() + ";tag=" + utils.RandNumString(9)},
 			serverAddr.AsFromHeader(),
 			d.addr.AsToHeader(),
 			&callId,
@@ -274,8 +273,7 @@ func (d *Device) Catalog() int {
 	expires := sip.Expires(3600)
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
 	contentType := sip.ContentType("Application/MANSCDP+xml")
-	//request.AppendHeader(&sip.GenericHeader{HeaderName: "Event", Contents: "Catalog"})
-	//request.AppendHeader(&sip.GenericHeader{HeaderName: "Max-Forwards", Contents: "70"})
+
 	request.AppendHeader(&contentType)
 	request.AppendHeader(&expires)
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
