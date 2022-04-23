@@ -3,7 +3,7 @@ package gb28181
 import (
 	"encoding/binary"
 
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/common"
 	"m7s.live/engine/v4/track"

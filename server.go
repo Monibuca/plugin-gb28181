@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/logrusorgru/aurora"
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 	"go.uber.org/zap"
 
 	"github.com/ghettovoice/gosip"

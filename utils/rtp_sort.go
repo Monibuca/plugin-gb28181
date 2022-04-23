@@ -3,7 +3,8 @@ package utils
 import (
 	"container/heap"
 	"errors"
-	"github.com/pion/rtp"
+
+	"github.com/pion/rtp/v2"
 )
 
 const MaxRtpDiff = 65000 //相邻两个包之间的最大差值

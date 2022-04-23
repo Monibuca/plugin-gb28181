@@ -202,7 +202,7 @@ loop:
 		}
 	}
 	if len(video) > 0 {
-		pusher.PushVideo(dec.PTS/90, dec.DTS/90, video)
+		pusher.PushVideo(dec.PTS, dec.DTS, video)
 	}
 	if nextStartCode == StartCodePS {
 		fmt.Println(aurora.Red("StartCodePS recursion..."), err)
