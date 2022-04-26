@@ -23,8 +23,10 @@ func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 			return true
 		})
 		sse.WriteJSON(list)
+		writeTimeOut := time.NewTicker(time.Second * 5)
+		defer writeTimeOut.Stop()
 		select {
-		case <-time.After(time.Second * 5):
+		case <-writeTimeOut.C:
 		case <-sse.Done():
 			return
 		}
