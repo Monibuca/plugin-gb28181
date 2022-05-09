@@ -9,7 +9,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.0.0-20220403103023-749bd193bc2b
 	golang.org/x/text v0.3.7
-	m7s.live/engine/v4 v4.0.0-beta
+	m7s.live/engine/v4 v4.0.0-beta5
 )
 
 require (

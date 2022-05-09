@@ -34,7 +34,7 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 			return
 		}
 	}
-	p.vt.WriteAnnexB(pts, 0, payload)
+	p.vt.WriteAnnexB(pts, dts, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.at == nil {
@@ -103,7 +103,6 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 		}
 	}
 	p.lastSeq = rtp.SequenceNumber
-	// p.Update()
 	if p.parser == nil {
 		p.parser = new(utils.DecPSPackage)
 	}
