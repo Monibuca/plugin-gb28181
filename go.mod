@@ -9,7 +9,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.0.0-20220403103023-749bd193bc2b
 	golang.org/x/text v0.3.7
-	m7s.live/engine/v4 v4.0.0-beta5
+	m7s.live/engine/v4 v4.0.0-beta10
 )
 
 require (
@@ -26,6 +26,7 @@ require (
 	github.com/mattn/go-isatty v0.0.8 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/pion/randutil v0.1.0 // indirect
+	github.com/pion/rtp v1.6.2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/q191201771/naza v0.19.1 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
