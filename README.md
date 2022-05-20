@@ -16,39 +16,36 @@ _ "m7s.live/plugin/gb28181/v4"
 
 ## 默认插件配置
 
-```yml
+```yaml
 gb28181:
-  autoInvite:     true
-  autoCloseAfter: -1
-  preFetchRecord: false
-  udpCacheSize:   0
-  sipNetwork:     udp
-  sipIP:          127.0.0.1
-  sipPort:        5060
+  autoinvite:     true
+  prefetchrecord: false
+  udpcachesize:   0
+  sipnetwork:     udp
+  sipip:          127.0.0.1
+  sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
   username:       ""
   password:       ""
   
-  ackTimeout:        10
-  registerValidity:  60
-  registerInterval:  60
-  heartbeatInterval: 60
-  heartbeatRetry:    3
+  acktimeout:        10
+  registervalidity:  60
+  registerinterval:  60
+  heartbeatinterval: 60
+  heartbeatretry:    3
   
-  mediaIP:          127.0.0.1
-  mediaPort:        58200
-  mediaIdleTimeout: 30
-  mediaNetwork:     udp
+  mediaip:          127.0.0.1
+  mediaport:        58200
+  mediaidletimeout: 30
+  medianetwork:     udp
   
-  removeBanInterval: 600
-  logVerbose:        false
-  audioEnable:       true
-  waitKeyFrame:      true
+  removebaninterval: 600
+  logverbose:        false
+  audioenable:       true
 ```
 
 - `AutoInvite`     bool 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
-- `AutoCloseAfter` int 如果设置大于等于0，则当某个流最后一个订阅者取消订阅时会延迟N秒，会自动发送bye，节省流量。如果为了响应及时，可以设置成-1，保持流的连接
 - `PreFetchRecord` bool
 
 * sip服务器的配置
@@ -74,7 +71,6 @@ gb28181:
 
 - `AudioEnable`       bool 是否开启音频
 - `LogVerbose`        bool
-- `WaitKeyFrame`      bool 是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
 - `RemoveBanInterval` int  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
 - `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 

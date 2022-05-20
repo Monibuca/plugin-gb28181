@@ -9,7 +9,6 @@ import (
 
 type GB28181Config struct {
 	AutoInvite     bool
-	AutoCloseAfter int
 	PreFetchRecord bool
 
 	//sip服务器的配置
@@ -35,9 +34,8 @@ type GB28181Config struct {
 	MediaPortMax     uint16
 	MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 
-	AudioEnable       bool //是否开启音频
 	LogVerbose        bool
-	WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
+	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
 	RemoveBanInterval int  //移除禁止设备间隔
 	UdpCacheSize      int  //udp缓存大小
 
@@ -58,7 +56,6 @@ func (c *GB28181Config) IsMediaNetworkTCP() bool {
 
 var conf = &GB28181Config{
 	AutoInvite:     true,
-	AutoCloseAfter: -1,
 	PreFetchRecord: false,
 	UdpCacheSize:   0,
 	SipNetwork:     "udp",
@@ -82,8 +79,7 @@ var conf = &GB28181Config{
 
 	RemoveBanInterval: 600,
 	LogVerbose:        false,
-	AudioEnable:       true,
-	WaitKeyFrame:      true,
+	// WaitKeyFrame:      true,
 }
 
 var plugin = InstallPlugin(conf)
