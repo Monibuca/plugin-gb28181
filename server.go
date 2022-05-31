@@ -112,7 +112,7 @@ func processTcpMediaConn(config *GB28181Config, conn net.Conn) {
 		}
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("gb28181 decode rtp error:", zap.Error(err))
-		} else if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+		} else if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
 			publisher.PushPS(&rtpPacket)
 		}
 	}
@@ -161,7 +161,7 @@ func listenMediaUDP(config *GB28181Config) {
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("Decode rtp error:", zap.Error(err))
 		}
-		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Err() == nil {
+		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
 			publisher.PushPS(&rtpPacket)
 		}
 	}

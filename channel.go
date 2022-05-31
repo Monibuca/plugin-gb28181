@@ -52,18 +52,49 @@ type Channel struct {
 }
 
 func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
-	return c.device.CreateRequest(Method)
-	// request = &Request{}
-	// request.Message = c.device.CreateMessage(Method)
-	// request.Message.StartLine.Uri = NewURI(c.DeviceID + "@" + c.device.to.Uri.Domain())
-	// request.Message.To = &Contact{
-	// 	Uri: request.Message.StartLine.Uri,
-	// }
-	// request.Message.From = &Contact{
-	// 	Uri:    NewURI(c.device.config.Serial + "@" + c.device.config.Realm),
-	// 	Params: map[string]string{"tag": utils.RandNumString(9)},
-	// }
-	// return req
+	d := c.device
+	d.sn++
+
+	callId := sip.CallID(utils.RandNumString(10))
+	userAgent := sip.UserAgentHeader("Monibuca")
+	cseq := sip.CSeq{
+		SeqNo:      uint32(d.sn),
+		MethodName: Method,
+	}
+	port := sip.Port(d.config.SipPort)
+	serverAddr := sip.Address{
+		//DisplayName: sip.String{Str: d.serverConfig.Serial},
+		Uri: &sip.SipUri{
+			FUser: sip.String{Str: d.config.Serial},
+			FHost: d.config.SipIP,
+			FPort: &port,
+		},
+		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
+	}
+	channelAddr := sip.Address{
+		//DisplayName: sip.String{Str: d.serverConfig.Serial},
+		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: d.config.Realm},
+	}
+	req = sip.NewRequest(
+		"",
+		Method,
+		channelAddr.Uri,
+		"SIP/2.0",
+		[]sip.Header{
+			serverAddr.AsFromHeader(),
+			channelAddr.AsToHeader(),
+			&callId,
+			&userAgent,
+			&cseq,
+			serverAddr.AsContactHeader(),
+		},
+		"",
+		nil,
+	)
+
+	req.SetTransport(d.config.SipNetwork)
+	req.SetDestination(d.NetAddr)
+	return req
 }
 func (channel *Channel) QueryRecord(startTime, endTime string) int {
 	d := channel.device
@@ -205,7 +236,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.config.SipIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.config.MediaIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.config.MediaIP,
@@ -255,7 +286,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		}
 		publishers := &config.publishers
 		if start == "" {
-			publisher.Type = "GB28181 Live"
+			publisher.Publisher.Type = "GB28181 Live"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.LivePublisher = nil
@@ -267,7 +298,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				}
 			}
 		} else {
-			publisher.Type = "GB28181 Record"
+			publisher.Publisher.Type = "GB28181 Record"
 			publisher.OnClose = func() {
 				publishers.Remove(SSRC)
 				channel.RecordPublisher = nil
@@ -300,7 +331,7 @@ func (channel *Channel) Bye(live bool) int {
 		defer func() {
 			channel.inviteRes = nil
 			if channel.LivePublisher != nil {
-				channel.LivePublisher.Close()
+				channel.LivePublisher.Publisher.Close()
 			}
 		}()
 		return int((*channel.ByeBye(channel.inviteRes)).StatusCode())
@@ -309,7 +340,7 @@ func (channel *Channel) Bye(live bool) int {
 		defer func() {
 			channel.recordInviteRes = nil
 			if channel.RecordPublisher != nil {
-				channel.RecordPublisher.Close()
+				channel.RecordPublisher.Publisher.Close()
 			}
 		}()
 		return int((*channel.ByeBye(channel.recordInviteRes)).StatusCode())
