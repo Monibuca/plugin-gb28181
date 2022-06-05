@@ -46,6 +46,9 @@ type GB28181Config struct {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
+		if c.MediaIP == "" {
+			c.MediaIP = c.SipIP
+		}
 		c.startServer()
 	}
 }
@@ -72,7 +75,7 @@ var conf = &GB28181Config{
 	HeartbeatInterval: 60,
 	HeartbeatRetry:    3,
 
-	MediaIP:          "127.0.0.1",
+	MediaIP:          "",
 	MediaPort:        58200,
 	MediaIdleTimeout: 30,
 	MediaNetwork:     "udp",
