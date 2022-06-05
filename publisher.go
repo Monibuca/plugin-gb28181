@@ -27,9 +27,9 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 	if p.vt == nil {
 		switch p.parser.VideoStreamType {
 		case utils.StreamTypeH264:
-			p.vt = NewH264(p.Stream)
+			p.vt = NewH264(p.Publisher.Stream)
 		case utils.StreamTypeH265:
-			p.vt = NewH265(p.Stream)
+			p.vt = NewH265(p.Publisher.Stream)
 		default:
 			return
 		}
@@ -40,16 +40,16 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.at == nil {
 		switch p.parser.AudioStreamType {
 		case utils.G711A:
-			at := NewG711(p.Stream, true)
-			at.SampleRate = 8000
-			at.SampleSize = 16
+			at := NewG711(p.Publisher.Stream, true)
+			at.Audio.SampleRate = 8000
+			at.Audio.SampleSize = 16
 			at.Channels = 1
 			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
 			p.at = at
 		case utils.G711A + 1:
-			at := NewG711(p.Stream, false)
-			at.SampleRate = 8000
-			at.SampleSize = 16
+			at := NewG711(p.Publisher.Stream, false)
+			at.Audio.SampleRate = 8000
+			at.Audio.SampleSize = 16
 			at.Channels = 1
 			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
 			p.at = at
