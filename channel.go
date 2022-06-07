@@ -17,9 +17,9 @@ type ChannelEx struct {
 	device          *Device       `json:"-"`
 	inviteRes       *sip.Response `json:"-"`
 	recordInviteRes *sip.Response `json:"-"`
-	RecordPublisher *GBPublisher
-	LivePublisher   *GBPublisher
-	LiveSubSP       string //实时子码流
+	RecordPublisher *GBPublisher  `json:"-"`
+	LivePublisher   *GBPublisher  `json:"-"`
+	LiveSubSP       string        //实时子码流
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
