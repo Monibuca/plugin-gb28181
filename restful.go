@@ -9,10 +9,7 @@ import (
 )
 
 func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
-	sse := util.NewSSE(w, r.Context())
-
-	for {
-		var list []*Device
+	util.ReturnJson(func() (list []*Device) {
 		Devices.Range(func(key, value interface{}) bool {
 			device := value.(*Device)
 			if time.Since(device.UpdateTime) > time.Duration(conf.RegisterValidity)*time.Second {
@@ -22,13 +19,8 @@ func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 			}
 			return true
 		})
-		sse.WriteJSON(list)
-		select {
-		case <-time.After(time.Second * 5):
-		case <-sse.Done():
-			return
-		}
-	}
+		return
+	}, time.Second*5, w, r)
 }
 
 func (conf *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
