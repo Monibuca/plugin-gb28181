@@ -95,7 +95,17 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		config.StoreDevice(id, req, &tx)
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
-		_ = tx.Respond(sip.NewResponseFromRequest("", req, http.StatusOK, "OK", ""))
+		resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
+		to, _ := resp.To()
+		resp.ReplaceHeaders("To", []sip.Header{&sip.ToHeader{Address: to.Address, Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)})}})
+		resp.RemoveHeader("Allow")
+		expires := sip.Expires(3600)
+		resp.AppendHeader(&expires)
+		resp.AppendHeader(&sip.GenericHeader{
+			HeaderName: "Date",
+			Contents:   time.Now().Format(TIME_LAYOUT),
+		})
+		_ = tx.Respond(resp)
 	} else {
 		response := sip.NewResponseFromRequest("", req, http.StatusUnauthorized, "Unauthorized", "")
 		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
