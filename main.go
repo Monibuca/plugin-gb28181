@@ -51,6 +51,7 @@ func (c *GB28181Config) OnEvent(event any) {
 		if c.MediaIP == "" {
 			c.MediaIP = c.SipIP
 		}
+		c.InitRoutes()
 		c.startServer()
 	}
 }
@@ -88,7 +89,7 @@ var conf = &GB28181Config{
 	PreFetchRecord: false,
 	UdpCacheSize:   0,
 	SipNetwork:     "udp",
-	SipIP:          "127.0.0.1",
+	SipIP:          "",
 	SipPort:        5060,
 	Serial:         "34020000002000000001",
 	Realm:          "3402000000",

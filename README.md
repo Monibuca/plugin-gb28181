@@ -22,7 +22,7 @@ gb28181:
   prefetchrecord: false
   udpcachesize:   0
   sipnetwork:     udp
-  sipip:          127.0.0.1
+  sipip:          
   sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
@@ -35,7 +35,7 @@ gb28181:
   heartbeatinterval: 60
   heartbeatretry:    3
   
-  mediaip:          127.0.0.1
+  mediaip:          
   mediaport:        58200
   mediaidletimeout: 30
   medianetwork:     udp
