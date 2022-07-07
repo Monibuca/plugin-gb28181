@@ -1,10 +1,11 @@
 package gb28181
 
 import (
-	"strings"
-
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
+	"m7s.live/engine/v4/log"
+	"net"
+	"strings"
 )
 
 type GB28181Config struct {
@@ -34,13 +35,14 @@ type GB28181Config struct {
 	MediaPortMax     uint16
 	MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 
-	LogVerbose        bool
+	LogVerbose bool
 	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
-	RemoveBanInterval int  //移除禁止设备间隔
-	UdpCacheSize      int  //udp缓存大小
+	RemoveBanInterval int //移除禁止设备间隔
+	UdpCacheSize      int //udp缓存大小
 
 	config.Publish
 	Server
+	routes map[string]string
 }
 
 func (c *GB28181Config) OnEvent(event any) {
@@ -52,7 +54,31 @@ func (c *GB28181Config) OnEvent(event any) {
 		c.startServer()
 	}
 }
-
+func (c *GB28181Config) InitRoutes() {
+	c.routes = make(map[string]string)
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		log.Errorf("gb28181 init routes failed.")
+		return
+	}
+	for _, i := range interfaces {
+		byName, err := net.InterfaceByName(i.Name)
+		if err != nil {
+			log.Errorf("gb28181 get %s interface failed.", i.Name)
+			return
+		}
+		addresses, err := byName.Addrs()
+		for _, v := range addresses {
+			ip := v.String()
+			if strings.Index(ip, ":") != -1 || strings.Index(ip, "127.0") != -1 {
+				continue
+			}
+			ip = strings.Split(ip, "/")[0]
+			route := ip[0:strings.LastIndex(ip, ".")]
+			c.routes[route] = ip
+		}
+	}
+}
 func (c *GB28181Config) IsMediaNetworkTCP() bool {
 	return strings.ToLower(c.MediaNetwork) == "tcp"
 }
