@@ -331,7 +331,7 @@ func (channel *Channel) Bye(live bool) int {
 		defer func() {
 			channel.inviteRes = nil
 			if channel.LivePublisher != nil {
-				channel.LivePublisher.Publisher.Close()
+				channel.LivePublisher.Close()
 			}
 		}()
 		return int((*channel.ByeBye(channel.inviteRes)).StatusCode())
@@ -340,7 +340,7 @@ func (channel *Channel) Bye(live bool) int {
 		defer func() {
 			channel.recordInviteRes = nil
 			if channel.RecordPublisher != nil {
-				channel.RecordPublisher.Publisher.Close()
+				channel.RecordPublisher.Close()
 			}
 		}()
 		return int((*channel.ByeBye(channel.recordInviteRes)).StatusCode())
