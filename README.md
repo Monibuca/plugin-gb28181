@@ -22,7 +22,7 @@ gb28181:
   prefetchrecord: false
   udpcachesize:   0
   sipnetwork:     udp
-  sipip:          127.0.0.1
+  sipip:          
   sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
@@ -35,7 +35,7 @@ gb28181:
   heartbeatinterval: 60
   heartbeatretry:    3
   
-  mediaip:          127.0.0.1
+  mediaip:          
   mediaport:        58200
   mediaidletimeout: 30
   medianetwork:     udp
@@ -50,7 +50,7 @@ gb28181:
 
 * sip服务器的配置
 - `SipNetwork` string 传输协议，默认UDP，可选TCP
-- `SipIP`      string sip 服务器公网IP
+- `SipIP`      string sip 服务器公网IP 默认 自动适配设备网段
 - `SipPort`    uint16 sip 服务器端口，默认 5060
 - `Serial`     string sip 服务器 id, 默认 34020000002000000001
 - `Realm`      string sip 服务器域，默认 3402000000
@@ -64,7 +64,7 @@ gb28181:
 - `HeartbeatRetry`    int    心跳超时次数，默认 3
 
 * 媒体服务器配置
-- `MediaIP`          string 媒体服务器地址
+- `MediaIP`          string 媒体服务器地址 默认 自动适配设备网段
 - `MediaPort`        uint16 媒体服务器端口
 - `MediaNetwork`     string 媒体传输协议，默认UDP，可选TCP
 - `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连

@@ -56,6 +56,8 @@ type Device struct {
 	Channels        []*Channel
 	sn              int
 	addr            sip.Address
+	sipIP           string //设备对应网卡的服务器ip
+	mediaIP         string //设备对应网卡的服务器ip
 	tx              *sip.ServerTransaction
 	NetAddr         string
 	channelMap      map[string]*Channel
@@ -82,12 +84,26 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 		d.NetAddr = req.Source()
 		d.addr = deviceAddr
 	} else {
+		deviceIp := from.Address.Host()
+		//根据设备ip获取对应的网卡ip
+		sipIP := config.routes[deviceIp[0:strings.LastIndex(deviceIp, ".")]]
+		mediaIp := sipIP
+		//如果用户配置过则使用配置的
+		if config.SipIP != "" || len(config.routes) == 0 {
+			sipIP = config.SipIP
+		}
+		if config.MediaIP != "" || len(config.routes) == 0 {
+			mediaIp = config.MediaIP
+		}
+
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
 			Status:       string(sip.REGISTER),
 			addr:         deviceAddr,
+			sipIP:        sipIP,
+			mediaIP:      mediaIp,
 			tx:           tx,
 			NetAddr:      req.Source(),
 			channelMap:   make(map[string]*Channel),
@@ -191,7 +207,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
 			FUser: sip.String{Str: d.config.Serial},
-			FHost: d.config.SipIP,
+			FHost: d.sipIP,
 			FPort: &port,
 		},
 		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),

@@ -66,7 +66,7 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
 		Uri: &sip.SipUri{
 			FUser: sip.String{Str: d.config.Serial},
-			FHost: d.config.SipIP,
+			FHost: d.sipIP,
 			FPort: &port,
 		},
 		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
@@ -236,10 +236,10 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	}
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.config.MediaIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.mediaIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
-		"c=IN IP4 " + d.config.MediaIP,
+		"c=IN IP4 " + d.mediaIP,
 		fmt.Sprintf("t=%d %d", sint, eint),
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
