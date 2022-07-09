@@ -6,6 +6,7 @@ import (
 
 	"github.com/ghettovoice/gosip/sip"
 	"github.com/pion/rtp/v2"
+	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	. "m7s.live/engine/v4/track"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -77,7 +78,11 @@ func (p *GBPublisher) Bye() int {
 	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
 	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
 	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})
-	resp, _ := p.channel.device.SipRequestForResponse(bye)
+	resp, err := p.channel.device.SipRequestForResponse(bye)
+	if err != nil {
+		p.Error("Bye", zap.Error(err))
+		return 500
+	}
 	return int(resp.StatusCode())
 }
 
