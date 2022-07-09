@@ -8,12 +8,12 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/pion/rtp/v2"
 	"go.uber.org/zap"
+	"m7s.live/engine/v4/util"
 
 	"github.com/ghettovoice/gosip"
 	"github.com/ghettovoice/gosip/log"
@@ -24,7 +24,7 @@ var srv gosip.Server
 
 type Server struct {
 	Ignores    map[string]struct{}
-	publishers Publishers
+	publishers util.Map[uint32, *GBPublisher]
 }
 
 const MaxRegisterCount = 3
@@ -39,39 +39,18 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 	return
 }
 
-type Publishers struct {
-	data map[uint32]*GBPublisher
-	sync.RWMutex
-}
-
-func (p *Publishers) Add(key uint32, pp *GBPublisher) {
-	p.Lock()
-	p.data[key] = pp
-	p.Unlock()
-}
-func (p *Publishers) Remove(key uint32) {
-	p.Lock()
-	delete(p.data, key)
-	p.Unlock()
-}
-func (p *Publishers) Get(key uint32) *GBPublisher {
-	p.RLock()
-	defer p.RUnlock()
-	return p.data[key]
-}
-
 func GetSipServer() *gosip.Server {
 	return &srv
 }
 
 func (config *GB28181Config) startServer() {
-	config.publishers.data = make(map[uint32]*GBPublisher)
+	config.publishers.Init()
 
 	plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(":"+strconv.Itoa(int(config.SipPort)))))
 	logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
-
+	
 	srvConf := gosip.ServerConfig{}
-
+	
 	srv = gosip.NewServer(srvConf, nil, nil, logger)
 	srv.OnRequest(sip.REGISTER, config.OnRegister)
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)

@@ -48,9 +48,6 @@ type GB28181Config struct {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
-		if c.MediaIP == "" {
-			c.MediaIP = c.SipIP
-		}
 		c.InitRoutes()
 		c.startServer()
 	}

@@ -14,12 +14,10 @@ import (
 )
 
 type ChannelEx struct {
-	device          *Device       `json:"-"`
-	inviteRes       *sip.Response `json:"-"`
-	recordInviteRes *sip.Response `json:"-"`
-	RecordPublisher *GBPublisher  `json:"-"`
-	LivePublisher   *GBPublisher  `json:"-"`
-	LiveSubSP       string        //实时子码流
+	device          *Device      `json:"-"`
+	RecordPublisher *GBPublisher `json:"-"`
+	LivePublisher   *GBPublisher `json:"-"`
+	LiveSubSP       string       //实时子码流
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
@@ -61,11 +59,11 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
-	port := sip.Port(d.config.SipPort)
+	port := sip.Port(conf.SipPort)
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
 		Uri: &sip.SipUri{
-			FUser: sip.String{Str: d.config.Serial},
+			FUser: sip.String{Str: conf.Serial},
 			FHost: d.sipIP,
 			FPort: &port,
 		},
@@ -73,7 +71,7 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 	}
 	channelAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
-		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: d.config.Realm},
+		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: conf.Realm},
 	}
 	req = sip.NewRequest(
 		"",
@@ -92,7 +90,7 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 		nil,
 	)
 
-	req.SetTransport(d.config.SipNetwork)
+	req.SetTransport(conf.SipNetwork)
 	req.SetDestination(d.NetAddr)
 	return req
 }
@@ -217,20 +215,20 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	} else {
 		ssrc[0] = '0'
 	}
-	config := channel.device.config
+
 	// size := 1
 	// fps := 15
 	// bitrate := 200
 	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
-	copy(ssrc[1:6], []byte(config.Serial[3:8]))
+	copy(ssrc[1:6], []byte(conf.Serial[3:8]))
 	randNum := rand.Intn(10000)
 	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
 	protocol := ""
-	port := config.MediaPort
-	if config.IsMediaNetworkTCP() {
+	port := conf.MediaPort
+	if conf.IsMediaNetworkTCP() {
 		protocol = "TCP/"
-		port = config.MediaPort + channel.tcpPortIndex
-		if channel.tcpPortIndex++; channel.tcpPortIndex >= config.MediaPortMax {
+		port = conf.MediaPort + channel.tcpPortIndex
+		if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
 			channel.tcpPortIndex = 0
 		}
 	}
@@ -255,7 +253,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	invite.SetBody(strings.Join(sdpInfo, "\r\n")+"\r\ny="+string(ssrc)+"\r\n", true)
 
 	subject := sip.GenericHeader{
-		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, config.Serial),
+		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, conf.Serial),
 	}
 	invite.AppendHeader(&subject)
 	response, err := d.SipRequestForResponse(invite)
@@ -278,48 +276,21 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			}
 		}
 		publisher := &GBPublisher{
-			StreamPath: streamPath,
-			config:     config,
+			SSRC:      SSRC,
+			channel:   channel,
+			Start:     start,
+			End:       end,
+			inviteRes: &response,
 		}
-		if config.UdpCacheSize > 0 && !config.IsMediaNetworkTCP() {
+		if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
 			publisher.udpCache = utils.NewPqRtp()
 		}
-		publishers := &config.publishers
-		if start == "" {
-			publisher.Publisher.Type = "GB28181 Live"
-			publisher.OnClose = func() {
-				publishers.Remove(SSRC)
-				channel.LivePublisher = nil
-				channel.ByeBye(channel.inviteRes)
-				channel.inviteRes = nil
-				atomic.StoreInt32(&channel.state, 0)
-				if config.AutoInvite {
-					go channel.Invite("", "")
-				}
-			}
-		} else {
-			publisher.Publisher.Type = "GB28181 Record"
-			publisher.OnClose = func() {
-				publishers.Remove(SSRC)
-				channel.RecordPublisher = nil
-				channel.ByeBye(channel.recordInviteRes)
-				channel.recordInviteRes = nil
-			}
-		}
-		if !publisher.Publish() {
+		if plugin.Publish(streamPath, publisher) != nil {
 			return 403
-		}
-		publishers.Add(SSRC, publisher)
-		if start == "" {
-			channel.inviteRes = &response
-			channel.LivePublisher = publisher
-		} else {
-			channel.RecordPublisher = publisher
-			channel.recordInviteRes = &response
 		}
 		ack := sip.NewAckRequest("", invite, response, "", nil)
 		(*GetSipServer()).Send(ack)
-	} else if start == "" && config.AutoInvite {
+	} else if start == "" && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite("", "")
 		})
@@ -327,42 +298,11 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	return int(response.StatusCode())
 }
 func (channel *Channel) Bye(live bool) int {
-	if live && channel.inviteRes != nil {
-		defer func() {
-			channel.inviteRes = nil
-			if channel.LivePublisher != nil {
-				channel.LivePublisher.Close()
-			}
-		}()
-		return int((*channel.ByeBye(channel.inviteRes)).StatusCode())
+	if live && channel.LivePublisher != nil {
+		return channel.LivePublisher.Bye()
 	}
-	if !live && channel.recordInviteRes != nil {
-		defer func() {
-			channel.recordInviteRes = nil
-			if channel.RecordPublisher != nil {
-				channel.RecordPublisher.Close()
-			}
-		}()
-		return int((*channel.ByeBye(channel.recordInviteRes)).StatusCode())
+	if !live && channel.RecordPublisher != nil {
+		return channel.RecordPublisher.Bye()
 	}
 	return 404
-}
-func (c *Channel) ByeBye(res *sip.Response) *sip.Response {
-	if res == nil {
-		return nil
-	}
-
-	d := c.device
-	bye := c.CreateRequst(sip.BYE)
-	from, _ := (*res).From()
-	to, _ := (*res).To()
-	callId, _ := (*res).CallID()
-
-	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
-	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
-	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})
-
-	resp, _ := d.SipRequestForResponse(bye)
-	return &resp
-
 }

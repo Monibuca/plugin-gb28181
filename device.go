@@ -43,7 +43,6 @@ var (
 
 type Device struct {
 	//*transaction.Core `json:"-"`
-	config          *GB28181Config
 	ID              string
 	Name            string
 	Manufacturer    string
@@ -107,7 +106,6 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 			tx:           tx,
 			NetAddr:      req.Source(),
 			channelMap:   make(map[string]*Channel),
-			config:       config,
 		}
 		Devices.Store(id, d)
 		go d.Catalog()
@@ -138,7 +136,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	for _, c := range list {
-		if _, ok := d.config.Ignores[c.DeviceID]; ok {
+		if _, ok := conf.Ignores[c.DeviceID]; ok {
 			continue
 		}
 		if c.ParentID != "" {
@@ -156,7 +154,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		}
 		if old, ok := d.channelMap[c.DeviceID]; ok {
 			c.ChannelEx = old.ChannelEx
-			if d.config.PreFetchRecord {
+			if conf.PreFetchRecord {
 				n := time.Now()
 				n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
 				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
@@ -164,7 +162,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
-			if d.config.AutoInvite &&
+			if conf.AutoInvite &&
 				(c.LivePublisher == nil) {
 				c.Invite("", "")
 			}
@@ -173,7 +171,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
-			if d.config.AutoInvite {
+			if conf.AutoInvite {
 				c.Invite("", "")
 			}
 		}
@@ -202,11 +200,11 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
 	}
-	port := sip.Port(d.config.SipPort)
+	port := sip.Port(conf.SipPort)
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
-			FUser: sip.String{Str: d.config.Serial},
+			FUser: sip.String{Str: conf.Serial},
 			FHost: d.sipIP,
 			FPort: &port,
 		},
@@ -229,7 +227,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 		nil,
 	)
 
-	req.SetTransport(d.config.SipNetwork)
+	req.SetTransport(conf.SipNetwork)
 	req.SetDestination(d.NetAddr)
 	//fmt.Printf("构建请求参数:%s", *&req)
 	// requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
