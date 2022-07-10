@@ -289,7 +289,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 			return 403
 		}
 		ack := sip.NewAckRequest("", invite, response, "", nil)
-		(*GetSipServer()).Send(ack)
+		srv.Send(ack)
 	} else if start == "" && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite("", "")

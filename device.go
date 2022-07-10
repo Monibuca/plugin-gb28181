@@ -329,7 +329,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 }
 
 func (d *Device) SipRequestForResponse(request sip.Request) (sip.Response, error) {
-	return (*GetSipServer()).RequestWithContext(context.Background(), request)
+	return srv.RequestWithContext(context.Background(), request)
 }
 
 // MobilePositionSubscribe 移动位置订阅

@@ -39,27 +39,27 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 	return
 }
 
-func GetSipServer() *gosip.Server {
-	return &srv
-}
-
 func (config *GB28181Config) startServer() {
 	config.publishers.Init()
+	addr := "0.0.0.0:" + strconv.Itoa(int(config.SipPort))
 
-	plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(":"+strconv.Itoa(int(config.SipPort)))))
 	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
 	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
-
 	srvConf := gosip.ServerConfig{}
-
+	if config.SipIP != "" {
+		srvConf.Host = config.SipIP
+	}
 	srv = gosip.NewServer(srvConf, nil, nil, logger)
 	srv.OnRequest(sip.REGISTER, config.OnRegister)
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)
 	srv.OnRequest(sip.NOTIFY, config.OnNotify)
 	srv.OnRequest(sip.BYE, config.onBye)
-
-	addr := "0.0.0.0:" + strconv.Itoa(int(config.SipPort))
-	go srv.Listen(strings.ToLower(config.SipNetwork), addr)
+	err := srv.Listen(strings.ToLower(config.SipNetwork), addr)
+	if err != nil {
+		plugin.Logger.Error("gb28181 server listen", zap.Error(err))
+	} else {
+		plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
+	}
 
 	go config.startMediaServer()
 

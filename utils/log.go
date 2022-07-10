@@ -23,19 +23,19 @@ func NewZapLogger(log *zap.Logger, prefix string, fields log.Fields) *ZapLogger 
 }
 
 func (l *ZapLogger) Print(args ...interface{}) {
-	l.prepareEntry().Debug(args...)
+	l.prepareEntry().Info(args...)
 }
 
 func (l *ZapLogger) Printf(format string, args ...interface{}) {
-	l.prepareEntry().Debugf(format, args...)
+	l.prepareEntry().Infof(format, args...)
 }
 
 func (l *ZapLogger) Trace(args ...interface{}) {
-	l.prepareEntry().Warn(args...)
+	l.prepareEntry().Debug(args...)
 }
 
 func (l *ZapLogger) Tracef(format string, args ...interface{}) {
-	l.prepareEntry().Warnf(format, args...)
+	l.prepareEntry().Debugf(format, args...)
 }
 
 func (l *ZapLogger) Debug(args ...interface{}) {
