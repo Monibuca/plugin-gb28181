@@ -14,9 +14,9 @@ import (
 	"github.com/pion/rtp/v2"
 	"go.uber.org/zap"
 	"m7s.live/engine/v4/util"
+	"m7s.live/plugin/gb28181/v4/utils"
 
 	"github.com/ghettovoice/gosip"
-	"github.com/ghettovoice/gosip/log"
 	"github.com/ghettovoice/gosip/sip"
 )
 
@@ -47,10 +47,11 @@ func (config *GB28181Config) startServer() {
 	config.publishers.Init()
 
 	plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(":"+strconv.Itoa(int(config.SipPort)))))
-	logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
-	
+	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
+	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
+
 	srvConf := gosip.ServerConfig{}
-	
+
 	srv = gosip.NewServer(srvConf, nil, nil, logger)
 	srv.OnRequest(sip.REGISTER, config.OnRegister)
 	srv.OnRequest(sip.MESSAGE, config.OnMessage)
