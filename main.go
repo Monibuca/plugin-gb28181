@@ -1,10 +1,10 @@
 package gb28181
 
 import (
+	"fmt"
+	"github.com/husanpao/ip"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
-	"m7s.live/engine/v4/log"
-	"net"
 	"strings"
 )
 
@@ -45,38 +45,23 @@ type GB28181Config struct {
 	routes map[string]string
 }
 
+func (c *GB28181Config) initRoutes() {
+	c.routes = make(map[string]string)
+	tempIps := myip.LocalAndInternalIPs()
+	for k, v := range tempIps {
+		c.routes[k] = v
+		c.routes[k[0:strings.LastIndex(k, ".")]] = k
+	}
+	plugin.Info(fmt.Sprintf("LocalAndInternalIPs detail: %s", c.routes))
+}
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
-		c.InitRoutes()
+		go c.initRoutes()
 		c.startServer()
 	}
 }
-func (c *GB28181Config) InitRoutes() {
-	c.routes = make(map[string]string)
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		log.Errorf("gb28181 init routes failed.")
-		return
-	}
-	for _, i := range interfaces {
-		byName, err := net.InterfaceByName(i.Name)
-		if err != nil {
-			log.Errorf("gb28181 get %s interface failed.", i.Name)
-			return
-		}
-		addresses, err := byName.Addrs()
-		for _, v := range addresses {
-			ip := v.String()
-			if strings.Index(ip, ":") != -1 || strings.Index(ip, "127.0") != -1 {
-				continue
-			}
-			ip = strings.Split(ip, "/")[0]
-			route := ip[0:strings.LastIndex(ip, ".")]
-			c.routes[route] = ip
-		}
-	}
-}
+
 func (c *GB28181Config) IsMediaNetworkTCP() bool {
 	return strings.ToLower(c.MediaNetwork) == "tcp"
 }
