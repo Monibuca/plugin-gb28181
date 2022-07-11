@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/ghettovoice/gosip v0.0.0-20220420085539-cf932c28a8fe
+	github.com/husanpao/ip v0.0.0-20220711072141-f1e1174bc11b
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/pion/rtp/v2 v2.0.0-20220302185659-b3d10fc096b0
 	go.uber.org/zap v1.21.0
@@ -47,4 +48,5 @@ require (
 	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+
 )

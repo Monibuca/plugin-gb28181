@@ -83,15 +83,21 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 		d.NetAddr = req.Source()
 		d.addr = deviceAddr
 	} else {
-		deviceIp := from.Address.Host()
-		//根据设备ip获取对应的网卡ip
-		sipIP := config.routes[deviceIp[0:strings.LastIndex(deviceIp, ".")]]
+		deviceIp := req.Source()
+		servIp := req.Recipient().Host()
+		//根据网卡ip获取对应的公网ip
+		sipIP := config.routes[req.Recipient().Host()]
+		//如果相等，则服务器是内网通道
+		if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
+			sipIP = servIp
+		}
+		plugin.Debug(fmt.Sprintf("DeviceIP:%s ServerIP:%s sipIP:%s", req.Source(), req.Recipient().Host(), sipIP))
 		mediaIp := sipIP
 		//如果用户配置过则使用配置的
-		if config.SipIP != "" || len(config.routes) == 0 {
+		if config.SipIP != "" {
 			sipIP = config.SipIP
 		}
-		if config.MediaIP != "" || len(config.routes) == 0 {
+		if config.MediaIP != "" {
 			mediaIp = config.MediaIP
 		}
 
