@@ -87,9 +87,11 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
 		sipIP := config.routes[req.Recipient().Host()]
-		//如果相等，则服务器是内网通道
-		if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
-			sipIP = servIp
+		//如果相等，则服务器是内网通道.海康摄像头不支持...自动获取
+		if strings.LastIndex(deviceIp, ".") != -1 && strings.LastIndex(servIp, ".") != -1 {
+			if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
+				sipIP = servIp
+			}
 		}
 		plugin.Debug(fmt.Sprintf("DeviceIP:%s ServerIP:%s sipIP:%s", req.Source(), req.Recipient().Host(), sipIP))
 		mediaIp := sipIP
