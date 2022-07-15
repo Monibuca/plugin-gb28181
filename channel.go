@@ -2,7 +2,6 @@ package gb28181
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -220,9 +219,8 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	// fps := 15
 	// bitrate := 200
 	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
-	copy(ssrc[1:6], []byte(conf.Serial[3:8]))
-	randNum := rand.Intn(10000)
-	copy(ssrc[6:], []byte(strconv.Itoa(randNum)))
+	copy(ssrc[1:6], conf.Serial[3:8])
+	copy(ssrc[6:], utils.RandNumString(4))
 	protocol := ""
 	port := conf.MediaPort
 	if conf.IsMediaNetworkTCP() {
