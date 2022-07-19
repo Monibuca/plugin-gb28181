@@ -102,7 +102,10 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 		if config.MediaIP != "" {
 			mediaIp = config.MediaIP
 		}
-
+		if sipIP == "" || mediaIp == "" {
+			plugin.Error("gb28181 Device Register SipIP not be obtained automatically, please fill in manually.")
+			return
+		}
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
