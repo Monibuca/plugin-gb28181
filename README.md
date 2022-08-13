@@ -41,7 +41,7 @@ gb28181:
   medianetwork:     udp
   
   removebaninterval: 600
-  logverbose:        false
+  loglevel:         info
   audioenable:       true
 ```
 
@@ -70,7 +70,7 @@ gb28181:
 - `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连
 
 - `AudioEnable`       bool 是否开启音频
-- `LogVerbose`        bool
+- `LogLevel`        string 日志级别，默认 info（trace，debug，info，warn，error，fatal, panic）
 - `RemoveBanInterval` int  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
 - `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 

@@ -2,10 +2,11 @@ package gb28181
 
 import (
 	"fmt"
-	"github.com/husanpao/ip"
+	"strings"
+
+	myip "github.com/husanpao/ip"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
-	"strings"
 )
 
 type GB28181Config struct {
@@ -35,14 +36,14 @@ type GB28181Config struct {
 	MediaPortMax     uint16
 	MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 
-	LogVerbose bool
 	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
 	RemoveBanInterval int //移除禁止设备间隔
 	UdpCacheSize      int //udp缓存大小
 
 	config.Publish
 	Server
-	routes map[string]string
+	LogLevel string //trace, debug, info, warn, error, fatal, panic
+	routes   map[string]string
 }
 
 func (c *GB28181Config) initRoutes() {
@@ -90,7 +91,7 @@ var conf = &GB28181Config{
 	MediaNetwork:     "udp",
 
 	RemoveBanInterval: 600,
-	LogVerbose:        false,
+	LogLevel:          "info",
 	// WaitKeyFrame:      true,
 }
 

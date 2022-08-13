@@ -17,6 +17,7 @@ import (
 	"m7s.live/plugin/gb28181/v4/utils"
 
 	"github.com/ghettovoice/gosip"
+	"github.com/ghettovoice/gosip/log"
 	"github.com/ghettovoice/gosip/sip"
 )
 
@@ -39,11 +40,22 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 	return
 }
 
+var levelMap = map[string]log.Level{
+	"trace": log.TraceLevel,
+	"debug": log.DebugLevel,
+	"info":  log.InfoLevel,
+	"warn":  log.WarnLevel,
+	"error": log.ErrorLevel,
+	"fatal": log.FatalLevel,
+	"panic": log.PanicLevel,
+}
+
 func (config *GB28181Config) startServer() {
 	config.publishers.Init()
 	addr := "0.0.0.0:" + strconv.Itoa(int(config.SipPort))
 
 	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
+	logger.SetLevel(levelMap[config.LogLevel])
 	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 	srvConf := gosip.ServerConfig{}
 	if config.SipIP != "" {
