@@ -69,21 +69,19 @@ type Device struct {
 
 func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.ServerTransaction) {
 	var d *Device
-	plugin.Debug("StoreDevice", zap.String("id", id))
-
 	from, _ := req.From()
 	deviceAddr := sip.Address{
 		DisplayName: from.DisplayName,
 		Uri:         from.Address,
 	}
-
+	deviceIp := req.Source()
 	if _d, loaded := Devices.Load(id); loaded {
 		d = _d.(*Device)
 		d.UpdateTime = time.Now()
-		d.NetAddr = req.Source()
+		d.NetAddr = deviceIp
 		d.addr = deviceAddr
+		plugin.Debug("UpdateDevice", zap.String("id", id), zap.String("netaddr", d.NetAddr))
 	} else {
-		deviceIp := req.Source()
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
 		sipIP := config.routes[req.Recipient().Host()]
@@ -93,16 +91,15 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 				sipIP = servIp
 			}
 		}
-		plugin.Debug(fmt.Sprintf("DeviceIP:%s ServerIP:%s sipIP:%s", req.Source(), req.Recipient().Host(), sipIP))
-		mediaIp := sipIP
 		//如果用户配置过则使用配置的
 		if config.SipIP != "" {
 			sipIP = config.SipIP
 		}
+		mediaIp := sipIP
 		if config.MediaIP != "" {
 			mediaIp = config.MediaIP
 		}
-
+		plugin.Info("StoreDevice", zap.String("id", id), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
@@ -112,7 +109,7 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			tx:           tx,
-			NetAddr:      req.Source(),
+			NetAddr:      deviceIp,
 			channelMap:   make(map[string]*Channel),
 		}
 		Devices.Store(id, d)
