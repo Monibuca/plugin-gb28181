@@ -299,16 +299,16 @@ func (dec *DecPSPackage) decPESPacket() error {
 		pts += uint32(extraData[2]&0b1111_1110) << 14
 		pts += uint32(extraData[3]) << 7
 		pts += uint32(extraData[4]) >> 1
+		dec.PTS = pts
 		if dtsFlag && len(extraData) > 9 {
 			dts = uint32(extraData[5]&0b0000_1110) << 29
 			dts += uint32(extraData[6]) << 22
 			dts += uint32(extraData[7]&0b1111_1110) << 14
 			dts += uint32(extraData[8]) << 7
 			dts += uint32(extraData[9]) >> 1
+			dec.DTS = dts
 		}
 	}
-	dec.PTS = pts
-	dec.DTS = dts
 	dec.Payload = payload[pesHeaderDataLen:]
 	return err
 }

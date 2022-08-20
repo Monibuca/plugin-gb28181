@@ -14,6 +14,7 @@ import (
 
 	// . "github.com/logrusorgru/aurora"
 	"github.com/ghettovoice/gosip/sip"
+	myip "github.com/husanpao/ip"
 )
 
 const TIME_LAYOUT = "2006-01-02T15:04:05"
@@ -84,7 +85,7 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 	} else {
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
-		sipIP := config.routes[req.Recipient().Host()]
+		sipIP := config.routes[servIp]
 		//如果相等，则服务器是内网通道.海康摄像头不支持...自动获取
 		if strings.LastIndex(deviceIp, ".") != -1 && strings.LastIndex(servIp, ".") != -1 {
 			if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
@@ -94,6 +95,8 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 		//如果用户配置过则使用配置的
 		if config.SipIP != "" {
 			sipIP = config.SipIP
+		} else if sipIP == "" {
+			sipIP = myip.InternalIPv4()
 		}
 		mediaIp := sipIP
 		if config.MediaIP != "" {
@@ -167,18 +170,13 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
-			if conf.AutoInvite &&
-				(c.LivePublisher == nil) {
-				c.Invite("", "")
-			}
-
 		} else {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
-			if conf.AutoInvite {
-				c.Invite("", "")
-			}
+		}
+		if conf.AutoInvite && (c.LivePublisher == nil) {
+			go c.Invite("", "")
 		}
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path
