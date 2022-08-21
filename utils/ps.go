@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
-	"github.com/logrusorgru/aurora"
 )
 
 //
