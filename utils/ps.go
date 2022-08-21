@@ -205,7 +205,7 @@ loop:
 		pusher.PushVideo(dec.PTS, dec.DTS, video)
 	}
 	if nextStartCode == StartCodePS {
-		fmt.Println(aurora.Red("StartCodePS recursion..."), err)
+		// fmt.Println(aurora.Red("StartCodePS recursion..."), err)
 		goto again
 	}
 	return err
