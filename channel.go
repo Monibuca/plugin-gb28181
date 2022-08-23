@@ -243,6 +243,8 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
+		"y=" + string(ssrc),
+		"\r\n",
 	}
 	// if config.IsMediaNetworkTCP() {
 	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
@@ -251,7 +253,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	contentType := sip.ContentType("application/sdp")
 	invite.AppendHeader(&contentType)
 
-	invite.SetBody(strings.Join(sdpInfo, "\r\n")+"\r\ny="+string(ssrc)+"\r\n", true)
+	invite.SetBody(strings.Join(sdpInfo, "\r\n"), true)
 
 	subject := sip.GenericHeader{
 		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, conf.Serial),
