@@ -142,8 +142,8 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 
 //read the buffer and push video or audio
 func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
-again:
 	dec.clean()
+	dec.PTS = ts
 	if err := dec.Skip(9); err != nil {
 		return err
 	}
@@ -171,14 +171,14 @@ loop:
 			err = dec.decProgramStreamMap()
 		case StartCodeVideo:
 			if err = dec.decPESPacket(); err == nil {
-				if len(video) == 0 {
-					if dec.PTS == 0 {
-						dec.PTS = ts
-					}
-					// if dec.DTS == 0 {
-					// 	dec.DTS = dec.PTS
-					// }
-				}
+				// if len(video) == 0 {
+				// 	if dec.PTS == 0 {
+				// 		dec.PTS = ts
+				// 	}
+				// 	// if dec.DTS == 0 {
+				// 	// 	dec.DTS = dec.PTS
+				// 	// }
+				// }
 				video = append(video, dec.Payload...)
 			} else {
 				fmt.Println("video", err)
@@ -201,10 +201,11 @@ loop:
 	}
 	if len(video) > 0 {
 		pusher.PushVideo(dec.PTS, dec.DTS, video)
+		video = nil
 	}
 	if nextStartCode == StartCodePS {
 		// fmt.Println(aurora.Red("StartCodePS recursion..."), err)
-		goto again
+		return dec.Read(ts, pusher)
 	}
 	return err
 }

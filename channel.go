@@ -14,10 +14,10 @@ import (
 )
 
 type ChannelEx struct {
-	device          *Device      `json:"-"`
+	device          *Device
 	RecordPublisher *GBPublisher `json:"-"`
-	LivePublisher   *GBPublisher `json:"-"`
-	LiveSubSP       string       //实时子码流
+	LivePublisher   *GBPublisher
+	LiveSubSP       string //实时子码流
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
