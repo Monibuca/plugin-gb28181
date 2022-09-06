@@ -156,7 +156,7 @@ ptzcmd|是|PTZ控制指令
 
 ### 查询录像
 
-`/gb28181/api/query/records`
+`/gb28181/api/records`
 
 参数名 | 必传 | 含义
 |----|---|---
