@@ -2,9 +2,12 @@ package gb28181
 
 import (
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/pion/rtp/v2"
 	"m7s.live/engine/v4/util"
 )
 
@@ -36,7 +39,6 @@ func (conf *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
 }
 
 func (conf *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
-	// CORS(w, r)
 	id := r.URL.Query().Get("id")
 	channel := r.URL.Query().Get("channel")
 	ptzcmd := r.URL.Query().Get("ptzcmd")
@@ -48,20 +50,62 @@ func (conf *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
 }
 
 func (conf *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
-	// CORS(w, r)
 	query := r.URL.Query()
 	id := query.Get("id")
-	channel := r.URL.Query().Get("channel")
-	startTime := query.Get("startTime")
-	endTime := query.Get("endTime")
+	channel := query.Get("channel")
+	port, _ := strconv.Atoi(query.Get("mediaPort"))
+	opt := InviteOptions{
+		query.Get("startTime"),
+		query.Get("endTime"),
+		query.Get("dump"),
+		"", 0, uint16(port),
+	}
 	if c := FindChannel(id, channel); c != nil {
-		if startTime == "" && c.LivePublisher != nil {
+		if opt.IsLive() && c.LivePublisher != nil {
 			w.WriteHeader(304) //直播流已存在
 		} else {
-			w.WriteHeader(c.Invite(startTime, endTime))
+			w.WriteHeader(c.Invite(opt))
 		}
 	} else {
 		w.WriteHeader(404)
+	}
+}
+
+func (conf *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
+	dump := r.URL.Query().Get("dump")
+	if dump == "" {
+		dump = conf.DumpPath
+	}
+	f, err := os.OpenFile(dump, os.O_RDONLY, 0644)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	} else {
+		go func() {
+			defer f.Close()
+			streamPath := dump
+			if strings.HasPrefix(dump, "/") {
+				streamPath = "replay" + dump
+			} else {
+				streamPath = "replay/" + dump
+			}
+			var pub GBPublisher
+			var rtpPacket rtp.Packet
+			if err = plugin.Publish(streamPath, &pub); err == nil {
+				for l := make([]byte, 6); !pub.IsClosed(); time.Sleep(time.Millisecond * time.Duration(util.ReadBE[uint16](l[4:]))) {
+					_, err = f.Read(l)
+					if err != nil {
+						return
+					}
+					payload := make([]byte, util.ReadBE[int](l[:4]))
+					_, err = f.Read(payload)
+					if err != nil {
+						return
+					}
+					rtpPacket.Unmarshal(payload)
+					pub.PushPS(&rtpPacket)
+				}
+			}
+		}()
 	}
 }
 

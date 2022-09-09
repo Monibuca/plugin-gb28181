@@ -44,6 +44,7 @@ type GB28181Config struct {
 	Server
 	LogLevel string //trace, debug, info, warn, error, fatal, panic
 	routes   map[string]string
+	DumpPath string //dump PS流本地文件路径
 }
 
 func (c *GB28181Config) initRoutes() {

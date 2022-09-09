@@ -166,7 +166,7 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 					for _, c := range d.Channels {
 						if config.AutoInvite &&
 							(c.LivePublisher == nil) {
-							c.Invite("", "")
+							c.Invite(InviteOptions{})
 						}
 					}
 				}

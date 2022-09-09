@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ghettovoice/gosip/sip"
+	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/utils"
 )
 
@@ -141,6 +142,54 @@ func (channel *Channel) Control(PTZCmd string) int {
 	return int(resp.StatusCode())
 }
 
+type InviteOptions struct {
+	Start     string
+	End       string
+	dump      string
+	ssrc      string
+	SSRC      uint32
+	MediaPort uint16
+}
+
+func (o InviteOptions) IsLive() bool {
+	return o.Start == ""
+}
+
+func (o InviteOptions) Record() bool {
+	return o.Start != ""
+}
+
+func (o InviteOptions) Validate() bool {
+	sint, err1 := strconv.ParseInt(o.Start, 10, 0)
+	eint, err2 := strconv.ParseInt(o.End, 10, 0)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	if sint >= eint {
+		return false
+	}
+	return true
+}
+
+func (o InviteOptions) String() string {
+	return fmt.Sprintf("t=%d %d", o.Start, o.End)
+}
+
+func (o *InviteOptions) CreateSSRC() {
+	ssrc := make([]byte, 10)
+	if o.IsLive() {
+		ssrc[0] = '0'
+	} else {
+		ssrc[0] = '1'
+	}
+	copy(ssrc[1:6], conf.Serial[3:8])
+	randNum := 1000 + rand.Intn(8999)
+	copy(ssrc[6:], strconv.Itoa(randNum))
+	o.ssrc = string(ssrc)
+	_ssrc, _ := strconv.ParseInt(o.ssrc, 10, 0)
+	o.SSRC = uint32(_ssrc)
+}
+
 /*
 f字段： f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
 各项具体含义：
@@ -185,8 +234,8 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (channel *Channel) Invite(start, end string) (code int) {
-	if start == "" {
+func (channel *Channel) Invite(opt InviteOptions) (code int) {
+	if opt.IsLive() {
 		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
 			return 304
 		}
@@ -195,25 +244,18 @@ func (channel *Channel) Invite(start, end string) (code int) {
 				atomic.StoreInt32(&channel.state, 0)
 			}
 		}()
-		channel.Bye(true)
-	} else {
-		channel.Bye(false)
 	}
-	sint, err1 := strconv.ParseInt(start, 10, 0)
-	eint, err2 := strconv.ParseInt(end, 10, 0)
+	channel.Bye(opt.IsLive())
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
-	ssrc := make([]byte, 10)
-	if start != "" {
-		if err1 != nil || err2 != nil {
+	opt.CreateSSRC()
+	if opt.Record() {
+		if !opt.Validate() {
 			return 400
 		}
 		s = "Playback"
-		ssrc[0] = '1'
-		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, start, end)
-	} else {
-		ssrc[0] = '0'
+		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, opt.Start, opt.End)
 	}
 
 	// size := 1
@@ -221,16 +263,15 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	// bitrate := 200
 	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
 
-	copy(ssrc[1:6], conf.Serial[3:8])
-	randNum := 1000 + rand.Intn(8999)
-	copy(ssrc[6:], strconv.Itoa(randNum))
 	protocol := ""
-	port := conf.MediaPort
-	if conf.IsMediaNetworkTCP() {
-		protocol = "TCP/"
-		port = conf.MediaPort + channel.tcpPortIndex
-		if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
-			channel.tcpPortIndex = 0
+	if opt.MediaPort == 0 {
+		opt.MediaPort = conf.MediaPort
+		if conf.IsMediaNetworkTCP() {
+			protocol = "TCP/"
+			opt.MediaPort = conf.MediaPort + channel.tcpPortIndex
+			if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
+				channel.tcpPortIndex = 0
+			}
 		}
 	}
 	sdpInfo := []string{
@@ -239,12 +280,12 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.mediaIP,
-		fmt.Sprintf("t=%d %d", sint, eint),
-		fmt.Sprintf("m=video %d %sRTP/AVP 96", port, protocol),
+		opt.String(),
+		fmt.Sprintf("m=video %d %sRTP/AVP 96", opt.MediaPort, protocol),
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
-		"y=" + string(ssrc),
-		"\r\n",
+		"y=" + opt.ssrc,
+		"",
 	}
 	// if config.IsMediaNetworkTCP() {
 	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
@@ -256,7 +297,7 @@ func (channel *Channel) Invite(start, end string) (code int) {
 	invite.SetBody(strings.Join(sdpInfo, "\r\n"), true)
 
 	subject := sip.GenericHeader{
-		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, ssrc, conf.Serial),
+		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, opt.ssrc, conf.Serial),
 	}
 	invite.AppendHeader(&subject)
 	response, err := d.SipRequestForResponse(invite)
@@ -264,26 +305,28 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		return http.StatusRequestTimeout
 	}
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.StatusCode()))
-
-	if response.StatusCode() == 200 {
+	code = int(response.StatusCode())
+	if code == 200 {
 		ds := strings.Split(response.Body(), "\r\n")
-		_SSRC, _ := strconv.ParseInt(string(ssrc), 10, 0)
-		SSRC := uint32(_SSRC)
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
 				if ls[0] == "y" && len(ls[1]) > 0 {
-					_SSRC, _ = strconv.ParseInt(ls[1], 10, 0)
-					SSRC = uint32(_SSRC)
+					if _ssrc, err := strconv.ParseInt(ls[1], 10, 0); err == nil {
+						opt.SSRC = uint32(_ssrc)
+					} else {
+						plugin.Error("read invite response y ", zap.Error(err))
+					}
 					break
 				}
 			}
 		}
+		if opt.dump == "" {
+			opt.dump = conf.DumpPath
+		}
 		publisher := &GBPublisher{
-			SSRC:      SSRC,
-			channel:   channel,
-			Start:     start,
-			End:       end,
-			inviteRes: &response,
+			InviteOptions: opt,
+			channel:       channel,
+			inviteRes:     &response,
 		}
 		if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
 			publisher.udpCache = utils.NewPqRtp()
@@ -293,13 +336,14 @@ func (channel *Channel) Invite(start, end string) (code int) {
 		}
 		ack := sip.NewAckRequest("", invite, response, "", nil)
 		srv.Send(ack)
-	} else if start == "" && conf.AutoInvite {
+	} else if opt.IsLive() && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
-			channel.Invite("", "")
+			channel.Invite(InviteOptions{})
 		})
 	}
-	return int(response.StatusCode())
+	return
 }
+
 func (channel *Channel) Bye(live bool) int {
 	if live && channel.LivePublisher != nil {
 		return channel.LivePublisher.Bye()

@@ -176,7 +176,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			}
 		}
 		if conf.AutoInvite && (c.LivePublisher == nil) {
-			go c.Invite("", "")
+			go c.Invite(InviteOptions{})
 		}
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path

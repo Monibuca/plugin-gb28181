@@ -147,13 +147,24 @@ func listenMediaUDP(config *GB28181Config) {
 	bufUDP := make([]byte, networkBuffer)
 	plugin.Info("Media udp server start.", zap.Uint16("port", config.MediaPort))
 	defer plugin.Info("Media udp server stop", zap.Uint16("port", config.MediaPort))
-
+	dumpLen := make([]byte, 6)
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("Decode rtp error:", zap.Error(err))
 		}
 		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
+			if publisher.dumpFile != nil {
+				util.PutBE(dumpLen[:4], n)
+				if publisher.lastReceive.IsZero() {
+					util.PutBE(dumpLen[4:], 0)
+				} else {
+					util.PutBE(dumpLen[4:], uint16(time.Since(publisher.lastReceive).Milliseconds()))
+				}
+				publisher.lastReceive = time.Now()
+				publisher.dumpFile.Write(dumpLen)
+				publisher.dumpFile.Write(ps)
+			}
 			publisher.PushPS(&rtpPacket)
 		}
 	}

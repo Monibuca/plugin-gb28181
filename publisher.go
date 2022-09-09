@@ -2,7 +2,9 @@ package gb28181
 
 import (
 	"encoding/binary"
+	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/ghettovoice/gosip/sip"
 	"github.com/pion/rtp/v2"
@@ -14,40 +16,50 @@ import (
 
 type GBPublisher struct {
 	Publisher
-	Start     string
-	End       string
-	SSRC      uint32
-	channel   *Channel
-	inviteRes *sip.Response
-	parser    *utils.DecPSPackage
-	lastSeq   uint16
-	udpCache  *utils.PriorityQueueRtp
+	InviteOptions
+	channel     *Channel
+	inviteRes   *sip.Response
+	parser      *utils.DecPSPackage
+	lastSeq     uint16
+	udpCache    *utils.PriorityQueueRtp
+	dumpFile    *os.File
+	lastReceive time.Time
 }
 
 func (p *GBPublisher) OnEvent(event any) {
 	switch v := event.(type) {
 	case IPublisher:
-		if p.IsLive() {
-			p.Type = "GB28181 Live"
-			p.channel.LivePublisher = p
-		} else {
-			p.Type = "GB28181 Playback"
-			p.channel.RecordPublisher = p
-		}
-		conf.publishers.Add(p.SSRC, p)
-		if p.Equal(v) { //第一任
-
-		} else {
-			//删除前任
-			conf.publishers.Delete(v.(*GBPublisher).SSRC)
+		if p.channel == nil {
+			// rplay dump file
 			p.Publisher.OnEvent(v)
+		} else {
+			if p.IsLive() {
+				p.Type = "GB28181 Live"
+				p.channel.LivePublisher = p
+			} else {
+				p.Type = "GB28181 Playback"
+				p.channel.RecordPublisher = p
+			}
+			conf.publishers.Add(p.SSRC, p)
+			if err := error(nil); p.dump != "" {
+				if p.dumpFile, err = os.OpenFile(p.dump, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
+					p.Error("open dump file failed", zap.Error(err))
+				}
+			}
+			if p.Equal(v) { //第一任
+
+			} else {
+				//删除前任
+				conf.publishers.Delete(v.(*GBPublisher).SSRC)
+				p.Publisher.OnEvent(v)
+			}
 		}
 	case SEwaitPublish:
 		//掉线自动重新拉流
 		if p.IsLive() {
 			atomic.StoreInt32(&p.channel.state, 0)
 			p.channel.LivePublisher = nil
-			go p.channel.Invite("", "")
+			go p.channel.Invite(InviteOptions{})
 		}
 	case SEclose, SEKick:
 		if p.IsLive() {
@@ -57,6 +69,9 @@ func (p *GBPublisher) OnEvent(event any) {
 		}
 		p.Publisher.OnEvent(v)
 		conf.publishers.Delete(p.SSRC)
+		if p.dumpFile != nil {
+			p.dumpFile.Close()
+		}
 		p.Bye()
 	default:
 		p.Publisher.OnEvent(v)
@@ -84,10 +99,6 @@ func (p *GBPublisher) Bye() int {
 		return 500
 	}
 	return int(resp.StatusCode())
-}
-
-func (p *GBPublisher) IsLive() bool {
-	return p.Start == ""
 }
 
 func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
