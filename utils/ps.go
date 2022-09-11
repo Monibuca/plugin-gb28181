@@ -51,6 +51,7 @@ var (
 type Pusher interface {
 	PushVideo(uint32, uint32, []byte)
 	PushAudio(uint32, []byte)
+	PrintDump(string)
 }
 
 /*
@@ -144,6 +145,7 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 	dec.clean()
 	dec.PTS = ts
+	pusher.PrintDump(fmt.Sprintf("<td>%d</td>", ts))
 	if err := dec.Skip(9); err != nil {
 		return err
 	}
@@ -158,6 +160,7 @@ func (dec *DecPSPackage) Read(ts uint32, pusher Pusher) error {
 	}
 	var video []byte
 	var nextStartCode uint32
+	pusher.PrintDump("<td>")
 loop:
 	for err == nil {
 		if nextStartCode, err = dec.Uint32(); err != nil {
@@ -165,10 +168,12 @@ loop:
 		}
 		switch nextStartCode {
 		case StartCodeSYS:
+			pusher.PrintDump("[sys]")
 			dec.ReadPayload()
 			//err = dec.decSystemHeader()
 		case StartCodeMAP:
 			err = dec.decProgramStreamMap()
+			pusher.PrintDump("[map]")
 		case StartCodeVideo:
 			if err = dec.decPESPacket(); err == nil {
 				// if len(video) == 0 {
@@ -183,6 +188,7 @@ loop:
 			} else {
 				fmt.Println("video", err)
 			}
+			pusher.PrintDump("[video]")
 		case StartCodeAudio:
 			if err = dec.decPESPacket(); err == nil {
 				ts := ts / 90
@@ -190,16 +196,19 @@ loop:
 					ts = dec.PTS / 90
 				}
 				pusher.PushAudio(ts, dec.Payload)
+				pusher.PrintDump("[audio]")
 			} else {
 				fmt.Println("audio", err)
 			}
 		case StartCodePS:
 			break loop
 		default:
+			pusher.PrintDump(fmt.Sprintf("[%d]", nextStartCode))
 			dec.ReadPayload()
 		}
 	}
 	if len(video) > 0 {
+		pusher.PrintDump("</td>")
 		pusher.PushVideo(dec.PTS, dec.DTS, video)
 		video = nil
 	}

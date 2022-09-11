@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pion/rtp/v2"
 	"m7s.live/engine/v4/util"
 )
 
@@ -73,6 +72,7 @@ func (conf *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 
 func (conf *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
 	dump := r.URL.Query().Get("dump")
+	printOut := r.URL.Query().Get("print")
 	if dump == "" {
 		dump = conf.DumpPath
 	}
@@ -80,32 +80,26 @@ func (conf *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		go func() {
-			defer f.Close()
-			streamPath := dump
-			if strings.HasPrefix(dump, "/") {
-				streamPath = "replay" + dump
+		streamPath := dump
+		if strings.HasPrefix(dump, "/") {
+			streamPath = "replay" + dump
+		} else {
+			streamPath = "replay/" + dump
+		}
+		var pub GBPublisher
+		pub.SetIO(f)
+		if err = plugin.Publish(streamPath, &pub); err == nil {
+			if printOut != "" {
+				pub.dumpPrint = w
+				pub.SetParentCtx(r.Context())
+				err = pub.Replay(f)
 			} else {
-				streamPath = "replay/" + dump
+				go pub.Replay(f)
+				w.Write([]byte("ok"))
 			}
-			var pub GBPublisher
-			var rtpPacket rtp.Packet
-			if err = plugin.Publish(streamPath, &pub); err == nil {
-				for l := make([]byte, 6); !pub.IsClosed(); time.Sleep(time.Millisecond * time.Duration(util.ReadBE[uint16](l[4:]))) {
-					_, err = f.Read(l)
-					if err != nil {
-						return
-					}
-					payload := make([]byte, util.ReadBE[int](l[:4]))
-					_, err = f.Read(payload)
-					if err != nil {
-						return
-					}
-					rtpPacket.Unmarshal(payload)
-					pub.PushPS(&rtpPacket)
-				}
-			}
-		}()
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
 
