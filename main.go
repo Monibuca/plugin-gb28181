@@ -59,6 +59,7 @@ func (c *GB28181Config) initRoutes() {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
+		ReadDevices()
 		go c.initRoutes()
 		c.startServer()
 	}

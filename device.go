@@ -2,8 +2,10 @@ package gb28181
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +60,6 @@ type Device struct {
 	addr            sip.Address
 	sipIP           string //设备对应网卡的服务器ip
 	mediaIP         string //设备对应网卡的服务器ip
-	tx              *sip.ServerTransaction
 	NetAddr         string
 	channelMap      map[string]*Channel
 	channelMutex    sync.RWMutex
@@ -68,7 +69,42 @@ type Device struct {
 	}
 }
 
-func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.ServerTransaction) {
+func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
+	from, _ := req.From()
+	d.addr = sip.Address{
+		DisplayName: from.DisplayName,
+		Uri:         from.Address,
+	}
+	deviceIp := req.Source()
+	servIp := req.Recipient().Host()
+	//根据网卡ip获取对应的公网ip
+	sipIP := config.routes[servIp]
+	//如果相等，则服务器是内网通道.海康摄像头不支持...自动获取
+	if strings.LastIndex(deviceIp, ".") != -1 && strings.LastIndex(servIp, ".") != -1 {
+		if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
+			sipIP = servIp
+		}
+	}
+	//如果用户配置过则使用配置的
+	if config.SipIP != "" {
+		sipIP = config.SipIP
+	} else if sipIP == "" {
+		sipIP = myip.InternalIPv4()
+	}
+	mediaIp := sipIP
+	if config.MediaIP != "" {
+		mediaIp = config.MediaIP
+	}
+	plugin.Info("RecoverDevice", zap.String("id", d.ID), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
+	d.Status = string(sip.REGISTER)
+	d.sipIP = sipIP
+	d.mediaIP = mediaIp
+	d.NetAddr = deviceIp
+	d.UpdateTime = time.Now()
+	d.channelMap = make(map[string]*Channel)
+	go d.Catalog()
+}
+func (config *GB28181Config) StoreDevice(id string, req sip.Request) {
 	var d *Device
 	from, _ := req.From()
 	deviceAddr := sip.Address{
@@ -111,12 +147,39 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request, tx *sip.Ser
 			addr:         deviceAddr,
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
-			tx:           tx,
 			NetAddr:      deviceIp,
 			channelMap:   make(map[string]*Channel),
 		}
 		Devices.Store(id, d)
+		SaveDevices()
 		go d.Catalog()
+	}
+}
+func ReadDevices() {
+	if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
+		defer f.Close()
+		var items []*Device
+		if err = json.NewDecoder(f).Decode(&items); err == nil {
+			for _, item := range items {
+				if time.Since(item.UpdateTime) < time.Duration(conf.RegisterValidity)*time.Second {
+					item.Status = "RECOVER"
+					Devices.Store(item.ID, item)
+				}
+			}
+		}
+	}
+}
+func SaveDevices() {
+	var item []any
+	Devices.Range(func(key, value any) bool {
+		item = append(item, value)
+		return true
+	})
+	if f, err := os.OpenFile("devices.json", os.O_WRONLY|os.O_CREATE, 0644); err == nil {
+		defer f.Close()
+		encoder := json.NewEncoder(f)
+		encoder.SetIndent("", " ")
+		encoder.Encode(item)
 	}
 }
 

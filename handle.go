@@ -92,7 +92,7 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		}
 	}
 	if passAuth {
-		config.StoreDevice(id, req, &tx)
+		config.StoreDevice(id, req)
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
 		resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
@@ -127,7 +127,11 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 	id := from.Address.User().String()
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
-		if d.Status == string(sip.REGISTER) {
+		switch d.Status {
+		case "RECOVER":
+			config.RecoverDevice(d, req)
+			return
+		case string(sip.REGISTER):
 			d.Status = "ONLINE"
 			//go d.QueryDeviceInfo(req)
 		}
