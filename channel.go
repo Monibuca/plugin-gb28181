@@ -133,7 +133,7 @@ func (channel *Channel) Control(PTZCmd string) int {
 		<SN>%d</SN>
 		<DeviceID>%s</DeviceID>
 		<PTZCmd>%s</PTZCmd>
-		</Control>`, d.sn, d.ID, PTZCmd)
+		</Control>`, d.sn, channel.DeviceID, PTZCmd)
 	request.SetBody(body, true)
 	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
