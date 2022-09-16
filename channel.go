@@ -1,6 +1,7 @@
 package gb28181
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -159,16 +160,19 @@ func (o InviteOptions) Record() bool {
 	return o.Start != ""
 }
 
-func (o InviteOptions) Validate() bool {
+func (o InviteOptions) Validate() error {
 	sint, err1 := strconv.ParseInt(o.Start, 10, 0)
+	if err1 != nil {
+		return err1
+	}
 	eint, err2 := strconv.ParseInt(o.End, 10, 0)
-	if err1 != nil || err2 != nil {
-		return false
+	if err2 != nil {
+		return err2
 	}
 	if sint >= eint {
-		return false
+		return errors.New("start < end")
 	}
-	return true
+	return nil
 }
 
 func (o InviteOptions) String() string {
@@ -234,10 +238,10 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (channel *Channel) Invite(opt InviteOptions) (code int) {
+func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	if opt.IsLive() {
 		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
-			return 304
+			return 304, nil
 		}
 		defer func() {
 			if code != 200 {
@@ -251,29 +255,54 @@ func (channel *Channel) Invite(opt InviteOptions) (code int) {
 	s := "Play"
 	opt.CreateSSRC()
 	if opt.Record() {
-		if !opt.Validate() {
-			return 400
+		if err = opt.Validate(); err != nil {
+			return 400, err
 		}
 		s = "Playback"
 		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, opt.Start, opt.End)
 	}
-
+	if opt.dump == "" {
+		opt.dump = conf.DumpPath
+	}
 	// size := 1
 	// fps := 15
 	// bitrate := 200
 	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
-
+	publisher := &GBPublisher{
+		InviteOptions: opt,
+		channel:       channel,
+	}
 	protocol := ""
-	if opt.MediaPort == 0 {
-		opt.MediaPort = conf.MediaPort
-		if conf.IsMediaNetworkTCP() {
-			protocol = "TCP/"
-			opt.MediaPort = conf.MediaPort + channel.tcpPortIndex
-			if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
-				channel.tcpPortIndex = 0
+	if conf.IsMediaNetworkTCP() {
+		protocol = "TCP/"
+		if conf.tcpPorts.Valid {
+			// opt.MediaPort, err = publisher.ListenTCP()
+			// if err != nil {
+			// 	return 500, err
+			// }
+		} else if opt.MediaPort == 0 {
+			opt.MediaPort = conf.MediaPort
+		}
+	} else {
+		if conf.udpPorts.Valid {
+			opt.MediaPort, err = publisher.ListenUDP()
+			if err != nil {
+				return 500, err
 			}
+		} else if opt.MediaPort == 0 {
+			opt.MediaPort = conf.MediaPort
 		}
 	}
+	// if opt.MediaPort == 0 {
+	// 	opt.MediaPort = conf.MediaPort
+	// 	if conf.IsMediaNetworkTCP() {
+	// 		protocol = "TCP/"
+	// 		opt.MediaPort = conf.MediaPort + channel.tcpPortIndex
+	// 		if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
+	// 			channel.tcpPortIndex = 0
+	// 		}
+	// 	}
+	// }
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.mediaIP),
@@ -300,14 +329,14 @@ func (channel *Channel) Invite(opt InviteOptions) (code int) {
 		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, opt.ssrc, conf.Serial),
 	}
 	invite.AppendHeader(&subject)
-	response, err := d.SipRequestForResponse(invite)
-	if response == nil || err != nil {
-		return http.StatusRequestTimeout
+	publisher.inviteRes, err = d.SipRequestForResponse(invite)
+	if err != nil {
+		return http.StatusRequestTimeout, err
 	}
-	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, response.StatusCode()))
-	code = int(response.StatusCode())
+	code = int(publisher.inviteRes.StatusCode())
+	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, code))
 	if code == 200 {
-		ds := strings.Split(response.Body(), "\r\n")
+		ds := strings.Split(publisher.inviteRes.Body(), "\r\n")
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
 				if ls[0] == "y" && len(ls[1]) > 0 {
@@ -320,21 +349,13 @@ func (channel *Channel) Invite(opt InviteOptions) (code int) {
 				}
 			}
 		}
-		if opt.dump == "" {
-			opt.dump = conf.DumpPath
-		}
-		publisher := &GBPublisher{
-			InviteOptions: opt,
-			channel:       channel,
-			inviteRes:     &response,
-		}
 		if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
 			publisher.udpCache = utils.NewPqRtp()
 		}
-		if plugin.Publish(streamPath, publisher) != nil {
-			return 403
+		if err = plugin.Publish(streamPath, publisher); err != nil {
+			return 403, err
 		}
-		ack := sip.NewAckRequest("", invite, response, "", nil)
+		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
 		srv.Send(ack)
 	} else if opt.IsLive() && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {

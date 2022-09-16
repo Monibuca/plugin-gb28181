@@ -23,9 +23,55 @@ import (
 
 var srv gosip.Server
 
+type PortManager struct {
+	recycle chan uint16
+	max     uint16
+	pos     uint16
+	Valid   bool
+}
+
+func (pm *PortManager) Init(start, end uint16) {
+	pm.pos = start
+	pm.max = end
+	if pm.pos > 0 && pm.max > pm.pos {
+		pm.Valid = true
+		pm.recycle = make(chan uint16, pm.Range())
+	}
+}
+
+func (pm *PortManager) Range() uint16 {
+	return pm.max - pm.pos
+}
+
+func (pm *PortManager) Recycle(p uint16) (err error) {
+	select {
+	case pm.recycle <- p:
+		return nil
+	default:
+		return io.EOF //TODO: 换一个Error
+	}
+}
+
+func (pm *PortManager) GetPort() (p uint16, err error) {
+	select {
+	case p = <-pm.recycle:
+		return
+	default:
+		if pm.Range() > 0 {
+			pm.pos++
+			p = pm.pos
+			return
+		} else {
+			return 0, io.EOF //TODO: 换一个Error
+		}
+	}
+}
+
 type Server struct {
 	Ignores    map[string]struct{}
 	publishers util.Map[uint32, *GBPublisher]
+	tcpPorts   PortManager
+	udpPorts   PortManager
 }
 
 const MaxRegisterCount = 3
@@ -82,9 +128,15 @@ func (config *GB28181Config) startServer() {
 
 func (config *GB28181Config) startMediaServer() {
 	if config.MediaNetwork == "tcp" {
-		listenMediaTCP(config)
+		config.tcpPorts.Init(config.MediaPortMin, config.MediaPortMax)
+		if !config.tcpPorts.Valid {
+			config.listenMediaTCP()
+		}
 	} else {
-		listenMediaUDP(config)
+		config.udpPorts.Init(config.MediaPortMin, config.MediaPortMax)
+		if !config.udpPorts.Valid {
+			config.listenMediaUDP()
+		}
 	}
 }
 
@@ -110,7 +162,7 @@ func processTcpMediaConn(config *GB28181Config, conn net.Conn) {
 	}
 }
 
-func listenMediaTCP(config *GB28181Config) {
+func (config *GB28181Config) listenMediaTCP() {
 	addr := ":" + strconv.Itoa(int(config.MediaPort))
 	mediaAddr, _ := net.ResolveTCPAddr("tcp", addr)
 	listen, err := net.ListenTCP("tcp", mediaAddr)
@@ -132,7 +184,7 @@ func listenMediaTCP(config *GB28181Config) {
 	}
 }
 
-func listenMediaUDP(config *GB28181Config) {
+func (config *GB28181Config) listenMediaUDP() {
 	var rtpPacket rtp.Packet
 	networkBuffer := 1048576
 

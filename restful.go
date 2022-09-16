@@ -63,7 +63,12 @@ func (conf *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 		if opt.IsLive() && c.LivePublisher != nil {
 			w.WriteHeader(304) //直播流已存在
 		} else {
-			w.WriteHeader(c.Invite(opt))
+			code, err := c.Invite(opt)
+			if err == nil {
+				w.WriteHeader(code)
+			} else {
+				http.Error(w, err.Error(), code)
+			}
 		}
 	} else {
 		w.WriteHeader(404)

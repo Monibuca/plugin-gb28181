@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"sync/atomic"
 	"time"
@@ -21,7 +22,7 @@ type GBPublisher struct {
 	Publisher
 	InviteOptions
 	channel     *Channel
-	inviteRes   *sip.Response
+	inviteRes   sip.Response
 	parser      *utils.DecPSPackage
 	lastSeq     uint16
 	udpCache    *utils.PriorityQueueRtp
@@ -96,9 +97,9 @@ func (p *GBPublisher) Bye() int {
 	defer atomic.StoreInt32(&p.channel.state, 0)
 	p.inviteRes = nil
 	bye := p.channel.CreateRequst(sip.BYE)
-	from, _ := (*res).From()
-	to, _ := (*res).To()
-	callId, _ := (*res).CallID()
+	from, _ := (res).From()
+	to, _ := (res).To()
+	callId, _ := (res).CallID()
 	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
 	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
 	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})
@@ -224,5 +225,46 @@ func (p *GBPublisher) Replay(f *os.File) (err error) {
 		rtpPacket.Unmarshal(payload)
 		p.PushPS(&rtpPacket)
 	}
+	return
+}
+
+func (p *GBPublisher) ListenUDP() (port uint16, err error) {
+	var rtpPacket rtp.Packet
+	networkBuffer := 1048576
+	port, err = conf.udpPorts.GetPort()
+	if err != nil {
+		return
+	}
+	addr := fmt.Sprintf(":%d", port)
+	mediaAddr, _ := net.ResolveUDPAddr("udp", addr)
+	conn, err := net.ListenUDP("udp", mediaAddr)
+	if err != nil {
+		plugin.Error("listen media server udp err", zap.String("addr", addr), zap.Error(err))
+		return 0, err
+	}
+	go func() {
+		bufUDP := make([]byte, networkBuffer)
+		plugin.Info("Media udp server start.", zap.Uint16("port", port))
+		defer plugin.Info("Media udp server stop", zap.Uint16("port", port))
+		dumpLen := make([]byte, 6)
+		for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
+			ps := bufUDP[:n]
+			if err := rtpPacket.Unmarshal(ps); err != nil {
+				plugin.Error("Decode rtp error:", zap.Error(err))
+			}
+			if p.dumpFile != nil {
+				util.PutBE(dumpLen[:4], n)
+				if p.lastReceive.IsZero() {
+					util.PutBE(dumpLen[4:], 0)
+				} else {
+					util.PutBE(dumpLen[4:], uint16(time.Since(p.lastReceive).Milliseconds()))
+				}
+				p.lastReceive = time.Now()
+				p.dumpFile.Write(dumpLen)
+				p.dumpFile.Write(ps)
+			}
+			p.PushPS(&rtpPacket)
+		}
+	}()
 	return
 }
