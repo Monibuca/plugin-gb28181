@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/ghettovoice/gosip/sip"
@@ -42,7 +41,7 @@ func (p *GBPublisher) OnEvent(event any) {
 		p.IO.OnEvent(event)
 		return
 	}
-	switch v := event.(type) {
+	switch event.(type) {
 	case IPublisher:
 		if p.IsLive() {
 			p.Type = "GB28181 Live"
@@ -57,35 +56,27 @@ func (p *GBPublisher) OnEvent(event any) {
 				p.Error("open dump file failed", zap.Error(err))
 			}
 		}
-		if p.Equal(v) { //第一任
-
-		} else {
-			//删除前任
-			conf.publishers.Delete(v.(*GBPublisher).SSRC)
-			p.Publisher.OnEvent(v)
-		}
 	case SEwaitPublish:
 		//掉线自动重新拉流
 		if p.IsLive() {
-			atomic.StoreInt32(&p.channel.state, 0)
 			p.channel.LivePublisher = nil
+			p.channel.liveInviteLock.Unlock()
 			go p.channel.Invite(InviteOptions{})
 		}
 	case SEclose, SEKick:
 		if p.IsLive() {
 			p.channel.LivePublisher = nil
+			p.channel.liveInviteLock.Unlock()
 		} else {
 			p.channel.RecordPublisher = nil
 		}
-		p.Publisher.OnEvent(v)
 		conf.publishers.Delete(p.SSRC)
 		if p.dumpFile != nil {
 			p.dumpFile.Close()
 		}
 		p.Bye()
-	default:
-		p.Publisher.OnEvent(v)
 	}
+	p.Publisher.OnEvent(event)
 }
 
 func (p *GBPublisher) Bye() int {
@@ -94,12 +85,11 @@ func (p *GBPublisher) Bye() int {
 		return 404
 	}
 	defer p.Stop()
-	defer atomic.StoreInt32(&p.channel.state, 0)
 	p.inviteRes = nil
 	bye := p.channel.CreateRequst(sip.BYE)
-	from, _ := (res).From()
-	to, _ := (res).To()
-	callId, _ := (res).CallID()
+	from, _ := res.From()
+	to, _ := res.To()
+	callId, _ := res.CallID()
 	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
 	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
 	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})

@@ -33,7 +33,7 @@ func (conf *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
 	if c := FindChannel(id, channel); c != nil {
 		w.WriteHeader(c.QueryRecord(startTime, endTime))
 	} else {
-		w.WriteHeader(404)
+		http.NotFound(w, r)
 	}
 }
 
@@ -44,7 +44,7 @@ func (conf *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
 	if c := FindChannel(id, channel); c != nil {
 		w.WriteHeader(c.Control(ptzcmd))
 	} else {
-		w.WriteHeader(404)
+		http.NotFound(w, r)
 	}
 }
 
@@ -54,24 +54,18 @@ func (conf *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	channel := query.Get("channel")
 	port, _ := strconv.Atoi(query.Get("mediaPort"))
 	opt := InviteOptions{
-		query.Get("startTime"),
-		query.Get("endTime"),
-		query.Get("dump"),
-		"", 0, uint16(port),
+		dump:      query.Get("dump"),
+		MediaPort: uint16(port),
 	}
-	if c := FindChannel(id, channel); c != nil {
-		if opt.IsLive() && c.LivePublisher != nil {
-			w.WriteHeader(304) //直播流已存在
-		} else {
-			code, err := c.Invite(opt)
-			if err == nil {
-				w.WriteHeader(code)
-			} else {
-				http.Error(w, err.Error(), code)
-			}
-		}
+	opt.Validate(query.Get("startTime"), query.Get("endTime"))
+	if c := FindChannel(id, channel); c == nil {
+		http.NotFound(w, r)
+	} else if opt.IsLive() && c.LivePublisher != nil {
+		w.WriteHeader(304) //直播流已存在
+	} else if code, err := c.Invite(opt); err == nil {
+		w.WriteHeader(code)
 	} else {
-		w.WriteHeader(404)
+		http.Error(w, err.Error(), code)
 	}
 }
 
@@ -116,7 +110,7 @@ func (conf *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	if c := FindChannel(id, channel); c != nil {
 		w.WriteHeader(c.Bye(live != "false"))
 	} else {
-		w.WriteHeader(404)
+		http.NotFound(w, r)
 	}
 }
 
@@ -137,6 +131,6 @@ func (conf *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) 
 		d := v.(*Device)
 		w.WriteHeader(d.MobilePositionSubscribe(id, expiresInt, intervalInt))
 	} else {
-		w.WriteHeader(404)
+		http.NotFound(w, r)
 	}
 }

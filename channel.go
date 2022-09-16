@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/ghettovoice/gosip/sip"
@@ -25,7 +25,7 @@ type ChannelEx struct {
 	RecordEndTime   string
 	recordStartTime time.Time
 	recordEndTime   time.Time
-	state           int32
+	liveInviteLock  sync.Mutex
 	tcpPortIndex    uint16
 	GpsTime         time.Time //gps时间
 	Longitude       string    //经度
@@ -115,7 +115,7 @@ func (channel *Channel) QueryRecord(startTime, endTime string) int {
 		<EndTime>%s</EndTime>
 		<Secrecy>0</Secrecy>
 		<Type>all</Type>
-		</Query>`, d.sn, d.ID, startTime, endTime)
+		</Query>`, d.sn, channel.DeviceID, startTime, endTime)
 	request.SetBody(body, true)
 	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
@@ -144,8 +144,8 @@ func (channel *Channel) Control(PTZCmd string) int {
 }
 
 type InviteOptions struct {
-	Start     string
-	End       string
+	Start     int
+	End       int
 	dump      string
 	ssrc      string
 	SSRC      uint32
@@ -153,30 +153,36 @@ type InviteOptions struct {
 }
 
 func (o InviteOptions) IsLive() bool {
-	return o.Start == ""
+	return o.Start == 0 || o.End == 0
 }
 
 func (o InviteOptions) Record() bool {
-	return o.Start != ""
+	return !o.IsLive()
 }
 
-func (o InviteOptions) Validate() error {
-	sint, err1 := strconv.ParseInt(o.Start, 10, 0)
-	if err1 != nil {
-		return err1
+func (o *InviteOptions) Validate(start, end string) error {
+	if start != "" {
+		sint, err1 := strconv.ParseInt(start, 10, 0)
+		if err1 != nil {
+			return err1
+		}
+		o.Start = int(sint)
 	}
-	eint, err2 := strconv.ParseInt(o.End, 10, 0)
-	if err2 != nil {
-		return err2
+	if end != "" {
+		eint, err2 := strconv.ParseInt(end, 10, 0)
+		if err2 != nil {
+			return err2
+		}
+		o.End = int(eint)
 	}
-	if sint >= eint {
+	if o.Start >= o.End {
 		return errors.New("start < end")
 	}
 	return nil
 }
 
 func (o InviteOptions) String() string {
-	return fmt.Sprintf("t=%s %s", o.Start, o.End)
+	return fmt.Sprintf("t=%d %d", o.Start, o.End)
 }
 
 func (o *InviteOptions) CreateSSRC() {
@@ -240,12 +246,12 @@ f字段中视、音频参数段之间不需空格分割。
 */
 func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	if opt.IsLive() {
-		if !atomic.CompareAndSwapInt32(&channel.state, 0, 1) {
+		if !channel.liveInviteLock.TryLock() {
 			return 304, nil
 		}
 		defer func() {
 			if code != 200 {
-				atomic.StoreInt32(&channel.state, 0)
+				channel.liveInviteLock.Unlock()
 			}
 		}()
 	}
@@ -255,11 +261,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	s := "Play"
 	opt.CreateSSRC()
 	if opt.Record() {
-		if err = opt.Validate(); err != nil {
-			return 400, err
-		}
 		s = "Playback"
-		streamPath = fmt.Sprintf("%s/%s/%s-%s", d.ID, channel.DeviceID, opt.Start, opt.End)
+		streamPath = fmt.Sprintf("%s/%s/%d-%d", d.ID, channel.DeviceID, opt.Start, opt.End)
 	}
 	if opt.dump == "" {
 		opt.dump = conf.DumpPath
@@ -287,7 +290,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = publisher.ListenUDP()
 			if err != nil {
-				return 500, err
+				code = 500
+				return
 			}
 		} else if opt.MediaPort == 0 {
 			opt.MediaPort = conf.MediaPort
@@ -353,7 +357,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 			publisher.udpCache = utils.NewPqRtp()
 		}
 		if err = plugin.Publish(streamPath, publisher); err != nil {
-			return 403, err
+			code = 403
+			return
 		}
 		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
 		srv.Send(ack)
