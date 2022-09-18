@@ -59,14 +59,18 @@ func (p *GBPublisher) OnEvent(event any) {
 	case SEwaitPublish:
 		//掉线自动重新拉流
 		if p.IsLive() {
-			p.channel.LivePublisher = nil
-			p.channel.liveInviteLock.Unlock()
+			if p.channel.LivePublisher != nil {
+				p.channel.LivePublisher = nil
+				p.channel.liveInviteLock.Unlock()
+			}
 			go p.channel.Invite(InviteOptions{})
 		}
 	case SEclose, SEKick:
 		if p.IsLive() {
-			p.channel.LivePublisher = nil
-			p.channel.liveInviteLock.Unlock()
+			if p.channel.LivePublisher != nil {
+				p.channel.LivePublisher = nil
+				p.channel.liveInviteLock.Unlock()
+			}
 		} else {
 			p.channel.RecordPublisher = nil
 		}
@@ -232,10 +236,12 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 		plugin.Error("listen media server udp err", zap.String("addr", addr), zap.Error(err))
 		return 0, err
 	}
+	p.SetIO(conn)
 	go func() {
 		bufUDP := make([]byte, networkBuffer)
 		plugin.Info("Media udp server start.", zap.Uint16("port", port))
 		defer plugin.Info("Media udp server stop", zap.Uint16("port", port))
+		defer conf.udpPorts.Recycle(port)
 		dumpLen := make([]byte, 6)
 		for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 			ps := bufUDP[:n]
