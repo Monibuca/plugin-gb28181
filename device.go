@@ -233,10 +233,13 @@ func (d *Device) UpdateChannels(list []*Channel) {
 					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 				}
 			}
+			old.Copy(c)
+			c = old
 		} else {
 			c.ChannelEx = &ChannelEx{
 				device: d,
 			}
+			d.channelMap[c.DeviceID] = c
 		}
 		if conf.AutoInvite && (c.LivePublisher == nil) {
 			go c.Invite(InviteOptions{})
@@ -246,7 +249,6 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		} else {
 			c.LiveSubSP = ""
 		}
-		d.channelMap[c.DeviceID] = c
 	}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
@@ -456,7 +458,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 			d.channelOffline(v.DeviceID)
 		case "ADD":
 			plugin.Debug("收到通道新增通知")
-			channel := Channel{
+			channel := &Channel{
 				DeviceID:     v.DeviceID,
 				ParentID:     v.ParentID,
 				Name:         v.Name,
@@ -471,11 +473,12 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				Secrecy:      v.Secrecy,
 				Status:       v.Status,
 			}
-			d.addChannel(&channel)
+			channels := []*Channel{channel}
+			d.UpdateChannels(channels)
 		case "DEL":
 			//删除
 			plugin.Debug("收到通道删除通知")
-			delete(d.channelMap, v.DeviceID)
+			d.channelOffline(v.DeviceID)
 		case "UPDATE":
 			plugin.Debug("收到通道更新通知")
 			// 更新通道

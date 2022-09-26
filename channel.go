@@ -51,6 +51,28 @@ type Channel struct {
 	*ChannelEx              //自定义属性
 }
 
+func (c *Channel) Copy(v *Channel) {
+	if v == nil {
+		return
+	}
+
+	c.DeviceID = v.DeviceID
+	c.ParentID = v.ParentID
+	c.Name = v.Name
+	c.Manufacturer = v.Manufacturer
+	c.Model = v.Model
+	c.Owner = v.Owner
+	c.CivilCode = v.CivilCode
+	c.Address = v.Address
+	c.Parental = v.Parental
+	c.SafetyWay = v.SafetyWay
+	c.RegisterWay = v.RegisterWay
+	c.Secrecy = v.Secrecy
+	c.Status = v.Status
+	c.Status = v.Status
+	c.ChannelEx = v.ChannelEx
+}
+
 func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 	d := c.device
 	d.sn++
