@@ -52,7 +52,9 @@ func (c *GB28181Config) initRoutes() {
 	tempIps := myip.LocalAndInternalIPs()
 	for k, v := range tempIps {
 		c.routes[k] = v
-		c.routes[k[0:strings.LastIndex(k, ".")]] = k
+		if lastdot := strings.LastIndex(k, "."); lastdot >= 0 {
+			c.routes[k[0:lastdot]] = k
+		}
 	}
 	plugin.Info(fmt.Sprintf("LocalAndInternalIPs detail: %s", c.routes))
 }
