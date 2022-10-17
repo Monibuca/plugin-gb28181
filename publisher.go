@@ -117,6 +117,9 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 		}
 	}
 	p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload[:10]))
+	if dts == 0 {
+		dts = pts
+	}
 	p.VideoTrack.WriteAnnexB(pts, dts, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
