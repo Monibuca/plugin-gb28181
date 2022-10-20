@@ -285,6 +285,7 @@ func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 	go func() {
 		plugin.Info("Media tcp server start.", zap.Uint16("port", port))
 		defer listen.Close()
+		defer conf.tcpPorts.Recycle(port)
 		defer plugin.Info("Media tcp server stop", zap.Uint16("port", port))
 		for {
 			conn, err := listen.Accept()
