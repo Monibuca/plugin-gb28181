@@ -301,10 +301,10 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	if conf.IsMediaNetworkTCP() {
 		protocol = "TCP/"
 		if conf.tcpPorts.Valid {
-			// opt.MediaPort, err = publisher.ListenTCP()
-			// if err != nil {
-			// 	return 500, err
-			// }
+			opt.MediaPort, err = publisher.ListenTCP()
+			if err != nil {
+				return 500, err
+			}
 		} else if opt.MediaPort == 0 {
 			opt.MediaPort = conf.MediaPort
 		}

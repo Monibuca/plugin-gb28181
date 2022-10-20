@@ -267,3 +267,33 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 	}()
 	return
 }
+
+
+func (p *GBPublisher) ListenTCP() (port uint16, err error) {
+	port, err = conf.tcpPorts.GetPort()
+	if err != nil {
+		return
+	}
+	addr := fmt.Sprintf(":%d", port)
+	mediaAddr, _ := net.ResolveTCPAddr("tcp", addr)
+	listen, err := net.ListenTCP("tcp", mediaAddr)
+	if err != nil {
+		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
+		return 0, err
+	}
+	// p.SetIO(conn)
+	go func() {
+		plugin.Info("Media tcp server start.", zap.Uint16("port", port))
+		defer listen.Close()
+		defer plugin.Info("Media tcp server stop", zap.Uint16("port", port))
+		for {
+			conn, err := listen.Accept()
+			if err != nil {
+				plugin.Error("Accept err=", zap.Error(err))
+			}
+			go processTcpMediaConn(conf, conn)
+		}
+		
+	}()
+	return
+}
