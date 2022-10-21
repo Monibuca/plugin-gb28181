@@ -1,7 +1,6 @@
 package gb28181
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -145,7 +144,7 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	}
 	p.AudioTrack.WriteAVCC(ts, payload)
 }
-
+// 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	originRtp := *rtp
 	if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
@@ -159,7 +158,6 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	}
 	ps := rtp.Payload
 	if p.lastSeq != 0 {
-		// rtp序号不连续，丢弃PS
 		if p.lastSeq+1 != rtp.SequenceNumber {
 			if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
 				if p.udpCache.Len() < conf.UdpCacheSize {
@@ -175,22 +173,9 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	}
 	p.lastSeq = rtp.SequenceNumber
 	if p.parser == nil {
-		p.parser = new(utils.DecPSPackage)
+		p.parser = utils.NewDecPSPackage(p)
 	}
-	if len(ps) >= 4 && binary.BigEndian.Uint32(ps) == utils.StartCodePS {
-		if p.parser.Len() > 0 {
-			p.parser.Skip(4)
-			p.PrintDump("</td></tr>")
-			p.PrintDump("<tr>")
-			p.parser.Read(rtp.Timestamp, p)
-			p.PrintDump("</tr>")
-			p.PrintDump("<tr  class=gray><td colspan=12>")
-			p.parser.Reset()
-		}
-		p.parser.Write(ps)
-	} else if p.parser.Len() > 0 {
-		p.parser.Write(ps)
-	}
+	p.parser.Feed(ps)
 }
 func (p *GBPublisher) Replay(f *os.File) (err error) {
 	var rtpPacket rtp.Packet
@@ -205,7 +190,6 @@ func (p *GBPublisher) Replay(f *os.File) (err error) {
 		p.PrintDump("<table>")
 		defer p.PrintDump("</table>")
 	}
-	p.PrintDump("<tr class=gray><td colspan=12>")
 	var t uint16
 	for l := make([]byte, 6); !p.IsClosed(); time.Sleep(time.Millisecond * time.Duration(t)) {
 		_, err = f.Read(l)
