@@ -342,9 +342,9 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		"y=" + opt.ssrc,
 		"",
 	}
-	// if config.IsMediaNetworkTCP() {
-	// 	sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
-	// }
+	if conf.IsMediaNetworkTCP() {
+		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
+	}
 	invite := channel.CreateRequst(sip.INVITE)
 	contentType := sip.ContentType("application/sdp")
 	invite.AppendHeader(&contentType)
