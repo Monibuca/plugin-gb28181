@@ -28,6 +28,7 @@ type GBPublisher struct {
 	dumpFile    *os.File
 	dumpPrint   io.Writer
 	lastReceive time.Time
+	reorder     util.RTPReorder[*rtp.Packet]
 }
 
 func (p *GBPublisher) PrintDump(s string) {
@@ -119,12 +120,16 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 			switch maybe264 {
 			case NALU_Non_IDR_Picture, NALU_IDR_Picture, NALU_SEI, NALU_SPS, NALU_PPS:
 				p.VideoTrack = NewH264(p.Publisher.Stream)
-				return
+			default:
+				p.VideoTrack = NewH265(p.Publisher.Stream)
 			}
-			p.VideoTrack = NewH265(p.Publisher.Stream)
 		}
 	}
-	p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload[:10]))
+	if len(payload) > 10 {
+		p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload[:10]))
+	} else {
+		p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload))
+	}
 	if dts == 0 {
 		dts = pts
 	}
@@ -156,36 +161,22 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
-	originRtp := *rtp
-	if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
-		//序号小于第一个包的丢弃,rtp包序号达到65535后会从0开始，所以这里需要判断一下
-		if rtp.SequenceNumber < p.lastSeq && p.lastSeq-rtp.SequenceNumber < utils.MaxRtpDiff {
-			return
-		}
-		p.udpCache.Push(*rtp)
-		rtpTmp, _ := p.udpCache.Pop()
-		rtp = &rtpTmp
+	if !conf.IsMediaNetworkTCP() {
+		rtp = p.reorder.Push(rtp.SequenceNumber, rtp)
+	} else {
+		p.lastSeq = rtp.SequenceNumber
 	}
-	ps := rtp.Payload
-	if p.lastSeq != 0 {
-		if p.lastSeq+1 != rtp.SequenceNumber {
-			if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
-				if p.udpCache.Len() < conf.UdpCacheSize {
-					p.udpCache.Push(*rtp)
-					return
-				} else {
-					p.udpCache.Empty()
-					rtp = &originRtp // 还原rtp包，而不是使用缓存中，避免rtp序号断裂
-				}
-			}
-			p.parser.Drop()
-		}
-	}
-	p.lastSeq = rtp.SequenceNumber
 	if p.parser == nil {
 		p.parser = utils.NewDecPSPackage(p)
 	}
-	p.parser.Feed(ps)
+	for rtp != nil {
+		if rtp.SequenceNumber != p.lastSeq+1 {
+			p.parser.Drop()
+		}
+		p.parser.Feed(rtp.Payload)
+		p.lastSeq = rtp.SequenceNumber
+		rtp = p.reorder.Pop()
+	}
 }
 
 func (p *GBPublisher) Replay(f *os.File) (err error) {

@@ -178,10 +178,6 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 		switch code {
 		case StartCodePS:
 			dec.PrintDump("</td></tr><tr><td>")
-			if len(dec.videoBuffer) > 0 {
-				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
-				dec.videoBuffer = nil
-			}
 			if len(dec.audioBuffer) > 0 {
 				dec.PushAudio(dec.PTS, dec.audioBuffer)
 				dec.audioBuffer = nil
@@ -208,6 +204,12 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 				dec.PrintDump("</td><td>")
 			}
 			if err = dec.decPESPacket(); err == nil {
+				if dec.Payload[0] == 0 && dec.Payload[1] == 0 && dec.Payload[2] == 0 && dec.Payload[3] == 1 {
+					if len(dec.videoBuffer) > 0 {
+						dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
+						dec.videoBuffer = nil
+					}
+				}
 				dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			} else {
 				fmt.Println("video", err)
