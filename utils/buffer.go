@@ -60,6 +60,7 @@ func (b *IOBuffer) ReadByte() (byte, error) {
 	b.off++
 	return c, nil
 }
+
 func (b *IOBuffer) Reset() {
 	b.buf = b.buf[:0]
 	b.off = 0
@@ -81,20 +82,24 @@ func (b *IOBuffer) tryGrowByReslice(n int) (int, bool) {
 var ErrTooLarge = errors.New("IOBuffer: too large")
 
 func (b *IOBuffer) Write(p []byte) (n int, err error) {
-	defer func() {
-		if recover() != nil {
-			panic(ErrTooLarge)
-		}
-	}()
-	l := len(p)
-	oldLen := len(b.buf)
-	m, ok := b.tryGrowByReslice(l)
-	if !ok {
-		buf := make([]byte, oldLen+l)
-		copy(buf, b.buf[b.off:])
-		m = oldLen - b.off
-		b.off = 0
-		b.buf = buf
-	}
-	return copy(b.buf[m:], p), nil
+	l := copy(b.buf, b.buf[b.off:])
+	b.buf = append(b.buf[:l], p...)
+	b.off = 0
+	// println(b.buf, b.off, b.buf[b.off], b.buf[b.off+1], b.buf[b.off+2], b.buf[b.off+3])
+	return len(p), nil
+	// defer func() {
+	// 	if recover() != nil {
+	// 		panic(ErrTooLarge)
+	// 	}
+	// }()
+	// l := len(p)
+	// oldLen := len(b.buf)
+	// m, ok := b.tryGrowByReslice(l)
+	// if !ok {
+	// 	m = oldLen - b.off
+	// 	buf := append(append(([]byte)(nil), b.buf[b.off:]...), p...)
+	// 	b.off = 0
+	// 	b.buf = buf
+	// }
+	// return copy(b.buf[m:], p), nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/pion/rtp/v2"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
+	. "m7s.live/engine/v4/codec"
 	. "m7s.live/engine/v4/track"
 	"m7s.live/engine/v4/util"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -112,7 +113,15 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 		case utils.StreamTypeH265:
 			p.VideoTrack = NewH265(p.Publisher.Stream)
 		default:
-			return
+			//推测编码类型
+			var maybe264 H264NALUType
+			maybe264 = maybe264.Parse(payload[5])
+			switch maybe264 {
+			case NALU_Non_IDR_Picture, NALU_IDR_Picture, NALU_SEI, NALU_SPS, NALU_PPS:
+				p.VideoTrack = NewH264(p.Publisher.Stream)
+				return
+			}
+			p.VideoTrack = NewH265(p.Publisher.Stream)
 		}
 	}
 	p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload[:10]))
@@ -144,6 +153,7 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	}
 	p.AudioTrack.WriteAVCC(ts, payload)
 }
+
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	originRtp := *rtp
@@ -168,7 +178,7 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 					rtp = &originRtp // 还原rtp包，而不是使用缓存中，避免rtp序号断裂
 				}
 			}
-			p.parser.Reset()
+			p.parser.Drop()
 		}
 	}
 	p.lastSeq = rtp.SequenceNumber
@@ -177,6 +187,7 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	}
 	p.parser.Feed(ps)
 }
+
 func (p *GBPublisher) Replay(f *os.File) (err error) {
 	var rtpPacket rtp.Packet
 	defer f.Close()
@@ -252,7 +263,6 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 	return
 }
 
-
 func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 	port, err = conf.tcpPorts.GetPort()
 	if err != nil {
@@ -265,20 +275,18 @@ func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
 		return 0, err
 	}
-	// p.SetIO(conn)
 	go func() {
 		plugin.Info("Media tcp server start.", zap.Uint16("port", port))
-		defer listen.Close()
 		defer conf.tcpPorts.Recycle(port)
 		defer plugin.Info("Media tcp server stop", zap.Uint16("port", port))
-		for {
-			conn, err := listen.Accept()
-			if err != nil {
-				plugin.Error("Accept err=", zap.Error(err))
-			}
-			go processTcpMediaConn(conf, conn)
+		conn, err := listen.Accept()
+		listen.Close()
+		p.SetIO(conn)
+		if err != nil {
+			plugin.Error("Accept err=", zap.Error(err))
+			return
 		}
-		
+		processTcpMediaConn(conf, conn)
 	}()
 	return
 }

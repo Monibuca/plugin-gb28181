@@ -121,6 +121,7 @@ type DecPSPackage struct {
 	IOBuffer
 	Payload     []byte
 	videoBuffer []byte
+	audioBuffer []byte
 	PTS         uint32
 	DTS         uint32
 	Pusher
@@ -149,21 +150,41 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	return dec.ReadN(int(payloadlen))
 }
 
+// Drop 由于丢包引起的必须丢弃的数据
+func (dec *DecPSPackage) Drop() {
+	dec.Reset()
+	dec.videoBuffer = nil
+	dec.audioBuffer = nil
+	dec.Payload = nil
+}
+
 func (dec *DecPSPackage) Feed(ps []byte) (err error) {
-	defer dec.Write(ps)
-	if ps[0] == 0 && ps[1] == 0 && ps[2] == 1 && dec.Len() >= 4 {
-		defer dec.Reset()
+	if ps[0] == 0 && ps[1] == 0 && ps[2] == 1 {
+		defer dec.Write(ps)
+		if dec.Len() >= 4 {
+			//说明需要处理PS包，处理完后，清空缓存
+			defer dec.Reset()
+		}
 	} else {
+		// 说明是中间数据，直接写入缓存，否则数据不合法需要丢弃
+		if dec.Len() > 0 {
+			dec.Write(ps)
+		}
 		return nil
 	}
 	for dec.Len() >= 4 {
 		code, _ := dec.Uint32()
+		// println("code:", code)
 		switch code {
 		case StartCodePS:
 			dec.PrintDump("</td></tr><tr><td>")
 			if len(dec.videoBuffer) > 0 {
 				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
 				dec.videoBuffer = nil
+			}
+			if len(dec.audioBuffer) > 0 {
+				dec.PushAudio(dec.PTS, dec.audioBuffer)
+				dec.audioBuffer = nil
 			}
 			if err := dec.Skip(9); err != nil {
 				return err
@@ -193,8 +214,11 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 			}
 			dec.PrintDump("[video]")
 		case StartCodeAudio:
+			if dec.audioBuffer == nil {
+				dec.PrintDump("</td><td>")
+			}
 			if err = dec.decPESPacket(); err == nil {
-				dec.PushAudio(dec.PTS, dec.Payload)
+				dec.audioBuffer = append(dec.audioBuffer, dec.Payload...)
 				dec.PrintDump("[audio]")
 			} else {
 				fmt.Println("audio", err)
