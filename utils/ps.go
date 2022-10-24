@@ -164,6 +164,8 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 		if dec.Len() >= 4 {
 			//说明需要处理PS包，处理完后，清空缓存
 			defer dec.Reset()
+		} else {
+			return
 		}
 	} else {
 		// 说明是中间数据，直接写入缓存，否则数据不合法需要丢弃

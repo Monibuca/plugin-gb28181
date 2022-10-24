@@ -22,7 +22,7 @@ gb28181:
   prefetchrecord: false
   udpcachesize:   0
   sipnetwork:     udp
-  sipip:          
+  sipip:          ""
   sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
@@ -35,14 +35,15 @@ gb28181:
   heartbeatinterval: 60
   heartbeatretry:    3
   
-  mediaip:          
+  mediaip:          ""
   mediaport:        58200
   mediaidletimeout: 30
   medianetwork:     udp
-  
+  mediaportmin:     0
+  meidaportmax:     0
+
   removebaninterval: 600
   loglevel:         info
-  audioenable:       true
 ```
 
 - `AutoInvite`     bool 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
@@ -68,11 +69,14 @@ gb28181:
 - `MediaPort`        uint16 媒体服务器端口
 - `MediaNetwork`     string 媒体传输协议，默认UDP，可选TCP
 - `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连
-
+- `MediaPortMin`     uint16 媒体服务器端口范围最小值
+- `MediaPortMax`     uint16 媒体服务器端口范围最大值
 - `AudioEnable`       bool 是否开启音频
 - `LogLevel`        string 日志级别，默认 info（trace，debug，info，warn，error，fatal, panic）
 - `RemoveBanInterval` int  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
 - `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
+
+**如果配置了端口范围，将采用范围端口机制，每一个流对应一个端口
 
 **注意某些摄像机没有设置用户名的地方，摄像机会以自身的国标id作为用户名，这个时候m7s会忽略使用摄像机的用户名，忽略配置的用户名**
 如果设备配置了错误的用户名和密码，连续三次上报错误后，m7s会记录设备id，并在10分钟内禁止设备注册

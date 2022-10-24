@@ -116,9 +116,9 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 		default:
 			//推测编码类型
 			var maybe264 H264NALUType
-			maybe264 = maybe264.Parse(payload[5])
+			maybe264 = maybe264.Parse(payload[4])
 			switch maybe264 {
-			case NALU_Non_IDR_Picture, NALU_IDR_Picture, NALU_SEI, NALU_SPS, NALU_PPS:
+			case NALU_Non_IDR_Picture, NALU_IDR_Picture, NALU_SEI, NALU_SPS, NALU_PPS, NALU_Access_Unit_Delimiter:
 				p.VideoTrack = NewH264(p.Publisher.Stream)
 			default:
 				p.VideoTrack = NewH265(p.Publisher.Stream)
