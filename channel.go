@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	. "m7s.live/engine/v4"
 	"github.com/ghettovoice/gosip/sip"
 	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -393,6 +394,11 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 }
 
 func (channel *Channel) Bye(live bool) int {
+	d := channel.device
+	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
+	if s := Streams.Get(streamPath); s != nil {
+		s.Close()
+	}
 	if live && channel.LivePublisher != nil {
 		return channel.LivePublisher.Bye()
 	}
