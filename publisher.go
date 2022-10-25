@@ -222,16 +222,19 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 	mediaAddr, _ := net.ResolveUDPAddr("udp", addr)
 	conn, err := net.ListenUDP("udp", mediaAddr)
 	if err != nil {
+		conf.udpPorts.Recycle(port)
 		plugin.Error("listen media server udp err", zap.String("addr", addr), zap.Error(err))
 		return 0, err
 	}
 	p.SetIO(conn)
 	go func() {
+		defer conn.Close()
 		bufUDP := make([]byte, networkBuffer)
 		plugin.Info("Media udp server start.", zap.Uint16("port", port))
 		defer plugin.Info("Media udp server stop", zap.Uint16("port", port))
 		defer conf.udpPorts.Recycle(port)
 		dumpLen := make([]byte, 6)
+		conn.SetReadDeadline(time.Now().Add(time.Second * 10))
 		for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 			ps := bufUDP[:n]
 			if err := rtpPacket.Unmarshal(ps); err != nil {
@@ -249,6 +252,7 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 				p.dumpFile.Write(ps)
 			}
 			p.PushPS(&rtpPacket)
+			conn.SetReadDeadline(time.Now().Add(time.Second * 10))
 		}
 	}()
 	return
@@ -263,6 +267,7 @@ func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 	mediaAddr, _ := net.ResolveTCPAddr("tcp", addr)
 	listen, err := net.ListenTCP("tcp", mediaAddr)
 	if err != nil {
+		defer conf.tcpPorts.Recycle(port)
 		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
 		return 0, err
 	}
