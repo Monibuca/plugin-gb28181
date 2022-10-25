@@ -161,21 +161,20 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
-	if !conf.IsMediaNetworkTCP() {
-		rtp = p.reorder.Push(rtp.SequenceNumber, rtp)
-	} else {
-		p.lastSeq = rtp.SequenceNumber
-	}
 	if p.parser == nil {
 		p.parser = utils.NewDecPSPackage(p)
 	}
-	for rtp != nil {
-		if rtp.SequenceNumber != p.lastSeq+1 {
-			p.parser.Drop()
-		}
+	if conf.IsMediaNetworkTCP() {
 		p.parser.Feed(rtp.Payload)
 		p.lastSeq = rtp.SequenceNumber
-		rtp = p.reorder.Pop()
+	} else {
+		for rtp = p.reorder.Push(rtp.SequenceNumber, rtp); rtp != nil; rtp = p.reorder.Pop() {
+			if rtp.SequenceNumber != p.lastSeq+1 {
+				p.parser.Drop()
+			}
+			p.parser.Feed(rtp.Payload)
+			p.lastSeq = rtp.SequenceNumber
+		}
 	}
 }
 
