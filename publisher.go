@@ -156,7 +156,7 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 			return
 		}
 	}
-	p.AudioTrack.WriteAVCC(ts, payload)
+	p.AudioTrack.WriteAVCC(ts/90, payload)
 }
 
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
