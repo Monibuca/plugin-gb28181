@@ -13,16 +13,6 @@ const (
 	TCPTransferPassive int = 2
 	LocalCache         int = 3
 
-	StreamTypeH264 = 0x1b
-	StreamTypeH265 = 0x24
-	G711A          = 0x90 //PCMA
-	G7221AUDIOTYPE = 0x92
-	G7231AUDIOTYPE = 0x93
-	G729AUDIOTYPE  = 0x99
-
-	StreamIDVideo = 0xe0
-	StreamIDAudio = 0xc0
-
 	StartCodePS        = 0x000001ba
 	StartCodeSYS       = 0x000001bb
 	StartCodeMAP       = 0x000001bc
@@ -184,6 +174,10 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 				dec.PushAudio(dec.PTS, dec.audioBuffer)
 				dec.audioBuffer = nil
 			}
+			if len(dec.videoBuffer) > 0 {
+				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
+				dec.videoBuffer = nil
+			}
 			if err := dec.Skip(9); err != nil {
 				return err
 			}
@@ -206,12 +200,6 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 				dec.PrintDump("</td><td>")
 			}
 			if err = dec.decPESPacket(); err == nil {
-				if dec.Payload[0] == 0 && dec.Payload[1] == 0 && dec.Payload[2] == 0 && dec.Payload[3] == 1 {
-					if len(dec.videoBuffer) > 0 {
-						dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
-						dec.videoBuffer = nil
-					}
-				}
 				dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			} else {
 				fmt.Println("video", err)

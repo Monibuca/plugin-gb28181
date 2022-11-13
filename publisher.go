@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	. "m7s.live/engine/v4/codec"
+	"m7s.live/engine/v4/codec/mpegts"
 	. "m7s.live/engine/v4/track"
 	"m7s.live/engine/v4/util"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -109,18 +110,24 @@ func (p *GBPublisher) Bye() int {
 func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 	if p.VideoTrack == nil {
 		switch p.parser.VideoStreamType {
-		case utils.StreamTypeH264:
+		case mpegts.STREAM_TYPE_H264:
 			p.VideoTrack = NewH264(p.Publisher.Stream)
-		case utils.StreamTypeH265:
+		case mpegts.STREAM_TYPE_H265:
 			p.VideoTrack = NewH265(p.Publisher.Stream)
 		default:
 			//推测编码类型
 			var maybe264 H264NALUType
 			maybe264 = maybe264.Parse(payload[4])
 			switch maybe264 {
-			case NALU_Non_IDR_Picture, NALU_IDR_Picture, NALU_SEI, NALU_SPS, NALU_PPS, NALU_Access_Unit_Delimiter:
+			case NALU_Non_IDR_Picture,
+				NALU_IDR_Picture,
+				NALU_SEI,
+				NALU_SPS,
+				NALU_PPS,
+				NALU_Access_Unit_Delimiter:
 				p.VideoTrack = NewH264(p.Publisher.Stream)
 			default:
+				p.Info("maybe h265", zap.Uint8("type", maybe264.Byte()))
 				p.VideoTrack = NewH265(p.Publisher.Stream)
 			}
 		}
@@ -138,25 +145,30 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.AudioTrack == nil {
 		switch p.parser.AudioStreamType {
-		case utils.G711A:
+		case mpegts.STREAM_TYPE_G711A:
 			at := NewG711(p.Publisher.Stream, true)
 			at.Audio.SampleRate = 8000
 			at.Audio.SampleSize = 16
 			at.Channels = 1
 			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
 			p.AudioTrack = at
-		case utils.G711A + 1:
+		case mpegts.STREAM_TYPE_G711U:
 			at := NewG711(p.Publisher.Stream, false)
 			at.Audio.SampleRate = 8000
 			at.Audio.SampleSize = 16
 			at.Channels = 1
 			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
 			p.AudioTrack = at
+		case mpegts.STREAM_TYPE_AAC:
+			p.AudioTrack = NewAAC(p.Publisher.Stream)
+			p.WriteADTS(payload[:7])
 		default:
+			p.Error("audio type not supported yet", zap.Uint32("type", p.parser.AudioStreamType))
 			return
 		}
+	} else {
+		p.AudioTrack.WriteRaw(ts, payload)
 	}
-	p.AudioTrack.WriteAVCC(ts/90, payload)
 }
 
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
