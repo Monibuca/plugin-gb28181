@@ -110,6 +110,7 @@ type DecPSPackage struct {
 	AudioStreamType uint32
 	IOBuffer
 	Payload     []byte
+	Lack        int //缺少字节数
 	videoBuffer []byte
 	audioBuffer []byte
 	PTS         uint32
@@ -137,7 +138,13 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	if err != nil {
 		return
 	}
-	return dec.ReadN(int(payloadlen))
+	if l := int(payloadlen); dec.Len() >= l {
+		dec.Lack = 0
+		return dec.Next(l), nil
+	} else {
+		dec.Lack = l - dec.Len()
+	}
+	return dec.Next(dec.Len()), io.EOF
 }
 
 // Drop 由于丢包引起的必须丢弃的数据
@@ -149,7 +156,11 @@ func (dec *DecPSPackage) Drop() {
 }
 
 func (dec *DecPSPackage) Feed(ps []byte) (err error) {
-	if ps[0] == 0 && ps[1] == 0 && ps[2] == 1 {
+	if len(ps) < 4 {
+		return nil
+	}
+	switch binary.BigEndian.Uint32(ps) {
+	case StartCodePS, StartCodeSYS, StartCodeMAP, StartCodeVideo, StartCodeAudio, PrivateStreamCode, MEPGProgramEndCode:
 		defer dec.Write(ps)
 		if dec.Len() >= 4 {
 			//说明需要处理PS包，处理完后，清空缓存
@@ -157,7 +168,7 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 		} else {
 			return
 		}
-	} else {
+	default:
 		// 说明是中间数据，直接写入缓存，否则数据不合法需要丢弃
 		if dec.Len() > 0 {
 			dec.Write(ps)
@@ -174,10 +185,6 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 				dec.PushAudio(dec.PTS, dec.audioBuffer)
 				dec.audioBuffer = nil
 			}
-			if len(dec.videoBuffer) > 0 {
-				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
-				dec.videoBuffer = nil
-			}
 			if err := dec.Skip(9); err != nil {
 				return err
 			}
@@ -189,6 +196,15 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 			if err = dec.Skip(int(psl)); err != nil {
 				return err
 			}
+			if l:= dec.Len(); dec.Lack > 0 {
+				if l >= dec.Lack {
+					dec.videoBuffer = append(dec.videoBuffer, dec.Next(dec.Lack)...)
+					dec.Lack = 0
+				} else {
+					dec.videoBuffer = append(dec.videoBuffer, dec.Next(l)...)
+					dec.Lack -= l
+				}
+			}
 		case StartCodeSYS:
 			dec.PrintDump("</td><td>[sys]")
 			dec.ReadPayload()
@@ -199,11 +215,15 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 			if dec.videoBuffer == nil {
 				dec.PrintDump("</td><td>")
 			}
-			if err = dec.decPESPacket(); err == nil {
-				dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
-			} else {
-				fmt.Println("video", err)
+			err = dec.decPESPacket()
+			// if err != nil {
+			// 	//说明还有后续数据，需要继续处理
+			// }
+			if len(dec.videoBuffer) > 0 && dec.Payload[0] == 0 && dec.Payload[1] == 0 && dec.Payload[2] == 0 && dec.Payload[3] == 1 {
+				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
+				dec.videoBuffer = nil
 			}
+			dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			dec.PrintDump("[video]")
 		case StartCodeAudio:
 			if dec.audioBuffer == nil {
@@ -297,9 +317,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 
 func (dec *DecPSPackage) decPESPacket() error {
 	payload, err := dec.ReadPayload()
-	if err != nil {
-		return err
-	}
+
 	if len(payload) < 4 {
 		return errors.New("not enough data")
 	}
@@ -328,5 +346,8 @@ func (dec *DecPSPackage) decPESPacket() error {
 		}
 	}
 	dec.Payload = payload[pesHeaderDataLen:]
+	if dec.Lack > 0 {
+		dec.Lack -= int(pesHeaderDataLen + 4)
+	}
 	return err
 }
