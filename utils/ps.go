@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/pion/rtp/v2"
 )
 
 const (
@@ -155,7 +157,8 @@ func (dec *DecPSPackage) Drop() {
 	dec.Payload = nil
 }
 
-func (dec *DecPSPackage) Feed(ps []byte) (err error) {
+func (dec *DecPSPackage) Feed(rtp *rtp.Packet) (err error) {
+	ps := rtp.Payload
 	if len(ps) < 4 {
 		return nil
 	}
@@ -196,14 +199,9 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 			if err = dec.Skip(int(psl)); err != nil {
 				return err
 			}
-			if l:= dec.Len(); dec.Lack > 0 {
-				if l >= dec.Lack {
-					dec.videoBuffer = append(dec.videoBuffer, dec.Next(dec.Lack)...)
-					dec.Lack = 0
-				} else {
-					dec.videoBuffer = append(dec.videoBuffer, dec.Next(l)...)
-					dec.Lack -= l
-				}
+			if len(dec.videoBuffer) > 0 {
+				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
+				dec.videoBuffer = nil
 			}
 		case StartCodeSYS:
 			dec.PrintDump("</td><td>[sys]")
@@ -217,12 +215,9 @@ func (dec *DecPSPackage) Feed(ps []byte) (err error) {
 			}
 			err = dec.decPESPacket()
 			// if err != nil {
-			// 	//说明还有后续数据，需要继续处理
+			//说明还有后续数据，需要继续处理
+			// println(rtp.SequenceNumber)
 			// }
-			if len(dec.videoBuffer) > 0 && dec.Payload[0] == 0 && dec.Payload[1] == 0 && dec.Payload[2] == 0 && dec.Payload[3] == 1 {
-				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
-				dec.videoBuffer = nil
-			}
 			dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			dec.PrintDump("[video]")
 		case StartCodeAudio:
@@ -346,8 +341,5 @@ func (dec *DecPSPackage) decPESPacket() error {
 		}
 	}
 	dec.Payload = payload[pesHeaderDataLen:]
-	if dec.Lack > 0 {
-		dec.Lack -= int(pesHeaderDataLen + 4)
-	}
 	return err
 }

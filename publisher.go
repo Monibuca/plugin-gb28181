@@ -177,14 +177,14 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 		p.parser = utils.NewDecPSPackage(p)
 	}
 	if conf.IsMediaNetworkTCP() {
-		p.parser.Feed(rtp.Payload)
+		p.parser.Feed(rtp)
 		p.lastSeq = rtp.SequenceNumber
 	} else {
 		for rtp = p.reorder.Push(rtp.SequenceNumber, rtp); rtp != nil; rtp = p.reorder.Pop() {
 			if rtp.SequenceNumber != p.lastSeq+1 {
 				p.parser.Drop()
 			}
-			p.parser.Feed(rtp.Payload)
+			p.parser.Feed(rtp)
 			p.lastSeq = rtp.SequenceNumber
 		}
 	}
