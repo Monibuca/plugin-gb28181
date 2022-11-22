@@ -104,15 +104,14 @@ type Pusher interface {
 https://github.com/videolan/vlc/blob/master/modules/demux/mpeg
 */
 type DecPSPackage struct {
-	systemClockReferenceBase      uint64
-	systemClockReferenceExtension uint64
-	programMuxRate                uint32
+	// systemClockReferenceBase      uint64
+	// systemClockReferenceExtension uint64
+	// programMuxRate                uint32
 
 	VideoStreamType uint32
 	AudioStreamType uint32
 	IOBuffer
 	Payload     []byte
-	Lack        int //缺少字节数
 	videoBuffer []byte
 	audioBuffer []byte
 	PTS         uint32
@@ -126,14 +125,15 @@ func NewDecPSPackage(p Pusher) *DecPSPackage {
 		Pusher: p,
 	}
 }
-func (dec *DecPSPackage) clean() {
-	dec.systemClockReferenceBase = 0
-	dec.systemClockReferenceExtension = 0
-	dec.programMuxRate = 0
-	dec.Payload = nil
-	dec.PTS = 0
-	dec.DTS = 0
-}
+
+// func (dec *DecPSPackage) clean() {
+// 	dec.systemClockReferenceBase = 0
+// 	dec.systemClockReferenceExtension = 0
+// 	dec.programMuxRate = 0
+// 	dec.Payload = nil
+// 	dec.PTS = 0
+// 	dec.DTS = 0
+// }
 
 func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 	payloadlen, err := dec.Uint16()
@@ -141,10 +141,7 @@ func (dec *DecPSPackage) ReadPayload() (payload []byte, err error) {
 		return
 	}
 	if l := int(payloadlen); dec.Len() >= l {
-		dec.Lack = 0
 		return dec.Next(l), nil
-	} else {
-		dec.Lack = l - dec.Len()
 	}
 	return dec.Next(dec.Len()), io.EOF
 }

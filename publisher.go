@@ -183,6 +183,9 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 		for rtp = p.reorder.Push(rtp.SequenceNumber, rtp); rtp != nil; rtp = p.reorder.Pop() {
 			if rtp.SequenceNumber != p.lastSeq+1 {
 				p.parser.Drop()
+				if p.VideoTrack != nil {
+					p.VideoTrack.SetLostFlag()
+				}
 			}
 			p.parser.Feed(rtp)
 			p.lastSeq = rtp.SequenceNumber
