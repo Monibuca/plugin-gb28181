@@ -261,6 +261,7 @@ type notifyMessage struct {
 	Owner        string
 	CivilCode    string
 	Address      string
+	Port         int
 	Parental     int
 	SafetyWay    int
 	RegisterWay  int
