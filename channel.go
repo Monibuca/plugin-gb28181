@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	. "m7s.live/engine/v4"
 	"github.com/ghettovoice/gosip/sip"
 	"go.uber.org/zap"
+	. "m7s.live/engine/v4"
 	"m7s.live/plugin/gb28181/v4/utils"
 )
 
@@ -43,6 +43,7 @@ type Channel struct {
 	Owner        string
 	CivilCode    string
 	Address      string
+	Port         int
 	Parental     int
 	SafetyWay    int
 	RegisterWay  int
@@ -94,9 +95,17 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 		},
 		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
 	}
+	//非同一域的目标地址需要使用@host
+	host := conf.Realm
+	if c.DeviceID[0:9] != host {
+		deviceIp := d.NetAddr
+		deviceIp = deviceIp[0:strings.LastIndex(deviceIp, ":")]
+		host = fmt.Sprintf("%s:%d", deviceIp, c.Port)
+	}
+
 	channelAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
-		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: conf.Realm},
+		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: host},
 	}
 	req = sip.NewRequest(
 		"",
