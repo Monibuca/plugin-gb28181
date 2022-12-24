@@ -59,11 +59,19 @@ func (c *GB28181Config) initRoutes() {
 	plugin.Info(fmt.Sprintf("LocalAndInternalIPs detail: %s", c.routes))
 }
 func (c *GB28181Config) OnEvent(event any) {
-	switch event.(type) {
+	switch v := event.(type) {
 	case FirstConfig:
 		ReadDevices()
 		go c.initRoutes()
 		c.startServer()
+	case *Stream:
+		// AutoInvite配置为false，启用按需拉流；
+		if !c.AutoInvite {
+			channel := FindChannel(v.AppName, v.StreamName)
+			if channel != nil && channel.LivePublisher == nil {
+				channel.Invite(InviteOptions{})
+			}
+		}
 	}
 }
 

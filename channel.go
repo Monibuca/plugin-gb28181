@@ -394,6 +394,14 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		}
 		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
 		srv.Send(ack)
+		// 按需拉流场景下，由API_INVITE触发的推流不受DelayCloseTimeout的控制,模拟首次进行订阅者并退出；
+		if !conf.AutoInvite {
+			subscriber := &Subscriber{}
+			plugin.SubscribeExist(streamPath,subscriber)
+			time.AfterFunc(time.Second * time.Duration(conf.DelayCloseTimeout), func() {
+				subscriber.Stream.Receive(subscriber.Spesific)
+			})
+		}
 	} else if opt.IsLive() && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite(InviteOptions{})
@@ -406,7 +414,12 @@ func (channel *Channel) Bye(live bool) int {
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	if s := Streams.Get(streamPath); s != nil {
-		s.Close()
+		if live {
+			// conf.AutoInvite:false，代表按需拉流；此处不可调用，会影响snap插件不阻塞等待流，直接触发 Stream Is Closed
+			if conf.AutoInvite{
+				s.Close()
+			}
+		}
 	}
 	if live && channel.LivePublisher != nil {
 		return channel.LivePublisher.Bye()
