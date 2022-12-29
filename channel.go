@@ -405,14 +405,6 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		}
 		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
 		srv.Send(ack)
-		// 按需拉流场景下，由API_INVITE触发的推流不受DelayCloseTimeout的控制,模拟首次进行订阅者并退出；
-		if !conf.AutoInvite {
-			subscriber := &Subscriber{}
-			plugin.SubscribeExist(streamPath, subscriber)
-			time.AfterFunc(time.Second*time.Duration(conf.DelayCloseTimeout), func() {
-				subscriber.Stream.Receive(subscriber.Spesific)
-			})
-		}
 	} else if opt.IsLive() && conf.AutoInvite {
 		time.AfterFunc(time.Second*5, func() {
 			channel.Invite(InviteOptions{})
