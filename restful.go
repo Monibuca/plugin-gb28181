@@ -1,6 +1,8 @@
 package gb28181
 
 import (
+	"fmt"
+	"m7s.live/engine/v4"
 	"net/http"
 	"os"
 	"strconv"
@@ -54,8 +56,9 @@ func (conf *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	channel := query.Get("channel")
 	port, _ := strconv.Atoi(query.Get("mediaPort"))
 	opt := InviteOptions{
-		dump:      query.Get("dump"),
-		MediaPort: uint16(port),
+		dump:           query.Get("dump"),
+		MediaPort:      uint16(port),
+		InviteOnSubscribe: true,
 	}
 	opt.Validate(query.Get("startTime"), query.Get("endTime"))
 	if c := FindChannel(id, channel); c == nil {
@@ -108,6 +111,11 @@ func (conf *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	live := r.URL.Query().Get("live")
 	if c := FindChannel(id, channel); c != nil {
+		d := c.device
+		streamPath := fmt.Sprintf("%s/%s", d.ID, c.DeviceID)
+		if s := engine.Streams.Get(streamPath); s != nil {
+			s.Close()
+		}
 		w.WriteHeader(c.Bye(live != "false"))
 	} else {
 		http.NotFound(w, r)

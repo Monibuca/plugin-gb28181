@@ -176,12 +176,13 @@ func (channel *Channel) Control(PTZCmd string) int {
 }
 
 type InviteOptions struct {
-	Start     int
-	End       int
-	dump      string
-	ssrc      string
-	SSRC      uint32
-	MediaPort uint16
+	Start          int
+	End            int
+	dump           string
+	ssrc           string
+	SSRC           uint32
+	MediaPort      uint16
+	InviteOnSubscribe bool
 }
 
 func (o InviteOptions) IsLive() bool {
@@ -277,6 +278,16 @@ f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
 func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
+	// 按需Invite开启。
+	if !opt.InviteOnSubscribe {
+		if conf.On {
+			// 按需拉流过滤条件
+			if (len(conf.DaemonAppList) > 0 && utils.In(channel.ParentID, conf.DaemonAppList)) ||
+				(conf.filterReg != nil && conf.filterReg.MatchString(fmt.Sprintf("%s/%s",channel.ParentID,channel.DeviceID))) {
+				return
+			}
+		}
+	}
 	if opt.IsLive() {
 		if !channel.liveInviteLock.TryLock() {
 			return 304, nil
@@ -397,8 +408,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		// 按需拉流场景下，由API_INVITE触发的推流不受DelayCloseTimeout的控制,模拟首次进行订阅者并退出；
 		if !conf.AutoInvite {
 			subscriber := &Subscriber{}
-			plugin.SubscribeExist(streamPath,subscriber)
-			time.AfterFunc(time.Second * time.Duration(conf.DelayCloseTimeout), func() {
+			plugin.SubscribeExist(streamPath, subscriber)
+			time.AfterFunc(time.Second*time.Duration(conf.DelayCloseTimeout), func() {
 				subscriber.Stream.Receive(subscriber.Spesific)
 			})
 		}
@@ -411,16 +422,6 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 }
 
 func (channel *Channel) Bye(live bool) int {
-	d := channel.device
-	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
-	if s := Streams.Get(streamPath); s != nil {
-		if live {
-			// conf.AutoInvite:false，代表按需拉流；此处不可调用，会影响snap插件不阻塞等待流，直接触发 Stream Is Closed
-			if conf.AutoInvite{
-				s.Close()
-			}
-		}
-	}
 	if live && channel.LivePublisher != nil {
 		return channel.LivePublisher.Bye()
 	}

@@ -2,17 +2,26 @@ package gb28181
 
 import (
 	"fmt"
-	"strings"
-
 	myip "github.com/husanpao/ip"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
+	"m7s.live/plugin/gb28181/v4/utils"
+	"regexp"
+	"strings"
 )
 
-type GB28181Config struct {
-	AutoInvite     bool
-	PreFetchRecord bool
+// InviteOnSubscribe 按需Invite过滤器。
+type InviteOnSubscribe struct {
+	On bool // 是否开启
+	DaemonAppList []string // 设备号列表
+	Filter     string //正则表达式
+	filterReg  *regexp.Regexp
+}
 
+type GB28181Config struct {
+	AutoInvite              bool
+	PreFetchRecord          bool
+	InviteOnSubscribe      // 按需拉流过滤器
 	//sip服务器的配置
 	SipNetwork string //传输协议，默认UDP，可选TCP
 	SipIP      string //sip 服务器公网IP
@@ -64,12 +73,29 @@ func (c *GB28181Config) OnEvent(event any) {
 		ReadDevices()
 		go c.initRoutes()
 		c.startServer()
+		// 按需拉流开启
+		if c.On {
+			if c.Filter != "" {
+				c.filterReg = regexp.MustCompile(c.Filter)
+			}
+		}
+	case UnsubscribeEvent:
+		// 最后一个订阅者离开。
+		stream := v.Subscriber.GetSubscriber().Stream
+		if stream != nil && len(stream.Subscribers) == 0 {
+			if conf.On {
+				// 按需拉流的设备通道在最后一个订阅者离开后，主动断开推流。
+				if (len(conf.DaemonAppList) > 0 && utils.In(stream.AppName, conf.DaemonAppList)) ||
+					(conf.filterReg != nil && conf.filterReg.MatchString(stream.Path)) {
+					stream.Receive(ACTION_LASTLEAVE)
+				}
+			}
+		}
 	case *Stream:
-		// AutoInvite配置为false，启用按需拉流；
-		if !c.AutoInvite {
+		if v.AppName != "" && v.StreamName != ""{
 			channel := FindChannel(v.AppName, v.StreamName)
 			if channel != nil && channel.LivePublisher == nil {
-				channel.Invite(InviteOptions{})
+				channel.Invite(InviteOptions{InviteOnSubscribe: true})
 			}
 		}
 	}
@@ -80,17 +106,16 @@ func (c *GB28181Config) IsMediaNetworkTCP() bool {
 }
 
 var conf = &GB28181Config{
-	AutoInvite:     true,
-	PreFetchRecord: false,
-	UdpCacheSize:   0,
-	SipNetwork:     "udp",
-	SipIP:          "",
-	SipPort:        5060,
-	Serial:         "34020000002000000001",
-	Realm:          "3402000000",
-	Username:       "",
-	Password:       "",
-
+	AutoInvite:        true,
+	PreFetchRecord:    false,
+	UdpCacheSize:      0,
+	SipNetwork:        "udp",
+	SipIP:             "",
+	SipPort:           5060,
+	Serial:            "34020000002000000001",
+	Realm:             "3402000000",
+	Username:          "",
+	Password:          "",
 	AckTimeout:        10,
 	RegisterValidity:  60,
 	RegisterInterval:  60,
