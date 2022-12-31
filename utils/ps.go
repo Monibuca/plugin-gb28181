@@ -114,8 +114,10 @@ type DecPSPackage struct {
 	Payload     []byte
 	videoBuffer []byte
 	audioBuffer []byte
-	PTS         uint32
-	DTS         uint32
+	aPTS        uint32
+	aDTS        uint32
+	vPTS        uint32
+	vDTS        uint32
 	Pusher
 }
 
@@ -159,6 +161,7 @@ func (dec *DecPSPackage) Feed(rtp *rtp.Packet) (err error) {
 	if len(ps) < 4 {
 		return nil
 	}
+	// println(binary.BigEndian.Uint32(ps))
 	switch binary.BigEndian.Uint32(ps) {
 	case StartCodePS, StartCodeSYS, StartCodeMAP, StartCodeVideo, StartCodeAudio, PrivateStreamCode, MEPGProgramEndCode:
 		defer dec.Write(ps)
@@ -182,7 +185,7 @@ func (dec *DecPSPackage) Feed(rtp *rtp.Packet) (err error) {
 		case StartCodePS:
 			dec.PrintDump("</td></tr><tr><td>")
 			if len(dec.audioBuffer) > 0 {
-				dec.PushAudio(dec.PTS, dec.audioBuffer)
+				dec.PushAudio(dec.aPTS, dec.audioBuffer)
 				dec.audioBuffer = nil
 			}
 			if err := dec.Skip(9); err != nil {
@@ -197,7 +200,7 @@ func (dec *DecPSPackage) Feed(rtp *rtp.Packet) (err error) {
 				return err
 			}
 			if len(dec.videoBuffer) > 0 {
-				dec.PushVideo(dec.PTS, dec.DTS, dec.videoBuffer)
+				dec.PushVideo(dec.vPTS, dec.vDTS, dec.videoBuffer)
 				dec.videoBuffer = nil
 			}
 		case StartCodeSYS:
@@ -210,18 +213,19 @@ func (dec *DecPSPackage) Feed(rtp *rtp.Packet) (err error) {
 			if dec.videoBuffer == nil {
 				dec.PrintDump("</td><td>")
 			}
-			err = dec.decPESPacket()
+			dec.decPESPacket(&dec.vPTS, &dec.vDTS)
+			dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			// if err != nil {
 			//说明还有后续数据，需要继续处理
 			// println(rtp.SequenceNumber)
 			// }
-			dec.videoBuffer = append(dec.videoBuffer, dec.Payload...)
 			dec.PrintDump("[video]")
 		case StartCodeAudio:
+
 			if dec.audioBuffer == nil {
 				dec.PrintDump("</td><td>")
 			}
-			if err = dec.decPESPacket(); err == nil {
+			if err = dec.decPESPacket(&dec.aPTS, &dec.aDTS); err == nil {
 				dec.audioBuffer = append(dec.audioBuffer, dec.Payload...)
 				dec.PrintDump("[audio]")
 			} else {
@@ -307,7 +311,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	return nil
 }
 
-func (dec *DecPSPackage) decPESPacket() error {
+func (dec *DecPSPackage) decPESPacket(pts *uint32,dts *uint32) error {
 	payload, err := dec.ReadPayload()
 
 	if len(payload) < 4 {
@@ -317,24 +321,21 @@ func (dec *DecPSPackage) decPESPacket() error {
 	flag := payload[1]
 	ptsFlag := flag>>7 == 1
 	dtsFlag := (flag&0b0100_0000)>>6 == 1
-	var pts, dts uint32
 	pesHeaderDataLen := payload[2]
 	payload = payload[3:]
 	extraData := payload[:pesHeaderDataLen]
 	if ptsFlag && len(extraData) > 4 {
-		pts = uint32(extraData[0]&0b0000_1110) << 29
-		pts += uint32(extraData[1]) << 22
-		pts += uint32(extraData[2]&0b1111_1110) << 14
-		pts += uint32(extraData[3]) << 7
-		pts += uint32(extraData[4]) >> 1
-		dec.PTS = pts
+		*pts = uint32(extraData[0]&0b0000_1110) << 29
+		*pts += uint32(extraData[1]) << 22
+		*pts += uint32(extraData[2]&0b1111_1110) << 14
+		*pts += uint32(extraData[3]) << 7
+		*pts += uint32(extraData[4]) >> 1
 		if dtsFlag && len(extraData) > 9 {
-			dts = uint32(extraData[5]&0b0000_1110) << 29
-			dts += uint32(extraData[6]) << 22
-			dts += uint32(extraData[7]&0b1111_1110) << 14
-			dts += uint32(extraData[8]) << 7
-			dts += uint32(extraData[9]) >> 1
-			dec.DTS = dts
+			*dts = uint32(extraData[5]&0b0000_1110) << 29
+			*dts += uint32(extraData[6]) << 22
+			*dts += uint32(extraData[7]&0b1111_1110) << 14
+			*dts += uint32(extraData[8]) << 7
+			*dts += uint32(extraData[9]) >> 1
 		}
 	}
 	dec.Payload = payload[pesHeaderDataLen:]
