@@ -1,6 +1,7 @@
 package gb28181
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -301,7 +302,23 @@ func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 			plugin.Error("Accept err=", zap.Error(err))
 			return
 		}
-		processTcpMediaConn(conf, conn)
+		var rtpPacket rtp.Packet
+		lenBuf := make([]byte, 2)
+		defer conn.Close()
+		for err == nil {
+			if _, err = io.ReadFull(conn, lenBuf); err != nil {
+				return
+			}
+			ps := make([]byte, binary.BigEndian.Uint16(lenBuf))
+			if _, err = io.ReadFull(conn, ps); err != nil {
+				return
+			}
+			if err := rtpPacket.Unmarshal(ps); err != nil {
+				plugin.Error("gb28181 decode rtp error:", zap.Error(err))
+			} else if !p.IsClosed() {
+				p.PushPS(&rtpPacket)
+			}
+		}
 	}()
 	return
 }
