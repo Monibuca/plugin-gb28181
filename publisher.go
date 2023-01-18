@@ -147,30 +147,19 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.AudioTrack == nil {
 		switch p.parser.AudioStreamType {
 		case mpegts.STREAM_TYPE_G711A:
-			at := NewG711(p.Publisher.Stream, true)
-			at.Audio.SampleRate = 8000
-			at.Audio.SampleSize = 16
-			at.Channels = 1
-			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
-			p.AudioTrack = at
+			p.AudioTrack = NewG711(p.Publisher.Stream, true)
 		case mpegts.STREAM_TYPE_G711U:
-			at := NewG711(p.Publisher.Stream, false)
-			at.Audio.SampleRate = 8000
-			at.Audio.SampleSize = 16
-			at.Channels = 1
-			at.AVCCHead = []byte{(byte(at.CodecID) << 4) | (1 << 1)}
-			p.AudioTrack = at
+			p.AudioTrack = NewG711(p.Publisher.Stream, false)
 		case mpegts.STREAM_TYPE_AAC:
 			p.AudioTrack = NewAAC(p.Publisher.Stream)
 			p.WriteADTS(payload[:7])
-		default:
+		case 0: //推测编码类型
 			if payload[0] == 0xff && payload[1]>>4 == 0xf {
 				p.AudioTrack = NewAAC(p.Publisher.Stream)
 				p.WriteADTS(payload[:7])
-			} else {
-				p.Error("audio type not supported yet", zap.Uint32("type", p.parser.AudioStreamType))
-				return
 			}
+		default:
+			p.Error("audio type not supported yet", zap.Uint32("type", p.parser.AudioStreamType))
 		}
 	} else {
 		p.AudioTrack.WriteRaw(ts, payload)
