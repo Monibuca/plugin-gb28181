@@ -81,6 +81,7 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 
 	callId := sip.CallID(utils.RandNumString(10))
 	userAgent := sip.UserAgentHeader("Monibuca")
+	maxForwards := sip.MaxForwards(70) //增加max-forwards为默认值 70
 	cseq := sip.CSeq{
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
@@ -118,6 +119,7 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 			&callId,
 			&userAgent,
 			&cseq,
+			&maxForwards,
 			serverAddr.AsContactHeader(),
 		},
 		"",

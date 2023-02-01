@@ -19,6 +19,10 @@ _ "m7s.live/plugin/gb28181/v4"
 ```yaml
 gb28181:
   autoinvite:     true
+  position:
+    autosubposition: false #是否自动订阅定位
+    expires: 3600 #订阅周期(单位：秒)，默认3600
+    interval: 6 #订阅间隔（单位：秒），默认6
   prefetchrecord: false
   udpcachesize:   0
   sipnetwork:     udp
@@ -130,12 +134,12 @@ type Device struct {
 
 `/gb28181/api/invite`
 
-参数名 | 必传 | 含义
-|----|---|---
-id|是 | 设备ID
-channel|是|通道编号
-startTime|否|开始时间（纯数字Unix时间戳）
-endTime|否|结束时间（纯数字Unix时间戳）
+| 参数名    | 必传 | 含义                         |
+| --------- | ---- | ---------------------------- |
+| id        | 是   | 设备ID                       |
+| channel   | 是   | 通道编号                     |
+| startTime | 否   | 开始时间（纯数字Unix时间戳） |
+| endTime   | 否   | 结束时间（纯数字Unix时间戳） |
 
 返回200代表成功
 
@@ -143,38 +147,38 @@ endTime|否|结束时间（纯数字Unix时间戳）
 
 `/gb28181/api/bye`
 
-参数名 | 必传 | 含义
-|----|---|---
-id|是 | 设备ID
-channel|是|通道编号
+| 参数名  | 必传 | 含义     |
+| ------- | ---- | -------- |
+| id      | 是   | 设备ID   |
+| channel | 是   | 通道编号 |
 
 ### 发送控制命令
 
 `/gb28181/api/control`
 
-参数名 | 必传 | 含义
-|----|---|---
-id|是 | 设备ID
-channel|是|通道编号
-ptzcmd|是|PTZ控制指令
+| 参数名  | 必传 | 含义        |
+| ------- | ---- | ----------- |
+| id      | 是   | 设备ID      |
+| channel | 是   | 通道编号    |
+| ptzcmd  | 是   | PTZ控制指令 |
 
 ### 查询录像
 
 `/gb28181/api/records`
 
-参数名 | 必传 | 含义
-|----|---|---
-id|是 | 设备ID
-channel|是|通道编号
-startTime|否|开始时间（字符串，格式：2021-7-23T12:00:00）
-endTime|否|结束时间（字符串格式同上）
+| 参数名    | 必传 | 含义                                         |
+| --------- | ---- | -------------------------------------------- |
+| id        | 是   | 设备ID                                       |
+| channel   | 是   | 通道编号                                     |
+| startTime | 否   | 开始时间（字符串，格式：2021-7-23T12:00:00） |
+| endTime   | 否   | 结束时间（字符串格式同上）                   |
 
 ### 移动位置订阅
 
 `/gb28181/api/position`
 
-参数名 | 必传 | 含义
-|----|---|---
-id|是 | 设备ID
-expires|是|订阅周期（秒）
-interval|是|订阅间隔（秒）
+| 参数名   | 必传 | 含义           |
+| -------- | ---- | -------------- |
+| id       | 是   | 设备ID         |
+| expires  | 是   | 订阅周期（秒） |
+| interval | 是   | 订阅间隔（秒） |

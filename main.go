@@ -9,6 +9,12 @@ import (
 	"m7s.live/engine/v4/config"
 )
 
+type GB28181PositionConfig struct {
+	AutosubPosition bool //是否自动订阅定位
+	Expires         int  //订阅周期(单位：秒)
+	Interval        int  //订阅间隔（单位：秒）
+}
+
 type GB28181Config struct {
 	AutoInvite     bool
 	PreFetchRecord bool
@@ -45,6 +51,8 @@ type GB28181Config struct {
 	LogLevel string //trace, debug, info, warn, error, fatal, panic
 	routes   map[string]string
 	DumpPath string //dump PS流本地文件路径
+
+	Position GB28181PositionConfig //关于定位的配置参数
 }
 
 func (c *GB28181Config) initRoutes() {
@@ -97,6 +105,7 @@ var conf = &GB28181Config{
 	RemoveBanInterval: 600,
 	LogLevel:          "info",
 	// WaitKeyFrame:      true,
+	Position: GB28181PositionConfig{AutosubPosition: true, Expires: 3600, Interval: 6},
 }
 
 var plugin = InstallPlugin(conf)

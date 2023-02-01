@@ -67,6 +67,9 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
+	GpsTime   time.Time //gps时间
+	Longitude string    //经度
+	Latitude  string    //纬度
 }
 
 func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
@@ -264,6 +267,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 
 	callId := sip.CallID(utils.RandNumString(10))
 	userAgent := sip.UserAgentHeader("Monibuca")
+	maxForwards := sip.MaxForwards(70) //增加max-forwards为默认值 70
 	cseq := sip.CSeq{
 		SeqNo:      uint32(d.sn),
 		MethodName: Method,
@@ -289,6 +293,7 @@ func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
 			&callId,
 			&userAgent,
 			&cseq,
+			&maxForwards,
 			serverAddr.AsContactHeader(),
 		},
 		"",
@@ -431,12 +436,16 @@ func (d *Device) MobilePositionSubscribe(id string, expires int, interval int) (
 // UpdateChannelPosition 更新通道GPS坐标
 func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng string, lat string) {
 	if c, ok := d.channelMap[channelId]; ok {
-		c.ChannelEx.GpsTime, _ = time.ParseInLocation("2006-01-02 15:04:05", gpsTime, time.Local)
+		c.ChannelEx.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		c.ChannelEx.Longitude = lng
 		c.ChannelEx.Latitude = lat
 		plugin.Sugar().Debugf("更新通道[%s]坐标成功\n", c.Name)
 	} else {
-		plugin.Sugar().Debugf("更新失败，未找到通道[%s]\n", channelId)
+		//如果未找到通道，则更新到设备上
+		d.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
+		d.Longitude = lng
+		d.Latitude = lat
+		plugin.Sugar().Debugf("未找到通道[%s]，更新设备[%s]坐标成功\n", channelId, d.ID)
 	}
 }
 
