@@ -125,7 +125,13 @@ func (conf *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) 
 	interval := query.Get("interval")
 
 	expiresInt, _ := strconv.Atoi(expires)
+	if expires == "" {
+		expiresInt = conf.Position.Expires
+	}
 	intervalInt, _ := strconv.Atoi(interval)
+	if interval == "" {
+		intervalInt = conf.Position.Interval
+	}
 
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
@@ -133,4 +139,33 @@ func (conf *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) 
 	} else {
 		http.NotFound(w, r)
 	}
+}
+
+type DevicePosition struct {
+	ID        string
+	GpsTime   time.Time //gps时间
+	Longitude string    //经度
+	Latitude  string    //纬度
+}
+
+func (conf *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	//设备id
+	id := query.Get("id")
+
+	util.ReturnJson(func() (list []*DevicePosition) {
+		if id == "" {
+			Devices.Range(func(key, value interface{}) bool {
+				d := value.(*Device)
+				if time.Since(d.GpsTime) <= time.Duration(conf.Position.Interval)*time.Second {
+					list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
+				}
+				return true
+			})
+		} else if v, ok := Devices.Load(id); ok {
+			d := v.(*Device)
+			list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
+		}
+		return
+	}, time.Second*time.Duration(conf.Position.Interval), w, r)
 }
