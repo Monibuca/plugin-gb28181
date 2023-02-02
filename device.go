@@ -164,7 +164,7 @@ func ReadDevices() {
 		var items []*Device
 		if err = json.NewDecoder(f).Decode(&items); err == nil {
 			for _, item := range items {
-				if time.Since(item.UpdateTime) < time.Duration(conf.RegisterValidity)*time.Second {
+				if time.Since(item.UpdateTime) < conf.RegisterValidity {
 					item.Status = "RECOVER"
 					Devices.Store(item.ID, item)
 				}
@@ -406,19 +406,19 @@ func (d *Device) SipRequestForResponse(request sip.Request) (sip.Response, error
 }
 
 // MobilePositionSubscribe 移动位置订阅
-func (d *Device) MobilePositionSubscribe(id string, expires int, interval int) (code int) {
+func (d *Device) MobilePositionSubscribe(id string, expires time.Duration, interval time.Duration) (code int) {
 	mobilePosition := d.CreateRequest(sip.SUBSCRIBE)
 	if d.subscriber.CallID != "" {
 		callId := sip.CallID(utils.RandNumString(10))
 		mobilePosition.ReplaceHeaders(callId.Name(), []sip.Header{&callId})
 	}
-	expiresHeader := sip.Expires(expires)
-	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
+	expiresHeader := sip.Expires(expires / time.Second)
+	d.subscriber.Timeout = time.Now().Add(expires)
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	mobilePosition.AppendHeader(&contentType)
 	mobilePosition.AppendHeader(&expiresHeader)
 
-	mobilePosition.SetBody(BuildDevicePositionXML(d.sn, id, interval), true)
+	mobilePosition.SetBody(BuildDevicePositionXML(d.sn, id, int(interval/time.Second)), true)
 
 	response, err := d.SipRequestForResponse(mobilePosition)
 	if err == nil && response != nil {

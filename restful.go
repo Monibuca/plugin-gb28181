@@ -14,7 +14,7 @@ func (conf *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 	util.ReturnJson(func() (list []*Device) {
 		Devices.Range(func(key, value interface{}) bool {
 			device := value.(*Device)
-			if time.Since(device.UpdateTime) > time.Duration(conf.RegisterValidity)*time.Second {
+			if time.Since(device.UpdateTime) > conf.RegisterValidity {
 				Devices.Delete(key)
 			} else {
 				list = append(list, device)
@@ -124,12 +124,12 @@ func (conf *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) 
 	//订阅间隔（单位：秒）
 	interval := query.Get("interval")
 
-	expiresInt, _ := strconv.Atoi(expires)
-	if expires == "" {
+	expiresInt, err := time.ParseDuration(expires)
+	if expires == "" || err != nil {
 		expiresInt = conf.Position.Expires
 	}
-	intervalInt, _ := strconv.Atoi(interval)
-	if interval == "" {
+	intervalInt, err := time.ParseDuration(interval)
+	if interval == "" || err != nil {
 		intervalInt = conf.Position.Interval
 	}
 

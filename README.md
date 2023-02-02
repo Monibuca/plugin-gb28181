@@ -21,8 +21,8 @@ gb28181:
   autoinvite:     true
   position:
     autosubposition: false #是否自动订阅定位
-    expires: 3600 #订阅周期(单位：秒)，默认3600
-    interval: 6 #订阅间隔（单位：秒），默认6
+    expires: 3600s #订阅周期(单位：秒)，默认3600
+    interval: 6s #订阅间隔（单位：秒），默认6
   prefetchrecord: false
   udpcachesize:   0
   sipnetwork:     udp
@@ -33,11 +33,7 @@ gb28181:
   username:       ""
   password:       ""
   
-  acktimeout:        10
-  registervalidity:  60
-  registerinterval:  60
-  heartbeatinterval: 60
-  heartbeatretry:    3
+  registervalidity:  60s
   
   mediaip:          ""
   mediaport:        58200
@@ -46,7 +42,7 @@ gb28181:
   mediaportmin:     0
   meidaportmax:     0
 
-  removebaninterval: 600
+  removebaninterval: 10m
   loglevel:         info
 ```
 
@@ -62,11 +58,7 @@ gb28181:
 - `Username`   string sip 服务器账号
 - `Password`   string sip 服务器密码
 
-- `AckTimeout`        uint16 sip 服务应答超时，单位秒
-- `RegisterValidity`  int    注册有效期，单位秒，默认 3600
-- `RegisterInterval`  int    注册间隔，单位秒，默认 60
-- `HeartbeatInterval` int    心跳间隔，单位秒，默认 60
-- `HeartbeatRetry`    int    心跳超时次数，默认 3
+- `RegisterValidity`  time.Duration    注册有效期，单位秒，默认 60
 
 * 媒体服务器配置
 - `MediaIP`          string 媒体服务器地址 默认 自动适配设备网段
@@ -75,9 +67,8 @@ gb28181:
 - `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连
 - `MediaPortMin`     uint16 媒体服务器端口范围最小值
 - `MediaPortMax`     uint16 媒体服务器端口范围最大值
-- `AudioEnable`       bool 是否开启音频
-- `LogLevel`        string 日志级别，默认 info（trace，debug，info，warn，error，fatal, panic）
-- `RemoveBanInterval` int  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
+- `LogLevel`          string 日志级别，默认 info（trace，debug，info，warn，error，fatal, panic）
+- `RemoveBanInterval` time.Duration  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
 - `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 
 **如果配置了端口范围，将采用范围端口机制，每一个流对应一个端口

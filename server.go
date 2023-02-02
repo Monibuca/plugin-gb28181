@@ -238,7 +238,7 @@ func (config *GB28181Config) listenMediaUDP() {
 // }
 
 func removeBanDevice(config *GB28181Config) {
-	t := time.NewTicker(time.Duration(config.RemoveBanInterval) * time.Second)
+	t := time.NewTicker(config.RemoveBanInterval)
 	for range t.C {
 		DeviceRegisterCount.Range(func(key, value interface{}) bool {
 			if value.(int) > MaxRegisterCount {

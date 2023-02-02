@@ -3,6 +3,7 @@ package gb28181
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	myip "github.com/husanpao/ip"
 	. "m7s.live/engine/v4"
@@ -10,9 +11,9 @@ import (
 )
 
 type GB28181PositionConfig struct {
-	AutosubPosition bool //是否自动订阅定位
-	Expires         int  //订阅周期(单位：秒)
-	Interval        int  //订阅间隔（单位：秒）
+	AutosubPosition bool          //是否自动订阅定位
+	Expires         time.Duration //订阅周期(单位：秒)
+	Interval        time.Duration //订阅间隔（单位：秒）
 }
 
 type GB28181Config struct {
@@ -28,23 +29,23 @@ type GB28181Config struct {
 	Username   string //sip 服务器账号
 	Password   string //sip 服务器密码
 
-	AckTimeout        uint16 //sip 服务应答超时，单位秒
-	RegisterValidity  int    //注册有效期，单位秒，默认 3600
-	RegisterInterval  int    //注册间隔，单位秒，默认 60
-	HeartbeatInterval int    //心跳间隔，单位秒，默认 60
-	HeartbeatRetry    int    //心跳超时次数，默认 3
+	// AckTimeout        uint16 //sip 服务应答超时，单位秒
+	RegisterValidity time.Duration //注册有效期，单位秒，默认 3600
+	// RegisterInterval  int    //注册间隔，单位秒，默认 60
+	// HeartbeatInterval int    //心跳间隔，单位秒，默认 60
+	// HeartbeatRetry    int    //心跳超时次数，默认 3
 
 	//媒体服务器配置
-	MediaIP          string //媒体服务器地址
-	MediaPort        uint16 //媒体服务器端口
-	MediaNetwork     string //媒体传输协议，默认UDP，可选TCP
-	MediaPortMin     uint16
-	MediaPortMax     uint16
-	MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
+	MediaIP      string //媒体服务器地址
+	MediaPort    uint16 //媒体服务器端口
+	MediaNetwork string //媒体传输协议，默认UDP，可选TCP
+	MediaPortMin uint16
+	MediaPortMax uint16
+	// MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 
 	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
-	RemoveBanInterval int //移除禁止设备间隔
-	UdpCacheSize      int //udp缓存大小
+	RemoveBanInterval time.Duration //移除禁止设备间隔
+	UdpCacheSize      int           //udp缓存大小
 
 	config.Publish
 	Server
@@ -91,21 +92,21 @@ var conf = &GB28181Config{
 	Username:       "",
 	Password:       "",
 
-	AckTimeout:        10,
-	RegisterValidity:  60,
-	RegisterInterval:  60,
-	HeartbeatInterval: 60,
-	HeartbeatRetry:    3,
+	// AckTimeout:        10,
+	RegisterValidity: 60 * time.Second,
+	// RegisterInterval:  60,
+	// HeartbeatInterval: 60,
+	// HeartbeatRetry:    3,
 
-	MediaIP:          "",
-	MediaPort:        58200,
-	MediaIdleTimeout: 30,
-	MediaNetwork:     "udp",
+	MediaIP:   "",
+	MediaPort: 58200,
+	// MediaIdleTimeout: 30,
+	MediaNetwork: "udp",
 
-	RemoveBanInterval: 600,
+	RemoveBanInterval: 600 * time.Second,
 	LogLevel:          "info",
 	// WaitKeyFrame:      true,
-	Position: GB28181PositionConfig{AutosubPosition: true, Expires: 3600, Interval: 6},
+	Position: GB28181PositionConfig{AutosubPosition: true, Expires: 3600 * time.Second, Interval: 6 * time.Second},
 }
 
 var plugin = InstallPlugin(conf)
