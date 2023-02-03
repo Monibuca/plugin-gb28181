@@ -157,7 +157,7 @@ func (conf *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Reque
 		if id == "" {
 			Devices.Range(func(key, value interface{}) bool {
 				d := value.(*Device)
-				if time.Since(d.GpsTime) <= time.Duration(conf.Position.Interval)*time.Second {
+				if time.Since(d.GpsTime) <= conf.Position.Interval {
 					list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
 				}
 				return true
@@ -167,5 +167,5 @@ func (conf *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Reque
 			list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
 		}
 		return
-	}, time.Second*time.Duration(conf.Position.Interval), w, r)
+	}, conf.Position.Interval, w, r)
 }

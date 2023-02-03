@@ -106,7 +106,7 @@ var conf = &GB28181Config{
 	RemoveBanInterval: 600 * time.Second,
 	LogLevel:          "info",
 	// WaitKeyFrame:      true,
-	Position: GB28181PositionConfig{AutosubPosition: true, Expires: 3600 * time.Second, Interval: 6 * time.Second},
+	Position: GB28181PositionConfig{AutosubPosition: false, Expires: 3600 * time.Second, Interval: 6 * time.Second},
 }
 
 var plugin = InstallPlugin(conf)

@@ -178,7 +178,7 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 			}
 			d.CheckSubStream()
 			//在KeepLive 进行位置订阅的处理，如果开启了自动订阅位置，则去订阅位置
-			if config.Position.AutosubPosition && time.Since(d.GpsTime) > time.Duration(conf.Position.Interval*2)*time.Second {
+			if config.Position.AutosubPosition && time.Since(d.GpsTime) > config.Position.Interval*2 {
 				d.MobilePositionSubscribe(d.ID, config.Position.Expires, config.Position.Interval)
 				plugin.Sugar().Debugf("位置自动订阅，设备[%s]成功\n", d.ID)
 			}
