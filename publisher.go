@@ -141,7 +141,7 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 	if dts == 0 {
 		dts = pts
 	}
-	p.VideoTrack.WriteAnnexB(pts, dts, payload)
+	p.WriteAnnexB(pts, dts, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.AudioTrack == nil {
@@ -152,17 +152,19 @@ func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 			p.AudioTrack = NewG711(p.Publisher.Stream, false)
 		case mpegts.STREAM_TYPE_AAC:
 			p.AudioTrack = NewAAC(p.Publisher.Stream)
-			p.WriteADTS(payload[:7])
+			p.WriteADTS(ts, payload)
 		case 0: //推测编码类型
 			if payload[0] == 0xff && payload[1]>>4 == 0xf {
 				p.AudioTrack = NewAAC(p.Publisher.Stream)
-				p.WriteADTS(payload[:7])
+				p.WriteADTS(ts, payload)
 			}
 		default:
 			p.Error("audio type not supported yet", zap.Uint32("type", p.parser.AudioStreamType))
 		}
+	} else if p.parser.AudioStreamType == mpegts.STREAM_TYPE_AAC {
+		p.WriteADTS(ts, payload)
 	} else {
-		p.AudioTrack.WriteRaw(ts, payload)
+		p.WriteRaw(ts, payload)
 	}
 }
 
@@ -179,7 +181,7 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 			if rtp.SequenceNumber != p.lastSeq+1 {
 				p.parser.Drop()
 				if p.VideoTrack != nil {
-					p.VideoTrack.SetLostFlag()
+					p.SetLostFlag()
 				}
 			}
 			p.parser.Feed(rtp)
