@@ -311,7 +311,7 @@ func (dec *DecPSPackage) decProgramStreamMap() error {
 	return nil
 }
 
-func (dec *DecPSPackage) decPESPacket(pts *uint32,dts *uint32) error {
+func (dec *DecPSPackage) decPESPacket(pts *uint32, dts *uint32) error {
 	payload, err := dec.ReadPayload()
 
 	if len(payload) < 4 {

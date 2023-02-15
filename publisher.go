@@ -141,21 +141,24 @@ func (p *GBPublisher) PushVideo(pts uint32, dts uint32, payload []byte) {
 	if dts == 0 {
 		dts = pts
 	}
+	// if binary.BigEndian.Uint32(payload) != 1 {
+	// 	panic("not annexb")
+	// }
 	p.WriteAnnexB(pts, dts, payload)
 }
 func (p *GBPublisher) PushAudio(ts uint32, payload []byte) {
 	if p.AudioTrack == nil {
 		switch p.parser.AudioStreamType {
 		case mpegts.STREAM_TYPE_G711A:
-			p.AudioTrack = NewG711(p.Publisher.Stream, true)
+			p.AudioTrack = NewG711(p.Publisher.Stream, true, uint32(90000))
 		case mpegts.STREAM_TYPE_G711U:
-			p.AudioTrack = NewG711(p.Publisher.Stream, false)
+			p.AudioTrack = NewG711(p.Publisher.Stream, false, uint32(90000))
 		case mpegts.STREAM_TYPE_AAC:
-			p.AudioTrack = NewAAC(p.Publisher.Stream)
+			p.AudioTrack = NewAAC(p.Publisher.Stream, uint32(90000))
 			p.WriteADTS(ts, payload)
 		case 0: //推测编码类型
 			if payload[0] == 0xff && payload[1]>>4 == 0xf {
-				p.AudioTrack = NewAAC(p.Publisher.Stream)
+				p.AudioTrack = NewAAC(p.Publisher.Stream, uint32(90000))
 				p.WriteADTS(ts, payload)
 			}
 		default:
@@ -179,6 +182,7 @@ func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
 	} else {
 		for rtp = p.reorder.Push(rtp.SequenceNumber, rtp); rtp != nil; rtp = p.reorder.Pop() {
 			if rtp.SequenceNumber != p.lastSeq+1 {
+				fmt.Println("drop", rtp.SequenceNumber, p.lastSeq)
 				p.parser.Drop()
 				if p.VideoTrack != nil {
 					p.SetLostFlag()
