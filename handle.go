@@ -92,7 +92,7 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		}
 	}
 	if passAuth {
-		config.StoreDevice(id, req)
+		d := config.StoreDevice(id, req)
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
 		resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
@@ -106,6 +106,10 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 			Contents:   time.Now().Format(TIME_LAYOUT),
 		})
 		_ = tx.Respond(resp)
+		//订阅设备更新
+		d.QueryDeviceInfo()
+		go d.Catalog()
+		go d.Subscribe()
 	} else {
 		response := sip.NewResponseFromRequest("", req, http.StatusUnauthorized, "Unauthorized", "")
 		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
@@ -161,13 +165,13 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 		case "Keepalive":
 			d.LastKeepaliveAt = time.Now()
 			//callID !="" 说明是订阅的事件类型信息
-			if d.Channels == nil {
+			if d.channelMap == nil || len(d.channelMap) == 0 {
 				go d.Catalog()
 			} else {
 				if d.subscriber.CallID != "" && d.LastKeepaliveAt.After(d.subscriber.Timeout) {
 					go d.Catalog()
 				} else {
-					for _, c := range d.Channels {
+					for _, c := range d.channelMap {
 						if config.AutoInvite &&
 							(c.LivePublisher == nil) {
 							c.Invite(InviteOptions{})
@@ -176,7 +180,8 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 				}
 
 			}
-			d.CheckSubStream()
+			//为什么要查找子码流?
+			//d.CheckSubStream()
 			//在KeepLive 进行位置订阅的处理，如果开启了自动订阅位置，则去订阅位置
 			if config.Position.AutosubPosition && time.Since(d.GpsTime) > config.Position.Interval*2 {
 				d.MobilePositionSubscribe(d.ID, config.Position.Expires, config.Position.Interval)

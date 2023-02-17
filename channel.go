@@ -50,7 +50,7 @@ type Channel struct {
 	Secrecy      int
 	Status       string
 	Children     []*Channel `json:"-"`
-	*ChannelEx              //自定义属性
+	ChannelEx               //自定义属性
 }
 
 func (c *Channel) Copy(v *Channel) {

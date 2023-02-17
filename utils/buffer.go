@@ -47,12 +47,12 @@ func (b *IOBuffer) ReadN(length int) ([]byte, error) {
 	return nil, io.EOF
 }
 
-func (b *IOBuffer) Read(buf []byte) (n int, err error) {
-	var ret []byte
-	ret, err = b.ReadN(len(buf))
-	copy(buf, ret)
-	return len(ret), err
-}
+//func (b *IOBuffer) Read(buf []byte) (n int, err error) {
+//	var ret []byte
+//	ret, err = b.ReadN(len(buf))
+//	copy(buf, ret)
+//	return len(ret), err
+//}
 
 // empty reports whether the unread portion of the buffer is empty.
 func (b *IOBuffer) empty() bool { return b.Len() <= b.off }

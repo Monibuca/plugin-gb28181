@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"net/http"
 	"os"
 	"strings"
@@ -55,7 +56,6 @@ type Device struct {
 	UpdateTime      time.Time
 	LastKeepaliveAt time.Time
 	Status          string
-	Channels        []*Channel
 	sn              int
 	addr            sip.Address
 	sipIP           string //设备对应网卡的服务器ip
@@ -72,6 +72,16 @@ type Device struct {
 	Latitude  string    //纬度
 }
 
+func (d *Device) MarshalJSON() ([]byte, error) {
+	type Alias Device
+	return json.Marshal(&struct {
+		Channels []*Channel
+		*Alias
+	}{
+		Channels: maps.Values(d.channelMap),
+		Alias:    (*Alias)(d),
+	})
+}
 func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
 	d.addr = sip.Address{
@@ -107,7 +117,7 @@ func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.channelMap = make(map[string]*Channel)
 	go d.Catalog()
 }
-func (config *GB28181Config) StoreDevice(id string, req sip.Request) {
+func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
 	var d *Device
 	from, _ := req.From()
 	deviceAddr := sip.Address{
@@ -155,8 +165,8 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request) {
 		}
 		Devices.Store(id, d)
 		SaveDevices()
-		go d.Catalog()
 	}
+	return d
 }
 func ReadDevices() {
 	if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
@@ -186,19 +196,23 @@ func SaveDevices() {
 	}
 }
 
-func (d *Device) addChannel(channel *Channel) {
-	for _, c := range d.Channels {
-		if c.DeviceID == channel.DeviceID {
-			return
-		}
-	}
-	d.Channels = append(d.Channels, channel)
+func (d *Device) addOrUpdateChannel(channel *Channel) {
+	d.channelMutex.Lock()
+	defer d.channelMutex.Unlock()
+	channel.device = d
+	d.channelMap[channel.DeviceID] = channel
+}
+
+func (d *Device) deleteChannel(DeviceID string) {
+	d.channelMutex.Lock()
+	defer d.channelMutex.Unlock()
+	delete(d.channelMap, DeviceID)
 }
 
 func (d *Device) CheckSubStream() {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	for _, c := range d.Channels {
+	for _, c := range d.channelMap {
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path
 		} else {
@@ -207,42 +221,34 @@ func (d *Device) CheckSubStream() {
 	}
 }
 func (d *Device) UpdateChannels(list []*Channel) {
-	d.channelMutex.Lock()
-	defer d.channelMutex.Unlock()
+
 	for _, c := range list {
 		if _, ok := conf.Ignores[c.DeviceID]; ok {
 			continue
 		}
+		//当父设备非空且存在时、父设备节点增加通道
 		if c.ParentID != "" {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
-			if parent, ok := d.channelMap[parentId]; ok {
-				if c.DeviceID != parentId {
-					parent.Children = append(parent.Children, c)
+			if c.DeviceID != parentId {
+				if v, ok := Devices.Load(parentId); ok {
+					parent := v.(*Device)
+					parent.addOrUpdateChannel(c)
+					continue
 				}
-			} else {
-				d.addChannel(c)
 			}
-		} else {
-			d.addChannel(c)
 		}
-		if old, ok := d.channelMap[c.DeviceID]; ok {
-			c.ChannelEx = old.ChannelEx
-			if conf.PreFetchRecord {
-				n := time.Now()
-				n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
-				if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
-					n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
-					go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
-				}
+		//本设备增加通道
+		d.addOrUpdateChannel(c)
+
+		//预取和邀请
+		if conf.PreFetchRecord {
+			n := time.Now()
+			n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
+			if len(c.Records) == 0 || (n.Format(TIME_LAYOUT) == c.RecordStartTime &&
+				n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == c.RecordEndTime) {
+				go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 			}
-			old.Copy(c)
-			c = old
-		} else {
-			c.ChannelEx = &ChannelEx{
-				device: d,
-			}
-			d.channelMap[c.DeviceID] = c
 		}
 		if conf.AutoInvite && (c.LivePublisher == nil) {
 			go c.Invite(InviteOptions{})
@@ -373,10 +379,9 @@ func (d *Device) Catalog() int {
 	return http.StatusRequestTimeout
 }
 
-func (d *Device) QueryDeviceInfo(req *sip.Request) {
+func (d *Device) QueryDeviceInfo() {
 	for i := time.Duration(5); i < 100; i++ {
 
-		plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s", d.ID, d.NetAddr))
 		time.Sleep(time.Second * i)
 		request := d.CreateRequest(sip.MESSAGE)
 		contentType := sip.ContentType("Application/MANSCDP+xml")
@@ -391,12 +396,11 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 			// 	received, _ := via.Params.Get("received")
 			// 	d.SipIP = received.String()
 			// }
-			if response.StatusCode() != 200 {
-				plugin.Sugar().Errorf("device %s send Catalog : %d\n", d.ID, response.StatusCode())
-			} else {
-				d.Subscribe()
+
+			if response.StatusCode() == 200 {
 				break
 			}
+			plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s response code:%d", d.ID, d.NetAddr, response.StatusCode()))
 		}
 	}
 }
@@ -467,7 +471,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 			d.channelOffline(v.DeviceID)
 		case "ADD":
 			plugin.Debug("收到通道新增通知")
-			channel := &Channel{
+			channel := Channel{
 				DeviceID:     v.DeviceID,
 				ParentID:     v.ParentID,
 				Name:         v.Name,
@@ -483,12 +487,11 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				Secrecy:      v.Secrecy,
 				Status:       v.Status,
 			}
-			channels := []*Channel{channel}
-			d.UpdateChannels(channels)
+			d.addOrUpdateChannel(&channel)
 		case "DEL":
 			//删除
 			plugin.Debug("收到通道删除通知")
-			d.channelOffline(v.DeviceID)
+			d.deleteChannel(v.DeviceID)
 		case "UPDATE":
 			plugin.Debug("收到通道更新通知")
 			// 更新通道
