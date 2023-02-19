@@ -98,7 +98,7 @@ var levelMap = map[string]log.Level{
 
 func (c *GB28181Config) startServer() {
 	c.publishers.Init()
-	addr := ":" + strconv.Itoa(int(c.SipPort))
+	addr := "0.0.0.0:" + strconv.Itoa(int(c.SipPort))
 
 	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
 	logger.SetLevel(levelMap[c.LogLevel])
