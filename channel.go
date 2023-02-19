@@ -53,30 +53,8 @@ type Channel struct {
 	ChannelEx               //自定义属性
 }
 
-func (c *Channel) Copy(v *Channel) {
-	if v == nil {
-		return
-	}
-
-	c.DeviceID = v.DeviceID
-	c.ParentID = v.ParentID
-	c.Name = v.Name
-	c.Manufacturer = v.Manufacturer
-	c.Model = v.Model
-	c.Owner = v.Owner
-	c.CivilCode = v.CivilCode
-	c.Address = v.Address
-	c.Parental = v.Parental
-	c.SafetyWay = v.SafetyWay
-	c.RegisterWay = v.RegisterWay
-	c.Secrecy = v.Secrecy
-	c.Status = v.Status
-	c.Status = v.Status
-	c.ChannelEx = v.ChannelEx
-}
-
-func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
-	d := c.device
+func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
+	d := channel.device
 	d.sn++
 
 	callId := sip.CallID(utils.RandNumString(10))
@@ -98,15 +76,15 @@ func (c *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 	}
 	//非同一域的目标地址需要使用@host
 	host := conf.Realm
-	if c.DeviceID[0:9] != host {
+	if channel.DeviceID[0:9] != host {
 		deviceIp := d.NetAddr
 		deviceIp = deviceIp[0:strings.LastIndex(deviceIp, ":")]
-		host = fmt.Sprintf("%s:%d", deviceIp, c.Port)
+		host = fmt.Sprintf("%s:%d", deviceIp, channel.Port)
 	}
 
 	channelAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
-		Uri: &sip.SipUri{FUser: sip.String{Str: c.DeviceID}, FHost: host},
+		Uri: &sip.SipUri{FUser: sip.String{Str: channel.DeviceID}, FHost: host},
 	}
 	req = sip.NewRequest(
 		"",
@@ -234,7 +212,7 @@ func (o *InviteOptions) CreateSSRC() {
 	o.SSRC = uint32(_ssrc)
 }
 
-//Invite 发送Invite报文，注意里面的锁保证不同时发送invite报文，该锁由channel持有
+//Invite  发送Invite报文，注意里面的锁保证不同时发送invite报文，该锁由channel持有
 /***
 f字段： f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
 各项具体含义：

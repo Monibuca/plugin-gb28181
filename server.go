@@ -96,51 +96,51 @@ var levelMap = map[string]log.Level{
 	"panic": log.PanicLevel,
 }
 
-func (config *GB28181Config) startServer() {
-	config.publishers.Init()
-	addr := "0.0.0.0:" + strconv.Itoa(int(config.SipPort))
+func (c *GB28181Config) startServer() {
+	c.publishers.Init()
+	addr := ":" + strconv.Itoa(int(c.SipPort))
 
 	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
-	logger.SetLevel(levelMap[config.LogLevel])
+	logger.SetLevel(levelMap[c.LogLevel])
 	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 	srvConf := gosip.ServerConfig{}
-	if config.SipIP != "" {
-		srvConf.Host = config.SipIP
+	if c.SipIP != "" {
+		srvConf.Host = c.SipIP
 	}
 	srv = gosip.NewServer(srvConf, nil, nil, logger)
-	srv.OnRequest(sip.REGISTER, config.OnRegister)
-	srv.OnRequest(sip.MESSAGE, config.OnMessage)
-	srv.OnRequest(sip.NOTIFY, config.OnNotify)
-	srv.OnRequest(sip.BYE, config.onBye)
-	err := srv.Listen(strings.ToLower(config.SipNetwork), addr)
+	srv.OnRequest(sip.REGISTER, c.OnRegister)
+	srv.OnRequest(sip.MESSAGE, c.OnMessage)
+	srv.OnRequest(sip.NOTIFY, c.OnNotify)
+	srv.OnRequest(sip.BYE, c.OnBye)
+	err := srv.Listen(strings.ToLower(c.SipNetwork), addr)
 	if err != nil {
 		plugin.Logger.Error("gb28181 server listen", zap.Error(err))
 	} else {
 		plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
 	}
 
-	go config.startMediaServer()
+	go c.startMediaServer()
 
-	if config.Username != "" || config.Password != "" {
-		go removeBanDevice(config)
+	if c.Username != "" || c.Password != "" {
+		go c.removeBanDevice()
 	}
 }
 
-func (config *GB28181Config) startMediaServer() {
-	if config.MediaNetwork == "tcp" {
-		config.tcpPorts.Init(config.MediaPortMin, config.MediaPortMax)
-		if !config.tcpPorts.Valid {
-			config.listenMediaTCP()
+func (c *GB28181Config) startMediaServer() {
+	if c.MediaNetwork == "tcp" {
+		c.tcpPorts.Init(c.MediaPortMin, c.MediaPortMax)
+		if !c.tcpPorts.Valid {
+			c.listenMediaTCP()
 		}
 	} else {
-		config.udpPorts.Init(config.MediaPortMin, config.MediaPortMax)
-		if !config.udpPorts.Valid {
-			config.listenMediaUDP()
+		c.udpPorts.Init(c.MediaPortMin, c.MediaPortMax)
+		if !c.udpPorts.Valid {
+			c.listenMediaUDP()
 		}
 	}
 }
 
-func processTcpMediaConn(config *GB28181Config, conn net.Conn) {
+func (c *GB28181Config) processTcpMediaConn(conn net.Conn) {
 	var rtpPacket rtp.Packet
 	reader := bufio.NewReader(conn)
 	lenBuf := make([]byte, 2)
@@ -156,14 +156,14 @@ func processTcpMediaConn(config *GB28181Config, conn net.Conn) {
 		}
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("gb28181 decode rtp error:", zap.Error(err))
-		} else if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
+		} else if publisher := c.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
 			publisher.PushPS(&rtpPacket)
 		}
 	}
 }
 
-func (config *GB28181Config) listenMediaTCP() {
-	addr := ":" + strconv.Itoa(int(config.MediaPort))
+func (c *GB28181Config) listenMediaTCP() {
+	addr := ":" + strconv.Itoa(int(c.MediaPort))
 	mediaAddr, _ := net.ResolveTCPAddr("tcp", addr)
 	listen, err := net.ListenTCP("tcp", mediaAddr)
 
@@ -171,24 +171,24 @@ func (config *GB28181Config) listenMediaTCP() {
 		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
 		return
 	}
-	plugin.Info("Media tcp server start.", zap.Uint16("port", config.MediaPort))
+	plugin.Info("Media tcp server start.", zap.Uint16("port", c.MediaPort))
 	defer listen.Close()
-	defer plugin.Info("Media tcp server stop", zap.Uint16("port", config.MediaPort))
+	defer plugin.Info("Media tcp server stop", zap.Uint16("port", c.MediaPort))
 
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
 			plugin.Error("Accept err=", zap.Error(err))
 		}
-		go processTcpMediaConn(config, conn)
+		go c.processTcpMediaConn(conn)
 	}
 }
 
-func (config *GB28181Config) listenMediaUDP() {
+func (c *GB28181Config) listenMediaUDP() {
 	var rtpPacket rtp.Packet
 	networkBuffer := 1048576
 
-	addr := ":" + strconv.Itoa(int(config.MediaPort))
+	addr := ":" + strconv.Itoa(int(c.MediaPort))
 	mediaAddr, _ := net.ResolveUDPAddr("udp", addr)
 	conn, err := net.ListenUDP("udp", mediaAddr)
 
@@ -197,15 +197,15 @@ func (config *GB28181Config) listenMediaUDP() {
 		return
 	}
 	bufUDP := make([]byte, networkBuffer)
-	plugin.Info("Media udp server start.", zap.Uint16("port", config.MediaPort))
-	defer plugin.Info("Media udp server stop", zap.Uint16("port", config.MediaPort))
+	plugin.Info("Media udp server start.", zap.Uint16("port", c.MediaPort))
+	defer plugin.Info("Media udp server stop", zap.Uint16("port", c.MediaPort))
 	dumpLen := make([]byte, 6)
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("Decode rtp error:", zap.Error(err))
 		}
-		if publisher := config.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
+		if publisher := c.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
 			if publisher.dumpFile != nil {
 				util.PutBE(dumpLen[:4], n)
 				if publisher.lastReceive.IsZero() {
@@ -237,8 +237,8 @@ func (config *GB28181Config) listenMediaUDP() {
 // 	}
 // }
 
-func removeBanDevice(config *GB28181Config) {
-	t := time.NewTicker(config.RemoveBanInterval)
+func (c *GB28181Config) removeBanDevice() {
+	t := time.NewTicker(c.RemoveBanInterval)
 	for range t.C {
 		DeviceRegisterCount.Range(func(key, value interface{}) bool {
 			if value.(int) > MaxRegisterCount {

@@ -83,7 +83,7 @@ func (d *Device) MarshalJSON() ([]byte, error) {
 		Alias:    (*Alias)(d),
 	})
 }
-func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
+func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
 	d.addr = sip.Address{
 		DisplayName: from.DisplayName,
@@ -92,7 +92,7 @@ func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	deviceIp := req.Source()
 	servIp := req.Recipient().Host()
 	//根据网卡ip获取对应的公网ip
-	sipIP := config.routes[servIp]
+	sipIP := c.routes[servIp]
 	//如果相等，则服务器是内网通道.海康摄像头不支持...自动获取
 	if strings.LastIndex(deviceIp, ".") != -1 && strings.LastIndex(servIp, ".") != -1 {
 		if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
@@ -100,14 +100,14 @@ func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 		}
 	}
 	//如果用户配置过则使用配置的
-	if config.SipIP != "" {
-		sipIP = config.SipIP
+	if c.SipIP != "" {
+		sipIP = c.SipIP
 	} else if sipIP == "" {
 		sipIP = myip.InternalIPv4()
 	}
 	mediaIp := sipIP
-	if config.MediaIP != "" {
-		mediaIp = config.MediaIP
+	if c.MediaIP != "" {
+		mediaIp = c.MediaIP
 	}
 	plugin.Info("RecoverDevice", zap.String("id", d.ID), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 	d.Status = string(sip.REGISTER)
@@ -117,8 +117,8 @@ func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.UpdateTime = time.Now()
 	d.channelMap = make(map[string]*Channel)
 }
-func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
-	var d *Device
+
+func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 	from, _ := req.From()
 	deviceAddr := sip.Address{
 		DisplayName: from.DisplayName,
@@ -134,7 +134,7 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
 	} else {
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
-		sipIP := config.routes[servIp]
+		sipIP := c.routes[servIp]
 		//如果相等，则服务器是内网通道.海康摄像头不支持...自动获取
 		if strings.LastIndex(deviceIp, ".") != -1 && strings.LastIndex(servIp, ".") != -1 {
 			if servIp[0:strings.LastIndex(servIp, ".")] == deviceIp[0:strings.LastIndex(deviceIp, ".")] || sipIP == "" {
@@ -142,14 +142,14 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
 			}
 		}
 		//如果用户配置过则使用配置的
-		if config.SipIP != "" {
-			sipIP = config.SipIP
+		if c.SipIP != "" {
+			sipIP = c.SipIP
 		} else if sipIP == "" {
 			sipIP = myip.InternalIPv4()
 		}
 		mediaIp := sipIP
-		if config.MediaIP != "" {
-			mediaIp = config.MediaIP
+		if c.MediaIP != "" {
+			mediaIp = c.MediaIP
 		}
 		plugin.Info("StoreDevice", zap.String("id", id), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		d = &Device{
@@ -164,11 +164,11 @@ func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
 			channelMap:   make(map[string]*Channel),
 		}
 		Devices.Store(id, d)
-		SaveDevices()
+		c.SaveDevices()
 	}
-	return d
+	return
 }
-func ReadDevices() {
+func (c *GB28181Config) ReadDevices() {
 	if f, err := os.OpenFile("devices.json", os.O_RDONLY, 0644); err == nil {
 		defer f.Close()
 		var items []*Device
@@ -182,7 +182,7 @@ func ReadDevices() {
 		}
 	}
 }
-func SaveDevices() {
+func (c *GB28181Config) SaveDevices() {
 	var item []any
 	Devices.Range(func(key, value any) bool {
 		item = append(item, value)
