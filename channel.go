@@ -26,7 +26,7 @@ type ChannelEx struct {
 	RecordEndTime   string
 	recordStartTime time.Time
 	recordEndTime   time.Time
-	liveInviteLock  sync.Mutex
+	liveInviteLock  *sync.Mutex
 	tcpPortIndex    uint16
 	GpsTime         time.Time //gps时间
 	Longitude       string    //经度
@@ -234,7 +234,8 @@ func (o *InviteOptions) CreateSSRC() {
 	o.SSRC = uint32(_ssrc)
 }
 
-/*
+//Invite 发送Invite报文，注意里面的锁保证不同时发送invite报文，该锁由channel持有
+/***
 f字段： f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
 各项具体含义：
     v：后续参数为视频的参数；各参数间以 “/”分割；
@@ -369,7 +370,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	invite.AppendHeader(&subject)
 	publisher.inviteRes, err = d.SipRequestForResponse(invite)
 	if err != nil {
-		return http.StatusRequestTimeout, err
+		plugin.Error(fmt.Sprintf("SIP->Invite %s :%s invite error: %s", channel.DeviceID, invite.String(), err.Error()))
+		return http.StatusInternalServerError, err
 	}
 	code = int(publisher.inviteRes.StatusCode())
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, code))

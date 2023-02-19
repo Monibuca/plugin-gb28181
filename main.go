@@ -32,7 +32,7 @@ type GB28181Config struct {
 	// AckTimeout        uint16 //sip 服务应答超时，单位秒
 	RegisterValidity time.Duration //注册有效期，单位秒，默认 3600
 	// RegisterInterval  int    //注册间隔，单位秒，默认 60
-	// HeartbeatInterval int    //心跳间隔，单位秒，默认 60
+	HeartbeatInterval time.Duration //心跳间隔，单位秒，默认 60
 	// HeartbeatRetry    int    //心跳超时次数，默认 3
 
 	//媒体服务器配置
@@ -95,7 +95,7 @@ var conf = &GB28181Config{
 	// AckTimeout:        10,
 	RegisterValidity: 60 * time.Second,
 	// RegisterInterval:  60,
-	// HeartbeatInterval: 60,
+	HeartbeatInterval: 60 * time.Second,
 	// HeartbeatRetry:    3,
 
 	MediaIP:   "",

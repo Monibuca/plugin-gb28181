@@ -56,8 +56,7 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 	from, _ := req.From()
 
 	id := from.Address.User().String()
-	plugin.Debug(id)
-
+	plugin.Sugar().Debugf("OnRegister: %s, %s from %s ", req.Destination(), id, req.Source())
 	passAuth := false
 	// 不需要密码情况
 	if config.Username == "" && config.Password == "" {
@@ -92,7 +91,13 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		}
 	}
 	if passAuth {
-		d := config.StoreDevice(id, req)
+		var d *Device
+		if v, ok := Devices.Load(id); ok {
+			d := v.(*Device)
+			config.RecoverDevice(d, req)
+		} else {
+			d = config.StoreDevice(id, req)
+		}
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
 		resp := sip.NewResponseFromRequest("", req, http.StatusOK, "OK", "")
@@ -107,9 +112,7 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		})
 		_ = tx.Respond(resp)
 		//订阅设备更新
-		d.QueryDeviceInfo()
-		go d.Catalog()
-		go d.Subscribe()
+		go d.syncChannels()
 	} else {
 		response := sip.NewResponseFromRequest("", req, http.StatusUnauthorized, "Unauthorized", "")
 		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
@@ -126,15 +129,28 @@ func (config *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransactio
 		_ = tx.Respond(response)
 	}
 }
+
+// syncChannels
+// 同步设备信息、下属通道信息，包括主动查询通道信息，订阅通道变化情况
+func (d *Device) syncChannels() {
+	if time.Since(d.lastSyncTime) > 2*conf.HeartbeatInterval {
+		d.lastSyncTime = time.Now()
+		d.QueryDeviceInfo()
+		d.Catalog()
+		d.Subscribe()
+	}
+}
 func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
 	id := from.Address.User().String()
+	plugin.Sugar().Debugf("SIP<-OnMessage from %s : %s", req.Source(), req.String())
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
 		switch d.Status {
 		case "RECOVER":
 			config.RecoverDevice(d, req)
-			return
+			go d.syncChannels()
+			//return
 		case string(sip.REGISTER):
 			d.Status = "ONLINE"
 			//go d.QueryDeviceInfo(req)
@@ -166,19 +182,13 @@ func (config *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction
 			d.LastKeepaliveAt = time.Now()
 			//callID !="" 说明是订阅的事件类型信息
 			if d.channelMap == nil || len(d.channelMap) == 0 {
-				go d.Catalog()
+				go d.syncChannels()
 			} else {
-				if d.subscriber.CallID != "" && d.LastKeepaliveAt.After(d.subscriber.Timeout) {
-					go d.Catalog()
-				} else {
-					for _, c := range d.channelMap {
-						if config.AutoInvite &&
-							(c.LivePublisher == nil) {
-							c.Invite(InviteOptions{})
-						}
+				for _, c := range d.channelMap {
+					if config.AutoInvite && (c.LivePublisher == nil) {
+						c.Invite(InviteOptions{})
 					}
 				}
-
 			}
 			//为什么要查找子码流?
 			//d.CheckSubStream()

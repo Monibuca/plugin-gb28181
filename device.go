@@ -67,9 +67,10 @@ type Device struct {
 		CallID  string
 		Timeout time.Time
 	}
-	GpsTime   time.Time //gps时间
-	Longitude string    //经度
-	Latitude  string    //纬度
+	lastSyncTime time.Time
+	GpsTime      time.Time //gps时间
+	Longitude    string    //经度
+	Latitude     string    //纬度
 }
 
 func (d *Device) MarshalJSON() ([]byte, error) {
@@ -115,7 +116,6 @@ func (config *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.NetAddr = deviceIp
 	d.UpdateTime = time.Now()
 	d.channelMap = make(map[string]*Channel)
-	go d.Catalog()
 }
 func (config *GB28181Config) StoreDevice(id string, req sip.Request) *Device {
 	var d *Device
@@ -200,6 +200,16 @@ func (d *Device) addOrUpdateChannel(channel *Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	channel.device = d
+	var oldLock *sync.Mutex
+	if old, ok := d.channelMap[channel.DeviceID]; ok {
+		//复制锁指针
+		oldLock = old.liveInviteLock
+	}
+	if oldLock == nil {
+		channel.liveInviteLock = &sync.Mutex{}
+	} else {
+		channel.liveInviteLock = oldLock
+	}
 	d.channelMap[channel.DeviceID] = channel
 }
 
@@ -362,6 +372,7 @@ func (d *Device) Subscribe() int {
 }
 
 func (d *Device) Catalog() int {
+	//os.Stdout.Write(debug.Stack())
 	request := d.CreateRequest(sip.MESSAGE)
 	expires := sip.Expires(3600)
 	d.subscriber.Timeout = time.Now().Add(time.Second * time.Duration(expires))
@@ -396,11 +407,10 @@ func (d *Device) QueryDeviceInfo() {
 			// 	received, _ := via.Params.Get("received")
 			// 	d.SipIP = received.String()
 			// }
-
+			plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s response code:%d", d.ID, d.NetAddr, response.StatusCode()))
 			if response.StatusCode() == 200 {
 				break
 			}
-			plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s response code:%d", d.ID, d.NetAddr, response.StatusCode()))
 		}
 	}
 }
