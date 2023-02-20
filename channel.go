@@ -322,7 +322,7 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	// }
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.mediaIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", d.ID, d.mediaIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
 		"c=IN IP4 " + d.mediaIP,
