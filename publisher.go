@@ -42,7 +42,7 @@ func (p *GBPublisher) PrintDump(s string) {
 
 func (p *GBPublisher) OnEvent(event any) {
 	if p.channel == nil {
-		p.parser.EsHandler = p
+		// p.parser.EsHandler = p
 		p.IO.OnEvent(event)
 		return
 	}
@@ -55,7 +55,7 @@ func (p *GBPublisher) OnEvent(event any) {
 			p.Type = "GB28181 Playback"
 			p.channel.RecordPublisher = p
 		}
-		p.parser.EsHandler = p
+		// p.parser.EsHandler = p
 		conf.publishers.Add(p.SSRC, p)
 		if err := error(nil); p.dump != "" {
 			if p.dumpFile, err = os.OpenFile(p.dump, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
@@ -178,6 +178,10 @@ func (p *GBPublisher) ReceiveAudio(es mpegps.MpegPsEsStream) {
 
 // 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
 func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
+	if p.parser.EsHandler == nil {
+		p.parser.EsHandler = p
+		p.lastSeq = rtp.SequenceNumber - 1
+	}
 	if conf.IsMediaNetworkTCP() {
 		p.parser.Feed(rtp.Payload)
 		p.lastSeq = rtp.SequenceNumber
