@@ -12,45 +12,45 @@ import (
 
 type GB28181PositionConfig struct {
 	AutosubPosition bool          //是否自动订阅定位
-	Expires         time.Duration //订阅周期(单位：秒)
-	Interval        time.Duration //订阅间隔（单位：秒）
+	Expires         time.Duration `default:"3600s"` //订阅周期(单位：秒)
+	Interval        time.Duration `default:"6s"`    //订阅间隔（单位：秒）
 }
 
 type GB28181Config struct {
-	AutoInvite     bool
-	InviteIDs      string
+	AutoInvite     bool `default:"true"`
 	PreFetchRecord bool
+	InviteIDs      string
 
 	//sip服务器的配置
-	SipNetwork string //传输协议，默认UDP，可选TCP
+	SipNetwork string `default:"udp"` //传输协议，默认UDP，可选TCP
 	SipIP      string //sip 服务器公网IP
-	SipPort    uint16 //sip 服务器端口，默认 5060
-	Serial     string //sip 服务器 id, 默认 34020000002000000001
-	Realm      string //sip 服务器域，默认 3402000000
+	SipPort    uint16 `default:"5060"`                 //sip 服务器端口，默认 5060
+	Serial     string `default:"34020000002000000001"` //sip 服务器 id, 默认 34020000002000000001
+	Realm      string `default:"3402000000"`           //sip 服务器域，默认 3402000000
 	Username   string //sip 服务器账号
 	Password   string //sip 服务器密码
 
 	// AckTimeout        uint16 //sip 服务应答超时，单位秒
-	RegisterValidity time.Duration //注册有效期，单位秒，默认 3600
+	RegisterValidity time.Duration `default:"60s"` //注册有效期，单位秒，默认 3600
 	// RegisterInterval  int    //注册间隔，单位秒，默认 60
-	HeartbeatInterval time.Duration //心跳间隔，单位秒，默认 60
+	HeartbeatInterval time.Duration `default:"60s"` //心跳间隔，单位秒，默认 60
 	// HeartbeatRetry    int    //心跳超时次数，默认 3
 
 	//媒体服务器配置
 	MediaIP      string //媒体服务器地址
-	MediaPort    uint16 //媒体服务器端口
-	MediaNetwork string //媒体传输协议，默认UDP，可选TCP
+	MediaPort    uint16 `default:"58200"` //媒体服务器端口
+	MediaNetwork string `default:"udp"`   //媒体传输协议，默认UDP，可选TCP
 	MediaPortMin uint16
 	MediaPortMax uint16
 	// MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
 
 	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
-	RemoveBanInterval time.Duration //移除禁止设备间隔
+	RemoveBanInterval time.Duration `default:"600s"` //移除禁止设备间隔
 	UdpCacheSize      int           //udp缓存大小
 
 	config.Publish
 	Server
-	LogLevel string //trace, debug, info, warn, error, fatal, panic
+	LogLevel string `default:"info"` //trace, debug, info, warn, error, fatal, panic
 	routes   map[string]string
 	DumpPath string //dump PS流本地文件路径
 
@@ -79,6 +79,12 @@ func (c *GB28181Config) OnEvent(event any) {
 
 func (c *GB28181Config) IsMediaNetworkTCP() bool {
 	return strings.ToLower(c.MediaNetwork) == "tcp"
+}
+
+func (c *GB28181Config) TryAutoInvite(ch *Channel) {
+	if c.AutoInvite && (ch.LivePublisher == nil) && c.CanInvite(ch.DeviceID) {
+		go ch.Invite(InviteOptions{})
+	}
 }
 
 func (c *GB28181Config) CanInvite(deviceID string) bool {
@@ -110,33 +116,6 @@ func (c *GB28181Config) CanInvite(deviceID string) bool {
 	return false
 }
 
-var conf = &GB28181Config{
-	AutoInvite:     true,
-	PreFetchRecord: false,
-	UdpCacheSize:   0,
-	SipNetwork:     "udp",
-	SipIP:          "",
-	SipPort:        5060,
-	Serial:         "34020000002000000001",
-	Realm:          "3402000000",
-	Username:       "",
-	Password:       "",
+var conf GB28181Config
 
-	// AckTimeout:        10,
-	RegisterValidity: 60 * time.Second,
-	// RegisterInterval:  60,
-	HeartbeatInterval: 60 * time.Second,
-	// HeartbeatRetry:    3,
-
-	MediaIP:   "",
-	MediaPort: 58200,
-	// MediaIdleTimeout: 30,
-	MediaNetwork: "udp",
-
-	RemoveBanInterval: 600 * time.Second,
-	LogLevel:          "info",
-	// WaitKeyFrame:      true,
-	Position: GB28181PositionConfig{AutosubPosition: false, Expires: 3600 * time.Second, Interval: 6 * time.Second},
-}
-
-var plugin = InstallPlugin(conf)
+var plugin = InstallPlugin(&conf)
