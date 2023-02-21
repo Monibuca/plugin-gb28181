@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/exp/maps"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/exp/maps"
 
 	"go.uber.org/zap"
 	"m7s.live/engine/v4"
@@ -260,7 +261,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 			}
 		}
-		if conf.AutoInvite && (c.LivePublisher == nil) {
+		if conf.AutoInvite && (c.LivePublisher == nil) && conf.CanInvite(c.DeviceID) {
 			go c.Invite(InviteOptions{})
 		}
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
