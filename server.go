@@ -31,7 +31,7 @@ type PortManager struct {
 }
 
 func (pm *PortManager) Init(start, end uint16) {
-	pm.pos = start
+	pm.pos = start - 1
 	pm.max = end
 	if pm.pos > 0 && pm.max > pm.pos {
 		pm.Valid = true
