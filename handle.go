@@ -185,7 +185,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 				go d.syncChannels()
 			} else {
 				for _, ch := range d.channelMap {
-					c.TryAutoInvite(ch)
+					ch.TryAutoInvite()
 				}
 			}
 			//为什么要查找子码流?

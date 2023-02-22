@@ -81,41 +81,6 @@ func (c *GB28181Config) IsMediaNetworkTCP() bool {
 	return strings.ToLower(c.MediaNetwork) == "tcp"
 }
 
-func (c *GB28181Config) TryAutoInvite(ch *Channel) {
-	if c.AutoInvite && (ch.LivePublisher == nil) && c.CanInvite(ch.DeviceID) {
-		go ch.Invite(InviteOptions{})
-	}
-}
-
-func (c *GB28181Config) CanInvite(deviceID string) bool {
-	if len(deviceID) != 20 {
-		return false
-	}
-
-	if c.InviteIDs == "" {
-		return true
-	}
-
-	// 11～13位是设备类型编码
-	typeID := deviceID[10:13]
-
-	// format: start-end,type1,type2
-	tokens := strings.Split(c.InviteIDs, ",")
-	for _, tok := range tokens {
-		if first, second, ok := strings.Cut(tok, "-"); ok {
-			if typeID >= first && typeID <= second {
-				return true
-			}
-		} else {
-			if typeID == first {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 var conf GB28181Config
 
 var plugin = InstallPlugin(&conf)

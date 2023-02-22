@@ -22,7 +22,7 @@ import (
 
 type GBPublisher struct {
 	Publisher
-	InviteOptions
+	*InviteOptions
 	channel     *Channel
 	inviteRes   sip.Response
 	parser      mpegps.MpegPsStream
@@ -69,7 +69,7 @@ func (p *GBPublisher) OnEvent(event any) {
 				p.channel.LivePublisher = nil
 				p.channel.liveInviteLock.Unlock()
 			}
-			go p.channel.Invite(InviteOptions{})
+			go p.channel.Invite(&InviteOptions{})
 		}
 	case SEclose, SEKick:
 		if p.IsLive() {
@@ -106,7 +106,7 @@ func (p *GBPublisher) Bye() int {
 	resp, err := p.channel.device.SipRequestForResponse(bye)
 	if err != nil {
 		p.Error("Bye", zap.Error(err))
-		return 500
+		return ServerInternalError
 	}
 	return int(resp.StatusCode())
 }

@@ -1,9 +1,7 @@
 package gb28181
 
 import (
-	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -155,64 +153,8 @@ func (channel *Channel) Control(PTZCmd string) int {
 	return int(resp.StatusCode())
 }
 
-type InviteOptions struct {
-	Start     int
-	End       int
-	dump      string
-	ssrc      string
-	SSRC      uint32
-	MediaPort uint16
-}
-
-func (o InviteOptions) IsLive() bool {
-	return o.Start == 0 || o.End == 0
-}
-
-func (o InviteOptions) Record() bool {
-	return !o.IsLive()
-}
-
-func (o *InviteOptions) Validate(start, end string) error {
-	if start != "" {
-		sint, err1 := strconv.ParseInt(start, 10, 0)
-		if err1 != nil {
-			return err1
-		}
-		o.Start = int(sint)
-	}
-	if end != "" {
-		eint, err2 := strconv.ParseInt(end, 10, 0)
-		if err2 != nil {
-			return err2
-		}
-		o.End = int(eint)
-	}
-	if o.Start >= o.End {
-		return errors.New("start < end")
-	}
-	return nil
-}
-
-func (o InviteOptions) String() string {
-	return fmt.Sprintf("t=%d %d", o.Start, o.End)
-}
-
-func (o *InviteOptions) CreateSSRC() {
-	ssrc := make([]byte, 10)
-	if o.IsLive() {
-		ssrc[0] = '0'
-	} else {
-		ssrc[0] = '1'
-	}
-	copy(ssrc[1:6], conf.Serial[3:8])
-	randNum := 1000 + rand.Intn(8999)
-	copy(ssrc[6:], strconv.Itoa(randNum))
-	o.ssrc = string(ssrc)
-	_ssrc, _ := strconv.ParseInt(o.ssrc, 10, 0)
-	o.SSRC = uint32(_ssrc)
-}
-
-//Invite  发送Invite报文，注意里面的锁保证不同时发送invite报文，该锁由channel持有
+// Invite 发送Invite报文 invites a channel to play
+// 注意里面的锁保证不同时发送invite报文，该锁由channel持有
 /***
 f字段： f = v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
 各项具体含义：
@@ -257,13 +199,13 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
-func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
+func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	if opt.IsLive() {
 		if !channel.liveInviteLock.TryLock() {
 			return 304, nil
 		}
 		defer func() {
-			if code != 200 {
+			if code != OK {
 				channel.liveInviteLock.Unlock()
 			}
 		}()
@@ -280,10 +222,6 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	if opt.dump == "" {
 		opt.dump = conf.DumpPath
 	}
-	// size := 1
-	// fps := 15
-	// bitrate := 200
-	// fmt.Sprintf("f=v/2/%d/%d/1/%da///", size, fps, bitrate)
 	publisher := &GBPublisher{
 		InviteOptions: opt,
 		channel:       channel,
@@ -294,7 +232,7 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		if conf.tcpPorts.Valid {
 			opt.MediaPort, err = publisher.ListenTCP()
 			if err != nil {
-				return 500, err
+				return ServerInternalError, err
 			}
 		} else if opt.MediaPort == 0 {
 			opt.MediaPort = conf.MediaPort
@@ -303,23 +241,14 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = publisher.ListenUDP()
 			if err != nil {
-				code = 500
+				code = ServerInternalError
 				return
 			}
 		} else if opt.MediaPort == 0 {
 			opt.MediaPort = conf.MediaPort
 		}
 	}
-	// if opt.MediaPort == 0 {
-	// 	opt.MediaPort = conf.MediaPort
-	// 	if conf.IsMediaNetworkTCP() {
-	// 		protocol = "TCP/"
-	// 		opt.MediaPort = conf.MediaPort + channel.tcpPortIndex
-	// 		if channel.tcpPortIndex++; channel.tcpPortIndex >= conf.MediaPortMax {
-	// 			channel.tcpPortIndex = 0
-	// 		}
-	// 	}
-	// }
+
 	sdpInfo := []string{
 		"v=0",
 		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.mediaIP),
@@ -353,7 +282,8 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 	}
 	code = int(publisher.inviteRes.StatusCode())
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, code))
-	if code == 200 {
+
+	if code == OK {
 		ds := strings.Split(publisher.inviteRes.Body(), "\r\n")
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
@@ -371,14 +301,14 @@ func (channel *Channel) Invite(opt InviteOptions) (code int, err error) {
 			publisher.udpCache = utils.NewPqRtp()
 		}
 		if err = plugin.Publish(streamPath, publisher); err != nil {
-			code = 403
+			code = ServerInternalError
 			return
 		}
 		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
 		srv.Send(ack)
-	} else if opt.IsLive() && conf.AutoInvite {
+	} else if channel.CanInvite() {
 		time.AfterFunc(time.Second*5, func() {
-			channel.Invite(InviteOptions{})
+			channel.TryAutoInvite()
 		})
 	}
 	return
@@ -397,4 +327,39 @@ func (channel *Channel) Bye(live bool) int {
 		return channel.RecordPublisher.Bye()
 	}
 	return 404
+}
+
+func (channel *Channel) TryAutoInvite() {
+	if conf.AutoInvite && channel.CanInvite() {
+		go channel.Invite(&InviteOptions{})
+	}
+}
+
+func (channel *Channel) CanInvite() bool {
+	if channel.LivePublisher != nil || len(channel.DeviceID) != 20 || channel.Status == "OFF" {
+		return false
+	}
+
+	if conf.InviteIDs == "" {
+		return true
+	}
+
+	// 11～13位是设备类型编码
+	typeID := channel.DeviceID[10:13]
+
+	// format: start-end,type1,type2
+	tokens := strings.Split(conf.InviteIDs, ",")
+	for _, tok := range tokens {
+		if first, second, ok := strings.Cut(tok, "-"); ok {
+			if typeID >= first && typeID <= second {
+				return true
+			}
+		} else {
+			if typeID == first {
+				return true
+			}
+		}
+	}
+
+	return false
 }
