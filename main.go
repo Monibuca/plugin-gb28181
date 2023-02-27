@@ -19,7 +19,7 @@ type GB28181PositionConfig struct {
 type GB28181Config struct {
 	AutoInvite     bool `default:"true"`
 	PreFetchRecord bool
-	InviteIDs      string
+	InviteIDs      string //按照国标gb28181协议允许邀请的设备类型:132 摄像机 NVR
 
 	//sip服务器的配置
 	SipNetwork string `default:"udp"` //传输协议，默认UDP，可选TCP

@@ -241,12 +241,14 @@ func (d *Device) UpdateChannels(list []*Channel) {
 		if c.ParentID != "" {
 			path := strings.Split(c.ParentID, "/")
 			parentId := path[len(path)-1]
-			if c.DeviceID != parentId {
-				if v, ok := Devices.Load(parentId); ok {
-					parent := v.(*Device)
-					parent.addOrUpdateChannel(c)
-					continue
-				}
+			//如果父ID并非本身所属设备，一般情况下这是因为下级设备上传了目录信息，该信息通常不需要处理。
+			// 暂时不考虑级联目录的实现
+			if d.ID != parentId {
+				//if v, ok := Devices.Load(parentId); ok {
+				//	parent := v.(*Device)
+				//	parent.addOrUpdateChannel(c)
+				continue
+				//}
 			}
 		}
 		//本设备增加通道
