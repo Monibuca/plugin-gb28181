@@ -12,26 +12,19 @@ import (
 	"github.com/pion/rtp/v2"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
-	. "m7s.live/engine/v4/codec"
-	"m7s.live/engine/v4/codec/mpegps"
-	"m7s.live/engine/v4/codec/mpegts"
-	. "m7s.live/engine/v4/track"
 	"m7s.live/engine/v4/util"
 	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 type GBPublisher struct {
-	Publisher
+	PSPublisher
 	*InviteOptions
 	channel     *Channel
 	inviteRes   sip.Response
-	parser      mpegps.MpegPsStream
-	lastSeq     uint16
 	udpCache    *utils.PriorityQueueRtp
 	dumpFile    *os.File
 	dumpPrint   io.Writer
 	lastReceive time.Time
-	reorder     util.RTPReorder[*rtp.Packet]
 }
 
 func (p *GBPublisher) PrintDump(s string) {
@@ -109,95 +102,6 @@ func (p *GBPublisher) Bye() int {
 		return ServerInternalError
 	}
 	return int(resp.StatusCode())
-}
-
-func (p *GBPublisher) ReceiveVideo(es mpegps.MpegPsEsStream) {
-	if p.VideoTrack == nil {
-		switch es.Type {
-		case mpegts.STREAM_TYPE_H264:
-			p.VideoTrack = NewH264(p.Publisher.Stream)
-		case mpegts.STREAM_TYPE_H265:
-			p.VideoTrack = NewH265(p.Publisher.Stream)
-		default:
-			//推测编码类型
-			var maybe264 H264NALUType
-			maybe264 = maybe264.Parse(es.Buffer[4])
-			switch maybe264 {
-			case NALU_Non_IDR_Picture,
-				NALU_IDR_Picture,
-				NALU_SEI,
-				NALU_SPS,
-				NALU_PPS,
-				NALU_Access_Unit_Delimiter:
-				p.VideoTrack = NewH264(p.Publisher.Stream)
-			default:
-				p.Info("maybe h265", zap.Uint8("type", maybe264.Byte()))
-				p.VideoTrack = NewH265(p.Publisher.Stream)
-			}
-		}
-	}
-	payload, pts, dts := es.Buffer, es.PTS, es.DTS
-	if len(payload) > 10 {
-		p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload[:10]))
-	} else {
-		p.PrintDump(fmt.Sprintf("<td>pts:%d dts:%d data: % 2X</td>", pts, dts, payload))
-	}
-	if dts == 0 {
-		dts = pts
-	}
-	// if binary.BigEndian.Uint32(payload) != 1 {
-	// 	panic("not annexb")
-	// }
-	p.WriteAnnexB(pts, dts, payload)
-}
-func (p *GBPublisher) ReceiveAudio(es mpegps.MpegPsEsStream) {
-	ts, payload := es.PTS, es.Buffer
-	if p.AudioTrack == nil {
-		switch es.Type {
-		case mpegts.STREAM_TYPE_G711A:
-			p.AudioTrack = NewG711(p.Publisher.Stream, true)
-		case mpegts.STREAM_TYPE_G711U:
-			p.AudioTrack = NewG711(p.Publisher.Stream, false)
-		case mpegts.STREAM_TYPE_AAC:
-			p.AudioTrack = NewAAC(p.Publisher.Stream)
-			p.WriteADTS(ts, payload)
-		case 0: //推测编码类型
-			if payload[0] == 0xff && payload[1]>>4 == 0xf {
-				p.AudioTrack = NewAAC(p.Publisher.Stream)
-				p.WriteADTS(ts, payload)
-			}
-		default:
-			p.Error("audio type not supported yet", zap.Uint8("type", es.Type))
-		}
-	} else if es.Type == mpegts.STREAM_TYPE_AAC {
-		p.WriteADTS(ts, payload)
-	} else {
-		p.WriteRaw(ts, payload)
-	}
-}
-
-// 解析rtp封装 https://www.ietf.org/rfc/rfc2250.txt
-func (p *GBPublisher) PushPS(rtp *rtp.Packet) {
-	if p.parser.EsHandler == nil {
-		p.parser.EsHandler = p
-		p.lastSeq = rtp.SequenceNumber - 1
-	}
-	if conf.IsMediaNetworkTCP() {
-		p.parser.Feed(rtp.Payload)
-		p.lastSeq = rtp.SequenceNumber
-	} else {
-		for rtp = p.reorder.Push(rtp.SequenceNumber, rtp); rtp != nil; rtp = p.reorder.Pop() {
-			if rtp.SequenceNumber != p.lastSeq+1 {
-				fmt.Println("drop", rtp.SequenceNumber, p.lastSeq)
-				p.parser.Drop()
-				if p.VideoTrack != nil {
-					p.SetLostFlag()
-				}
-			}
-			p.parser.Feed(rtp.Payload)
-			p.lastSeq = rtp.SequenceNumber
-		}
-	}
 }
 
 func (p *GBPublisher) Replay(f *os.File) (err error) {

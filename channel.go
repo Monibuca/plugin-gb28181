@@ -237,6 +237,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 		} else if opt.MediaPort == 0 {
 			opt.MediaPort = conf.MediaPort
 		}
+		publisher.DisableReorder = true
 	} else {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = publisher.ListenUDP()

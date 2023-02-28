@@ -146,11 +146,13 @@ func (c *GB28181Config) processTcpMediaConn(conn net.Conn) {
 	lenBuf := make([]byte, 2)
 	defer conn.Close()
 	var err error
+	ps := make(util.Buffer, 1024)
 	for err == nil {
 		if _, err = io.ReadFull(reader, lenBuf); err != nil {
 			return
 		}
-		ps := make([]byte, binary.BigEndian.Uint16(lenBuf))
+		ps.Reset()
+		ps.Glow(int(binary.BigEndian.Uint16(lenBuf)))
 		if _, err = io.ReadFull(reader, ps); err != nil {
 			return
 		}
