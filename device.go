@@ -247,6 +247,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				if v, ok := Devices.Load(parentId); ok {
 					parent := v.(*Device)
 					parent.addOrUpdateChannel(c)
+					continue
 				} else {
 					c.Model = "Directory " + c.Model
 					c.Status = "NoParent"
