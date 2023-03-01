@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -22,6 +23,81 @@ import (
 )
 
 var srv gosip.Server
+
+func GetSipServer(transport string) gosip.Server {
+	return srv
+}
+
+var sn = 0
+
+func CreateRequest(Method sip.RequestMethod, recipient *sip.Address, netAddr string) (req sip.Request) {
+
+	sn++
+
+	callId := sip.CallID(utils.RandNumString(10))
+	userAgent := sip.UserAgentHeader("Monibuca")
+	cseq := sip.CSeq{
+		SeqNo:      uint32(sn),
+		MethodName: Method,
+	}
+	port := sip.Port(conf.SipPort)
+	serverAddr := sip.Address{
+		//DisplayName: sip.String{Str: d.config.Serial},
+		Uri: &sip.SipUri{
+			FUser: sip.String{Str: conf.Serial},
+			FHost: conf.SipIP,
+			FPort: &port,
+		},
+		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
+	}
+	req = sip.NewRequest(
+		"",
+		Method,
+		recipient.Uri,
+		"SIP/2.0",
+		[]sip.Header{
+			serverAddr.AsFromHeader(),
+			recipient.AsToHeader(),
+			&callId,
+			&userAgent,
+			&cseq,
+			serverAddr.AsContactHeader(),
+		},
+		"",
+		nil,
+	)
+
+	req.SetTransport(conf.SipNetwork)
+	req.SetDestination(netAddr)
+	//fmt.Printf("构建请求参数:%s", *&req)
+	// requestMsg.DestAdd, err2 = d.ResolveAddress(requestMsg)
+	// if err2 != nil {
+	// 	return nil
+	// }
+	//intranet ip , let's resolve it with public ip
+	// var deviceIp, deviceSourceIP net.IP
+	// switch addr := requestMsg.DestAdd.(type) {
+	// case *net.UDPAddr:
+	// 	deviceIp = addr.IP
+	// case *net.TCPAddr:
+	// 	deviceIp = addr.IP
+	// }
+
+	// switch addr2 := d.SourceAddr.(type) {
+	// case *net.UDPAddr:
+	// 	deviceSourceIP = addr2.IP
+	// case *net.TCPAddr:
+	// 	deviceSourceIP = addr2.IP
+	// }
+	// if deviceIp.IsPrivate() && !deviceSourceIP.IsPrivate() {
+	// 	requestMsg.DestAdd = d.SourceAddr
+	// }
+	return
+}
+func RequestForResponse(transport string, request sip.Request,
+	options ...gosip.RequestWithContextOption) (sip.Response, error) {
+	return (GetSipServer(transport)).RequestWithContext(context.Background(), request, options...)
+}
 
 type PortManager struct {
 	recycle chan uint16
@@ -80,7 +156,7 @@ func FindChannel(deviceId string, channelId string) (c *Channel) {
 	if v, ok := Devices.Load(deviceId); ok {
 		d := v.(*Device)
 		d.channelMutex.RLock()
-		c = d.channelMap[channelId]
+		c = d.ChannelMap[channelId]
 		d.channelMutex.RUnlock()
 	}
 	return
@@ -170,12 +246,12 @@ func (c *GB28181Config) listenMediaTCP() {
 	listen, err := net.ListenTCP("tcp", mediaAddr)
 
 	if err != nil {
-		plugin.Error("listen media server tcp err", zap.String("addr", addr), zap.Error(err))
+		plugin.Error("MediaServer listened　tcp err", zap.String("addr", addr), zap.Error(err))
 		return
 	}
-	plugin.Info("Media tcp server start.", zap.Uint16("port", c.MediaPort))
+	plugin.Sugar().Infof("MediaServer started tcp at %s", addr)
 	defer listen.Close()
-	defer plugin.Info("Media tcp server stop", zap.Uint16("port", c.MediaPort))
+	defer plugin.Info("MediaServer stopped tcp at", zap.Uint16("port", c.MediaPort))
 
 	for {
 		conn, err := listen.Accept()
@@ -195,12 +271,12 @@ func (c *GB28181Config) listenMediaUDP() {
 	conn, err := net.ListenUDP("udp", mediaAddr)
 
 	if err != nil {
-		plugin.Error("listen media server udp err", zap.String("addr", addr), zap.Error(err))
+		plugin.Error(" MediaServer started listening udp err", zap.String("addr", addr), zap.Error(err))
 		return
 	}
 	bufUDP := make([]byte, networkBuffer)
-	plugin.Info("Media udp server start.", zap.Uint16("port", c.MediaPort))
-	defer plugin.Info("Media udp server stop", zap.Uint16("port", c.MediaPort))
+	plugin.Sugar().Infof("MediaServer started at udp %s", addr)
+	defer plugin.Sugar().Infof("MediaServer stopped at udp %s", addr)
 	dumpLen := make([]byte, 6)
 	for n, _, err := conn.ReadFromUDP(bufUDP); err == nil; n, _, err = conn.ReadFromUDP(bufUDP) {
 		ps := bufUDP[:n]

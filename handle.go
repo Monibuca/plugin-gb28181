@@ -135,9 +135,9 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 func (d *Device) syncChannels() {
 	if time.Since(d.lastSyncTime) > 2*conf.HeartbeatInterval {
 		d.lastSyncTime = time.Now()
-		d.QueryDeviceInfo()
 		d.Catalog()
 		d.Subscribe()
+		d.QueryDeviceInfo()
 	}
 }
 
@@ -181,10 +181,10 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		case "Keepalive":
 			d.LastKeepaliveAt = time.Now()
 			//callID !="" 说明是订阅的事件类型信息
-			if d.channelMap == nil || len(d.channelMap) == 0 {
+			if d.ChannelMap == nil || len(d.ChannelMap) == 0 {
 				go d.syncChannels()
 			} else {
-				for _, ch := range d.channelMap {
+				for _, ch := range d.ChannelMap {
 					ch.TryAutoInvite()
 				}
 			}

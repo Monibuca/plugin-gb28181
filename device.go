@@ -62,7 +62,7 @@ type Device struct {
 	sipIP           string //设备对应网卡的服务器ip
 	mediaIP         string //设备对应网卡的服务器ip
 	NetAddr         string
-	channelMap      map[string]*Channel
+	ChannelMap      map[string]*Channel
 	channelMutex    sync.RWMutex
 	subscriber      struct {
 		CallID  string
@@ -80,7 +80,7 @@ func (d *Device) MarshalJSON() ([]byte, error) {
 		Channels []*Channel
 		*Alias
 	}{
-		Channels: maps.Values(d.channelMap),
+		Channels: maps.Values(d.ChannelMap),
 		Alias:    (*Alias)(d),
 	})
 }
@@ -116,7 +116,7 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.mediaIP = mediaIp
 	d.NetAddr = deviceIp
 	d.UpdateTime = time.Now()
-	d.channelMap = make(map[string]*Channel)
+	d.ChannelMap = make(map[string]*Channel)
 }
 
 func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
@@ -162,7 +162,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
-			channelMap:   make(map[string]*Channel),
+			ChannelMap:   make(map[string]*Channel),
 		}
 		Devices.Store(id, d)
 		c.SaveDevices()
@@ -202,7 +202,7 @@ func (d *Device) addOrUpdateChannel(channel *Channel) {
 	defer d.channelMutex.Unlock()
 	channel.device = d
 	var oldLock *sync.Mutex
-	if old, ok := d.channelMap[channel.DeviceID]; ok {
+	if old, ok := d.ChannelMap[channel.DeviceID]; ok {
 		//复制锁指针
 		oldLock = old.liveInviteLock
 	}
@@ -211,19 +211,19 @@ func (d *Device) addOrUpdateChannel(channel *Channel) {
 	} else {
 		channel.liveInviteLock = oldLock
 	}
-	d.channelMap[channel.DeviceID] = channel
+	d.ChannelMap[channel.DeviceID] = channel
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	delete(d.channelMap, DeviceID)
+	delete(d.ChannelMap, DeviceID)
 }
 
 func (d *Device) CheckSubStream() {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
-	for _, c := range d.channelMap {
+	for _, c := range d.ChannelMap {
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path
 		} else {
@@ -244,11 +244,13 @@ func (d *Device) UpdateChannels(list []*Channel) {
 			//如果父ID并非本身所属设备，一般情况下这是因为下级设备上传了目录信息，该信息通常不需要处理。
 			// 暂时不考虑级联目录的实现
 			if d.ID != parentId {
-				//if v, ok := Devices.Load(parentId); ok {
-				//	parent := v.(*Device)
-				//	parent.addOrUpdateChannel(c)
-				continue
-				//}
+				if v, ok := Devices.Load(parentId); ok {
+					parent := v.(*Device)
+					parent.addOrUpdateChannel(c)
+				} else {
+					c.Model = "Directory " + c.Model
+					c.Status = "NoParent"
+				}
 			}
 		}
 		//本设备增加通道
@@ -273,7 +275,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
 	d.channelMutex.RLock()
-	if c, ok := d.channelMap[channelId]; ok {
+	if c, ok := d.ChannelMap[channelId]; ok {
 		c.Records = append(c.Records, list...)
 	}
 	d.channelMutex.RUnlock()
@@ -450,7 +452,7 @@ func (d *Device) MobilePositionSubscribe(id string, expires time.Duration, inter
 
 // UpdateChannelPosition 更新通道GPS坐标
 func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng string, lat string) {
-	if c, ok := d.channelMap[channelId]; ok {
+	if c, ok := d.ChannelMap[channelId]; ok {
 		c.ChannelEx.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		c.ChannelEx.Longitude = lng
 		c.ChannelEx.Latitude = lat
@@ -529,7 +531,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 }
 
 func (d *Device) channelOnline(DeviceID string) {
-	if c, ok := d.channelMap[DeviceID]; ok {
+	if c, ok := d.ChannelMap[DeviceID]; ok {
 		c.Status = "ON"
 		plugin.Sugar().Debugf("通道[%s]在线\n", c.Name)
 	} else {
@@ -538,7 +540,7 @@ func (d *Device) channelOnline(DeviceID string) {
 }
 
 func (d *Device) channelOffline(DeviceID string) {
-	if c, ok := d.channelMap[DeviceID]; ok {
+	if c, ok := d.ChannelMap[DeviceID]; ok {
 		c.Status = "OFF"
 		plugin.Sugar().Debugf("通道[%s]离线\n", c.Name)
 	} else {
