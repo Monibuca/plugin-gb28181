@@ -389,7 +389,10 @@ func (d *Device) Catalog() int {
 	plugin.Sugar().Debugf("SIP->Catalog:%s", request)
 	resp, err := d.SipRequestForResponse(request)
 	if err == nil && resp != nil {
+		plugin.Sugar().Debugf("SIP<-Catalog Response: %s", resp.String())
 		return int(resp.StatusCode())
+	} else if err != nil {
+		plugin.Error("SIP<-Catalog error:", zap.Error(err))
 	}
 	return http.StatusRequestTimeout
 }

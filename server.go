@@ -30,7 +30,7 @@ func GetSipServer(transport string) gosip.Server {
 
 var sn = 0
 
-func CreateRequest(Method sip.RequestMethod, recipient *sip.Address, netAddr string) (req sip.Request) {
+func CreateRequest(exposedId string, Method sip.RequestMethod, recipient *sip.Address, netAddr string) (req sip.Request) {
 
 	sn++
 
@@ -44,7 +44,7 @@ func CreateRequest(Method sip.RequestMethod, recipient *sip.Address, netAddr str
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
-			FUser: sip.String{Str: conf.Serial},
+			FUser: sip.String{Str: exposedId},
 			FHost: conf.SipIP,
 			FPort: &port,
 		},

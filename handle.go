@@ -32,7 +32,7 @@ func (a *Authorization) Verify(username, passwd, realm, nonce string) bool {
 	r2 := a.getDigest(s2)
 
 	if r1 == "" || r2 == "" {
-		fmt.Println("Authorization algorithm wrong")
+		plugin.Error("Authorization algorithm wrong")
 		return false
 	}
 	//3、将密文 1，nonce 和密文 2 依次组合获取 1 个字符串，并对这个字符串使用算法加密，获得密文 r3，即Response
@@ -56,7 +56,11 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
 
 	id := from.Address.User().String()
-	plugin.Sugar().Debugf("OnRegister: %s, %s from %s ", req.Destination(), id, req.Source())
+	plugin.Sugar().Infof("OnRegister: %s, %s, from: %s", req.Destination(), id, req.Source())
+	if len(id) != 20 {
+		plugin.Sugar().Infof("Wrong GB-28181 id: %s", id)
+		return
+	}
 	passAuth := false
 	// 不需要密码情况
 	if c.Username == "" && c.Password == "" {
