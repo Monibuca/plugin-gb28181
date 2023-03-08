@@ -226,6 +226,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 		InviteOptions: opt,
 		channel:       channel,
 	}
+	publisher.DisableReorder = !conf.RtpReorder
 	protocol := ""
 	if conf.IsMediaNetworkTCP() {
 		protocol = "TCP/"

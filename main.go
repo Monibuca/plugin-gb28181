@@ -50,7 +50,7 @@ type GB28181Config struct {
 	LogLevel          string        `default:"info"` //trace, debug, info, warn, error, fatal, panic
 	routes            map[string]string
 	DumpPath          string //dump PS流本地文件路径
-
+	RtpReorder        bool   `default:"true"`
 	config.Publish
 	Server
 

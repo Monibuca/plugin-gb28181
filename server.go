@@ -24,6 +24,35 @@ import (
 
 var srv gosip.Server
 
+type Server struct {
+	Ignores    map[string]struct{}
+	publishers util.Map[uint32, *GBPublisher]
+	tcpPorts   PortManager
+	udpPorts   PortManager
+}
+
+const MaxRegisterCount = 3
+
+func FindChannel(deviceId string, channelId string) (c *Channel) {
+	if v, ok := Devices.Load(deviceId); ok {
+		d := v.(*Device)
+		d.channelMutex.RLock()
+		c = d.ChannelMap[channelId]
+		d.channelMutex.RUnlock()
+	}
+	return
+}
+
+var levelMap = map[string]log.Level{
+	"trace": log.TraceLevel,
+	"debug": log.DebugLevel,
+	"info":  log.InfoLevel,
+	"warn":  log.WarnLevel,
+	"error": log.ErrorLevel,
+	"fatal": log.FatalLevel,
+	"panic": log.PanicLevel,
+}
+
 func GetSipServer(transport string) gosip.Server {
 	return srv
 }
@@ -97,79 +126,6 @@ func CreateRequest(exposedId string, Method sip.RequestMethod, recipient *sip.Ad
 func RequestForResponse(transport string, request sip.Request,
 	options ...gosip.RequestWithContextOption) (sip.Response, error) {
 	return (GetSipServer(transport)).RequestWithContext(context.Background(), request, options...)
-}
-
-type PortManager struct {
-	recycle chan uint16
-	max     uint16
-	pos     uint16
-	Valid   bool
-}
-
-func (pm *PortManager) Init(start, end uint16) {
-	pm.pos = start - 1
-	pm.max = end
-	if pm.pos > 0 && pm.max > pm.pos {
-		pm.Valid = true
-		pm.recycle = make(chan uint16, pm.Range())
-	}
-}
-
-func (pm *PortManager) Range() uint16 {
-	return pm.max - pm.pos
-}
-
-func (pm *PortManager) Recycle(p uint16) (err error) {
-	select {
-	case pm.recycle <- p:
-		return nil
-	default:
-		return io.EOF //TODO: 换一个Error
-	}
-}
-
-func (pm *PortManager) GetPort() (p uint16, err error) {
-	select {
-	case p = <-pm.recycle:
-		return
-	default:
-		if pm.Range() > 0 {
-			pm.pos++
-			p = pm.pos
-			return
-		} else {
-			return 0, io.EOF //TODO: 换一个Error
-		}
-	}
-}
-
-type Server struct {
-	Ignores    map[string]struct{}
-	publishers util.Map[uint32, *GBPublisher]
-	tcpPorts   PortManager
-	udpPorts   PortManager
-}
-
-const MaxRegisterCount = 3
-
-func FindChannel(deviceId string, channelId string) (c *Channel) {
-	if v, ok := Devices.Load(deviceId); ok {
-		d := v.(*Device)
-		d.channelMutex.RLock()
-		c = d.ChannelMap[channelId]
-		d.channelMutex.RUnlock()
-	}
-	return
-}
-
-var levelMap = map[string]log.Level{
-	"trace": log.TraceLevel,
-	"debug": log.DebugLevel,
-	"info":  log.InfoLevel,
-	"warn":  log.WarnLevel,
-	"error": log.ErrorLevel,
-	"fatal": log.FatalLevel,
-	"panic": log.PanicLevel,
 }
 
 func (c *GB28181Config) startServer() {
