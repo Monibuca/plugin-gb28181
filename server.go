@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/logrusorgru/aurora"
-	"github.com/pion/rtp/v2"
+	"github.com/pion/rtp"
 	"go.uber.org/zap"
 	"m7s.live/engine/v4/util"
 	"m7s.live/plugin/gb28181/v4/utils"
