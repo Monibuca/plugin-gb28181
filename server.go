@@ -130,7 +130,7 @@ func RequestForResponse(transport string, request sip.Request,
 
 func (c *GB28181Config) startServer() {
 	c.publishers.Init()
-	addr := "0.0.0.0:" + strconv.Itoa(int(c.SipPort))
+	addr := c.ListenAddr + ":" + strconv.Itoa(int(c.SipPort))
 
 	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
 	logger.SetLevel(levelMap[c.LogLevel])
@@ -175,23 +175,25 @@ func (c *GB28181Config) startMediaServer() {
 func (c *GB28181Config) processTcpMediaConn(conn net.Conn) {
 	var rtpPacket rtp.Packet
 	reader := bufio.NewReader(conn)
-	lenBuf := make([]byte, 2)
 	defer conn.Close()
 	var err error
+	dumpLen := make([]byte, 6)
 	ps := make(util.Buffer, 1024)
 	for err == nil {
-		if _, err = io.ReadFull(reader, lenBuf); err != nil {
+		if _, err = io.ReadFull(reader, dumpLen[:2]); err != nil {
 			return
 		}
-		ps.Reset()
-		ps.Glow(int(binary.BigEndian.Uint16(lenBuf)))
+		ps.Relloc(int(binary.BigEndian.Uint16(dumpLen[:2])))
 		if _, err = io.ReadFull(reader, ps); err != nil {
 			return
 		}
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("gb28181 decode rtp error:", zap.Error(err))
 		} else if publisher := c.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
+			publisher.writeDump(ps, dumpLen)
 			publisher.PushPS(&rtpPacket)
+		} else {
+			plugin.Info("gb28181 publisher not found", zap.Uint32("ssrc", rtpPacket.SSRC))
 		}
 	}
 }
@@ -239,19 +241,14 @@ func (c *GB28181Config) listenMediaUDP() {
 		if err := rtpPacket.Unmarshal(ps); err != nil {
 			plugin.Error("Decode rtp error:", zap.Error(err))
 		}
+		t := time.Now()
 		if publisher := c.publishers.Get(rtpPacket.SSRC); publisher != nil && publisher.Publisher.Err() == nil {
-			if publisher.dumpFile != nil {
-				util.PutBE(dumpLen[:4], n)
-				if publisher.lastReceive.IsZero() {
-					util.PutBE(dumpLen[4:], 0)
-				} else {
-					util.PutBE(dumpLen[4:], uint16(time.Since(publisher.lastReceive).Milliseconds()))
-				}
-				publisher.lastReceive = time.Now()
-				publisher.dumpFile.Write(dumpLen)
-				publisher.dumpFile.Write(ps)
-			}
+			publisher.writeDump(ps, dumpLen)
 			publisher.PushPS(&rtpPacket)
+		}
+		x := time.Since(t)
+		if x > time.Millisecond {
+			fmt.Println(x)
 		}
 	}
 }

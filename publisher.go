@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ghettovoice/gosip/sip"
@@ -51,7 +52,9 @@ func (p *GBPublisher) OnEvent(event any) {
 		// p.parser.EsHandler = p
 		conf.publishers.Add(p.SSRC, p)
 		if err := error(nil); p.dump != "" {
-			if p.dumpFile, err = os.OpenFile(p.dump, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
+			fp := filepath.Join(p.dump, p.Stream.Path)
+			os.MkdirAll(filepath.Dir(fp), 0766)
+			if p.dumpFile, err = os.OpenFile(fp, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
 				p.Error("open dump file failed", zap.Error(err))
 			}
 		}
@@ -165,24 +168,26 @@ func (p *GBPublisher) ListenUDP() (port uint16, err error) {
 			if err := rtpPacket.Unmarshal(ps); err != nil {
 				plugin.Error("Decode rtp error:", zap.Error(err))
 			}
-			if p.dumpFile != nil {
-				util.PutBE(dumpLen[:4], n)
-				if p.lastReceive.IsZero() {
-					util.PutBE(dumpLen[4:], 0)
-				} else {
-					util.PutBE(dumpLen[4:], uint16(time.Since(p.lastReceive).Milliseconds()))
-				}
-				p.lastReceive = time.Now()
-				p.dumpFile.Write(dumpLen)
-				p.dumpFile.Write(ps)
-			}
+			p.writeDump(ps, dumpLen)
 			p.PushPS(&rtpPacket)
 			conn.SetReadDeadline(time.Now().Add(time.Second * 10))
 		}
 	}()
 	return
 }
-
+func (p *GBPublisher) writeDump(ps util.Buffer, dumpLen []byte) {
+	if p.dumpFile != nil {
+		util.PutBE(dumpLen[:4], ps.Len())
+		if p.lastReceive.IsZero() {
+			util.PutBE(dumpLen[4:], 0)
+		} else {
+			util.PutBE(dumpLen[4:], uint16(time.Since(p.lastReceive).Milliseconds()))
+		}
+		p.lastReceive = time.Now()
+		p.dumpFile.Write(dumpLen)
+		p.dumpFile.Write(ps)
+	}
+}
 func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 	port, err = conf.tcpPorts.GetPort()
 	if err != nil {
@@ -208,19 +213,21 @@ func (p *GBPublisher) ListenTCP() (port uint16, err error) {
 			return
 		}
 		var rtpPacket rtp.Packet
-		lenBuf := make([]byte, 2)
+		ps := make(util.Buffer, 1024)
+		dumpLen := make([]byte, 6)
 		defer conn.Close()
 		for err == nil {
-			if _, err = io.ReadFull(conn, lenBuf); err != nil {
+			if _, err = io.ReadFull(conn, dumpLen[:2]); err != nil {
 				return
 			}
-			ps := make([]byte, binary.BigEndian.Uint16(lenBuf))
+			ps.Relloc(int(binary.BigEndian.Uint16(dumpLen[:2])))
 			if _, err = io.ReadFull(conn, ps); err != nil {
 				return
 			}
 			if err := rtpPacket.Unmarshal(ps); err != nil {
 				plugin.Error("gb28181 decode rtp error:", zap.Error(err))
 			} else if !p.IsClosed() {
+				p.writeDump(ps, dumpLen)
 				p.PushPS(&rtpPacket)
 			}
 		}

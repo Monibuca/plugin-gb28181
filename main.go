@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -20,7 +21,7 @@ type GB28181Config struct {
 	AutoInvite     bool `default:"true"`
 	PreFetchRecord bool
 	InviteIDs      string //按照国标gb28181协议允许邀请的设备类型:132 摄像机 NVR
-
+	ListenAddr     string `default:"0.0.0.0"`
 	//sip服务器的配置
 	SipNetwork string `default:"udp"` //传输协议，默认UDP，可选TCP
 	SipIP      string //sip 服务器公网IP
@@ -39,7 +40,7 @@ type GB28181Config struct {
 	//媒体服务器配置
 	MediaIP      string //媒体服务器地址
 	MediaPort    uint16 `default:"58200"` //媒体服务器端口
-	MediaNetwork string `default:"udp"`   //媒体传输协议，默认UDP，可选TCP
+	MediaNetwork string `default:"tcp"`   //媒体传输协议，默认UDP，可选TCP
 	MediaPortMin uint16
 	MediaPortMax uint16
 	// MediaIdleTimeout uint16 //推流超时时间，超过则断开链接，让设备重连
@@ -71,6 +72,7 @@ func (c *GB28181Config) initRoutes() {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
+		os.MkdirAll(c.DumpPath, 0766)
 		c.ReadDevices()
 		go c.initRoutes()
 		c.startServer()

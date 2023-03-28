@@ -18,58 +18,32 @@ _ "m7s.live/plugin/gb28181/v4"
 
 ```yaml
 gb28181:
-  autoinvite:     true
+  autoinvite:     true #表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
   position:
     autosubposition: false #是否自动订阅定位
     expires: 3600s #订阅周期(单位：秒)，默认3600
     interval: 6s #订阅间隔（单位：秒），默认6
-  prefetchrecord: false
-  udpcachesize:   0
+  prefetchrecord: false 
+  udpcachesize:   0 #表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启
   sipnetwork:     udp
-  sipip:          ""
+  sipip:          "" #sip服务器地址 默认 自动适配设备网段
   sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
   username:       ""
   password:       ""
   
-  registervalidity:  60s
+  registervalidity:  60s #注册有效期
   
-  mediaip:          ""
-  mediaport:        58200
-  mediaidletimeout: 30
-  medianetwork:     udp
-  mediaportmin:     0
-  meidaportmax:     0
+  mediaip:          "" #媒体服务器地址 默认 自动适配设备网段
+  mediaport:        58200 #媒体服务器端口，用于接收设备的流
+  medianetwork:     tcp
+  mediaportmin:     0 #媒体服务器端口范围最小值，设置后将开启端口范围模式
+  mediaportmax:     0 #媒体服务器端口范围最大值，设置后将开启端口范围模式
 
-  removebaninterval: 10m
+  removebaninterval: 10m #定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
   loglevel:         info
 ```
-
-- `AutoInvite`     bool 表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
-- `PreFetchRecord` bool
-
-* sip服务器的配置
-- `SipNetwork` string 传输协议，默认UDP，可选TCP
-- `SipIP`      string sip 服务器公网IP 默认 自动适配设备网段
-- `SipPort`    uint16 sip 服务器端口，默认 5060
-- `Serial`     string sip 服务器 id, 默认 34020000002000000001
-- `Realm`      string sip 服务器域，默认 3402000000
-- `Username`   string sip 服务器账号
-- `Password`   string sip 服务器密码
-
-- `RegisterValidity`  time.Duration    注册有效期，单位秒，默认 60
-
-* 媒体服务器配置
-- `MediaIP`          string 媒体服务器地址 默认 自动适配设备网段
-- `MediaPort`        uint16 媒体服务器端口
-- `MediaNetwork`     string 媒体传输协议，默认UDP，可选TCP
-- `MediaIdleTimeout` uint16 推流超时时间，超过则断开链接，让设备重连
-- `MediaPortMin`     uint16 媒体服务器端口范围最小值
-- `MediaPortMax`     uint16 媒体服务器端口范围最大值
-- `LogLevel`          string 日志级别，默认 info（trace，debug，info，warn，error，fatal, panic）
-- `RemoveBanInterval` time.Duration  定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
-- `UdpCacheSize`      int  表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启，会最多缓存最多N个包，并排序，修复乱序造成的无法播放问题，注意开启后，会有一定的性能损耗，并丢失部分包。
 
 **如果配置了端口范围，将采用范围端口机制，每一个流对应一个端口
 

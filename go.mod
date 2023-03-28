@@ -11,12 +11,14 @@ require (
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/net v0.7.0
 	golang.org/x/text v0.7.0
-	m7s.live/engine/v4 v4.11.15
+	m7s.live/engine/v4 v4.11.18
 )
 
 require (
+	github.com/aler9/gortsplib v1.0.1 // indirect
 	github.com/aler9/gortsplib/v2 v2.1.4 // indirect
 	github.com/cnotch/ipchub v1.1.0 // indirect
+	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/discoviking/fsm v0.0.0-20150126104936-f4a273feecca // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
