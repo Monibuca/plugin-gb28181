@@ -6,17 +6,18 @@ import (
 	"github.com/ghettovoice/gosip/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	m7slog "m7s.live/engine/v4/log"
 )
 
 type ZapLogger struct {
-	log     *zap.Logger
+	log     *m7slog.Logger
 	prefix  string
 	fields  log.Fields
 	sugared *zap.SugaredLogger
 	level   log.Level
 }
 
-func NewZapLogger(log *zap.Logger, prefix string, fields log.Fields) (z *ZapLogger) {
+func NewZapLogger(log *m7slog.Logger, prefix string, fields log.Fields) (z *ZapLogger) {
 	z = &ZapLogger{
 		log:    log,
 		prefix: prefix,

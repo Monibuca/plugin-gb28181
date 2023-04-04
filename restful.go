@@ -72,6 +72,7 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 func (c *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
 	dump := r.URL.Query().Get("dump")
 	printOut := r.URL.Query().Get("print")
+	streamPath := r.URL.Query().Get("streamPath")
 	if dump == "" {
 		dump = c.DumpPath
 	}
@@ -79,11 +80,12 @@ func (c *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		streamPath := dump
-		if strings.HasPrefix(dump, "/") {
-			streamPath = "replay" + dump
-		} else {
-			streamPath = "replay/" + dump
+		if streamPath == "" {
+			if strings.HasPrefix(dump, "/") {
+				streamPath = "replay" + dump
+			} else {
+				streamPath = "replay/" + dump
+			}
 		}
 		var pub GBPublisher
 		pub.SetIO(f)

@@ -9,14 +9,13 @@ require (
 	github.com/pion/rtp v1.7.13
 	go.uber.org/zap v1.23.0
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
-	golang.org/x/net v0.7.0
-	golang.org/x/text v0.7.0
-	m7s.live/engine/v4 v4.11.18
+	golang.org/x/net v0.8.0
+	golang.org/x/text v0.8.0
+	m7s.live/engine/v4 v4.12.0
 )
 
 require (
-	github.com/aler9/gortsplib v1.0.1 // indirect
-	github.com/aler9/gortsplib/v2 v2.1.4 // indirect
+	github.com/aler9/gortsplib/v2 v2.2.2 // indirect
 	github.com/cnotch/ipchub v1.1.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/discoviking/fsm v0.0.0-20150126104936-f4a273feecca // indirect
@@ -55,10 +54,10 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
-	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/term v0.5.0 // indirect
-	golang.org/x/tools v0.3.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/term v0.6.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
