@@ -116,7 +116,9 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.mediaIP = mediaIp
 	d.NetAddr = deviceIp
 	d.UpdateTime = time.Now()
-	d.ChannelMap = make(map[string]*Channel)
+	if d.ChannelMap == nil {
+		d.ChannelMap = make(map[string]*Channel)
+	}
 }
 
 func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
