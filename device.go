@@ -203,15 +203,12 @@ func (d *Device) addOrUpdateChannel(channel *Channel) {
 	d.channelMutex.Lock()
 	defer d.channelMutex.Unlock()
 	channel.device = d
-	var oldLock *sync.Mutex
 	if old, ok := d.ChannelMap[channel.DeviceID]; ok {
 		//复制锁指针
-		oldLock = old.liveInviteLock
+		channel.ChannelEx = old.ChannelEx
 	}
-	if oldLock == nil {
+	if channel.liveInviteLock == nil {
 		channel.liveInviteLock = &sync.Mutex{}
-	} else {
-		channel.liveInviteLock = oldLock
 	}
 	d.ChannelMap[channel.DeviceID] = channel
 }
