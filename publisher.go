@@ -14,15 +14,14 @@ import (
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/util"
-	"m7s.live/plugin/gb28181/v4/utils"
 )
 
 type GBPublisher struct {
 	PSPublisher
 	*InviteOptions
-	channel     *Channel
-	inviteRes   sip.Response
-	udpCache    *utils.PriorityQueueRtp
+	channel   *Channel
+	inviteRes sip.Response
+	// udpCache    *utils.PriorityQueueRtp
 	dumpFile    *os.File
 	dumpPrint   io.Writer
 	lastReceive time.Time
@@ -80,7 +79,7 @@ func (p *GBPublisher) OnEvent(event any) {
 		if p.dumpFile != nil {
 			p.dumpFile.Close()
 		}
-		p.Bye()
+		go p.Bye()
 	}
 	p.Publisher.OnEvent(event)
 }

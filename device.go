@@ -47,7 +47,7 @@ var (
 )
 
 type Device struct {
-	//*transaction.Core `json:"-"`
+	//*transaction.Core `json:"-" yaml:"-"`
 	ID              string
 	Name            string
 	Manufacturer    string

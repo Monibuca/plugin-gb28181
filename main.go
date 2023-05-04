@@ -9,6 +9,7 @@ import (
 	myip "github.com/husanpao/ip"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
+	"m7s.live/engine/v4/util"
 )
 
 type GB28181PositionConfig struct {
@@ -30,7 +31,10 @@ type GB28181Config struct {
 	Realm      string `default:"3402000000"`           //sip 服务器域，默认 3402000000
 	Username   string //sip 服务器账号
 	Password   string //sip 服务器密码
-
+	Port       struct { // 新配置方式
+		Sip   string `default:"udp:5060"`
+		Media string `default:"tcp:58200"`
+	}
 	// AckTimeout        uint16 //sip 服务应答超时，单位秒
 	RegisterValidity time.Duration `default:"60s"` //注册有效期，单位秒，默认 3600
 	// RegisterInterval  int    //注册间隔，单位秒，默认 60
@@ -47,11 +51,11 @@ type GB28181Config struct {
 
 	// WaitKeyFrame      bool //是否等待关键帧，如果等待，则在收到第一个关键帧之前，忽略所有媒体流
 	RemoveBanInterval time.Duration `default:"600s"` //移除禁止设备间隔
-	UdpCacheSize      int           //udp缓存大小
-	LogLevel          string        `default:"info"` //trace, debug, info, warn, error, fatal, panic
-	routes            map[string]string
-	DumpPath          string //dump PS流本地文件路径
-	RtpReorder        bool   `default:"true"`
+	// UdpCacheSize      int           //udp缓存大小
+	LogLevel   string `default:"info"` //trace, debug, info, warn, error, fatal, panic
+	routes     map[string]string
+	DumpPath   string //dump PS流本地文件路径
+	RtpReorder bool   `default:"true"`
 	config.Publish
 	Server
 
@@ -72,6 +76,21 @@ func (c *GB28181Config) initRoutes() {
 func (c *GB28181Config) OnEvent(event any) {
 	switch event.(type) {
 	case FirstConfig:
+		if c.Port.Sip != "udp:5060" {
+			protocol, ports := util.Conf2Listener(c.Port.Sip)
+			c.SipNetwork = protocol
+			c.SipPort = ports[0]
+		}
+		if c.Port.Media != "tcp:58200" {
+			protocol, ports := util.Conf2Listener(c.Port.Media)
+			c.MediaNetwork = protocol
+			if len(ports) > 1 {
+				c.MediaPortMin = ports[0]
+				c.MediaPortMax = ports[1]
+			} else {
+				c.MediaPort = ports[0]
+			}
+		}
 		os.MkdirAll(c.DumpPath, 0766)
 		c.ReadDevices()
 		go c.initRoutes()

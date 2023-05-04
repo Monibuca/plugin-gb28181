@@ -16,7 +16,7 @@ import (
 
 type ChannelEx struct {
 	device          *Device
-	RecordPublisher *GBPublisher `json:"-"`
+	RecordPublisher *GBPublisher `json:"-" yaml:"-"`
 	LivePublisher   *GBPublisher
 	LiveSubSP       string //实时子码流
 	Records         []*Record
@@ -47,7 +47,7 @@ type Channel struct {
 	RegisterWay  int
 	Secrecy      int
 	Status       string
-	Children     []*Channel `json:"-"`
+	Children     []*Channel `json:"-" yaml:"-"`
 	ChannelEx               //自定义属性
 }
 
@@ -75,9 +75,13 @@ func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request)
 	//非同一域的目标地址需要使用@host
 	host := conf.Realm
 	if channel.DeviceID[0:9] != host {
-		deviceIp := d.NetAddr
-		deviceIp = deviceIp[0:strings.LastIndex(deviceIp, ":")]
-		host = fmt.Sprintf("%s:%d", deviceIp, channel.Port)
+		if channel.Port != 0 {
+			deviceIp := d.NetAddr
+			deviceIp = deviceIp[0:strings.LastIndex(deviceIp, ":")]
+			host = fmt.Sprintf("%s:%d", deviceIp, channel.Port)
+		} else {
+			host = d.NetAddr
+		}
 	}
 
 	channelAddr := sip.Address{
@@ -299,9 +303,9 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 				}
 			}
 		}
-		if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
-			publisher.udpCache = utils.NewPqRtp()
-		}
+		// if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
+		// 	publisher.udpCache = utils.NewPqRtp()
+		// }
 		if err = plugin.Publish(streamPath, publisher); err != nil {
 			code = ServerInternalError
 			return
