@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/exp/maps"
-
 	"go.uber.org/zap"
 	"m7s.live/engine/v4"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -62,8 +60,7 @@ type Device struct {
 	sipIP           string //设备对应网卡的服务器ip
 	mediaIP         string //设备对应网卡的服务器ip
 	NetAddr         string
-	ChannelMap      map[string]*Channel
-	channelMutex    sync.RWMutex
+	channelMap      sync.Map
 	subscriber      struct {
 		CallID  string
 		Timeout time.Time
@@ -76,13 +73,18 @@ type Device struct {
 
 func (d *Device) MarshalJSON() ([]byte, error) {
 	type Alias Device
-	return json.Marshal(&struct {
+	data := &struct {
 		Channels []*Channel
 		*Alias
 	}{
-		Channels: maps.Values(d.ChannelMap),
-		Alias:    (*Alias)(d),
+		Alias: (*Alias)(d),
+	}
+	d.channelMap.Range(func(key, value interface{}) bool {
+		c := value.(*Channel)
+		data.Channels = append(data.Channels, c)
+		return true
 	})
+	return json.Marshal(data)
 }
 func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	from, _ := req.From()
@@ -116,9 +118,6 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	d.mediaIP = mediaIp
 	d.NetAddr = deviceIp
 	d.UpdateTime = time.Now()
-	if d.ChannelMap == nil {
-		d.ChannelMap = make(map[string]*Channel)
-	}
 }
 
 func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
@@ -164,7 +163,6 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
-			ChannelMap:   make(map[string]*Channel),
 		}
 		Devices.Store(id, d)
 		c.SaveDevices()
@@ -200,35 +198,27 @@ func (c *GB28181Config) SaveDevices() {
 }
 
 func (d *Device) addOrUpdateChannel(channel *Channel) {
-	d.channelMutex.Lock()
-	defer d.channelMutex.Unlock()
+	if old, ok := d.channelMap.Load(channel.DeviceID); ok {
+		channel.ChannelEx = old.(*Channel).ChannelEx
+	}
 	channel.device = d
-	if old, ok := d.ChannelMap[channel.DeviceID]; ok {
-		//复制锁指针
-		channel.ChannelEx = old.ChannelEx
-	}
-	if channel.liveInviteLock == nil {
-		channel.liveInviteLock = &sync.Mutex{}
-	}
-	d.ChannelMap[channel.DeviceID] = channel
+	d.channelMap.Store(channel.DeviceID, channel)
 }
 
 func (d *Device) deleteChannel(DeviceID string) {
-	d.channelMutex.Lock()
-	defer d.channelMutex.Unlock()
-	delete(d.ChannelMap, DeviceID)
+	d.channelMap.Delete(DeviceID)
 }
 
 func (d *Device) CheckSubStream() {
-	d.channelMutex.Lock()
-	defer d.channelMutex.Unlock()
-	for _, c := range d.ChannelMap {
+	d.channelMap.Range(func(key, value any) bool {
+		c := value.(*Channel)
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path
 		} else {
 			c.LiveSubSP = ""
 		}
-	}
+		return true
+	})
 }
 func (d *Device) UpdateChannels(list []*Channel) {
 
@@ -265,7 +255,7 @@ func (d *Device) UpdateChannels(list []*Channel) {
 				go c.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
 			}
 		}
-		c.TryAutoInvite()
+		c.TryAutoInvite(&InviteOptions{})
 		if s := engine.Streams.Get("sub/" + c.DeviceID); s != nil {
 			c.LiveSubSP = s.Path
 		} else {
@@ -274,11 +264,11 @@ func (d *Device) UpdateChannels(list []*Channel) {
 	}
 }
 func (d *Device) UpdateRecord(channelId string, list []*Record) {
-	d.channelMutex.RLock()
-	if c, ok := d.ChannelMap[channelId]; ok {
+	d.channelMap.Range(func(key, value any) bool {
+		c := value.(*Channel)
 		c.Records = append(c.Records, list...)
-	}
-	d.channelMutex.RUnlock()
+		return true
+	})
 }
 
 func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {
@@ -455,7 +445,8 @@ func (d *Device) MobilePositionSubscribe(id string, expires time.Duration, inter
 
 // UpdateChannelPosition 更新通道GPS坐标
 func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng string, lat string) {
-	if c, ok := d.ChannelMap[channelId]; ok {
+	if v, ok := d.channelMap.Load(channelId); ok {
+		c := v.(*Channel)
 		c.ChannelEx.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		c.ChannelEx.Longitude = lng
 		c.ChannelEx.Latitude = lat
@@ -534,7 +525,8 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 }
 
 func (d *Device) channelOnline(DeviceID string) {
-	if c, ok := d.ChannelMap[DeviceID]; ok {
+	if v, ok := d.channelMap.Load(DeviceID); ok {
+		c := v.(*Channel)
 		c.Status = "ON"
 		plugin.Sugar().Debugf("通道[%s]在线\n", c.Name)
 	} else {
@@ -543,7 +535,8 @@ func (d *Device) channelOnline(DeviceID string) {
 }
 
 func (d *Device) channelOffline(DeviceID string) {
-	if c, ok := d.ChannelMap[DeviceID]; ok {
+	if v, ok := d.channelMap.Load(DeviceID); ok {
+		c := v.(*Channel)
 		c.Status = "OFF"
 		plugin.Sugar().Debugf("通道[%s]离线\n", c.Name)
 	} else {

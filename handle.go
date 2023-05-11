@@ -185,12 +185,14 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		case "Keepalive":
 			d.LastKeepaliveAt = time.Now()
 			//callID !="" 说明是订阅的事件类型信息
-			if d.ChannelMap == nil || len(d.ChannelMap) == 0 {
+			if d.lastSyncTime.IsZero() {
 				go d.syncChannels()
 			} else {
-				for _, ch := range d.ChannelMap {
-					ch.TryAutoInvite()
-				}
+				d.channelMap.Range(func(key, value interface{}) bool {
+					channel := value.(*Channel)
+					channel.TryAutoInvite(&InviteOptions{})
+					return true
+				})
 			}
 			//为什么要查找子码流?
 			//d.CheckSubStream()

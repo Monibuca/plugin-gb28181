@@ -2,9 +2,7 @@ package gb28181
 
 import (
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"m7s.live/engine/v4/util"
@@ -52,15 +50,17 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	id := query.Get("id")
 	channel := query.Get("channel")
+	streamPath := query.Get("streamPath")
 	port, _ := strconv.Atoi(query.Get("mediaPort"))
 	opt := InviteOptions{
-		dump:      query.Get("dump"),
-		MediaPort: uint16(port),
+		dump:       query.Get("dump"),
+		MediaPort:  uint16(port),
+		StreamPath: streamPath,
 	}
 	opt.Validate(query.Get("startTime"), query.Get("endTime"))
 	if c := FindChannel(id, channel); c == nil {
 		http.NotFound(w, r)
-	} else if opt.IsLive() && c.LivePublisher != nil {
+	} else if opt.IsLive() && c.status.Load() > 0 {
 		w.WriteHeader(304) //直播流已存在
 	} else if code, err := c.Invite(&opt); err == nil {
 		w.WriteHeader(code)
@@ -69,48 +69,12 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *GB28181Config) API_replay(w http.ResponseWriter, r *http.Request) {
-	dump := r.URL.Query().Get("dump")
-	printOut := r.URL.Query().Get("print")
-	streamPath := r.URL.Query().Get("streamPath")
-	if dump == "" {
-		dump = c.DumpPath
-	}
-	f, err := os.OpenFile(dump, os.O_RDONLY, 0644)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		if streamPath == "" {
-			if strings.HasPrefix(dump, "/") {
-				streamPath = "replay" + dump
-			} else {
-				streamPath = "replay/" + dump
-			}
-		}
-		var pub GBPublisher
-		pub.SetIO(f)
-		if err = plugin.Publish(streamPath, &pub); err == nil {
-			if printOut != "" {
-				pub.dumpPrint = w
-				pub.SetParentCtx(r.Context())
-				err = pub.Replay(f)
-			} else {
-				go pub.Replay(f)
-				w.Write([]byte("ok"))
-			}
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}
-}
-
 func (c *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
-	// CORS(w, r)
 	id := r.URL.Query().Get("id")
 	channel := r.URL.Query().Get("channel")
-	live := r.URL.Query().Get("live")
+	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Bye(live != "false"))
+		w.WriteHeader(c.Bye(streamPath))
 	} else {
 		http.NotFound(w, r)
 	}

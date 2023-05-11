@@ -5,27 +5,55 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"sync/atomic"
 
 	"github.com/ghettovoice/gosip/sip"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	"m7s.live/plugin/gb28181/v4/utils"
+	"m7s.live/plugin/ps/v4"
 )
 
+type PullStream struct {
+	opt       *InviteOptions
+	channel   *Channel
+	inviteRes sip.Response
+}
+
+func (p *PullStream) Bye() int {
+	res := p.inviteRes
+	bye := p.channel.CreateRequst(sip.BYE)
+	from, _ := res.From()
+	to, _ := res.To()
+	callId, _ := res.CallID()
+	bye.ReplaceHeaders(from.Name(), []sip.Header{from})
+	bye.ReplaceHeaders(to.Name(), []sip.Header{to})
+	bye.ReplaceHeaders(callId.Name(), []sip.Header{callId})
+	resp, err := p.channel.device.SipRequestForResponse(bye)
+	if p.opt.IsLive() {
+		p.channel.status.Store(0)
+		// defer p.channel.TryAutoInvite(p.opt)
+	}
+	if p.opt.recyclePort != nil {
+		p.opt.recyclePort(p.opt.MediaPort)
+	}
+	if err != nil {
+		return ServerInternalError
+	}
+	return int(resp.StatusCode())
+}
+
 type ChannelEx struct {
-	device          *Device
-	RecordPublisher *GBPublisher `json:"-" yaml:"-"`
-	LivePublisher   *GBPublisher
-	LiveSubSP       string //实时子码流
+	device          *Device      // 所属设备
+	status          atomic.Int32 // 通道状态,0:空闲,1:正在invite,2:正在播放
+	LiveSubSP       string       // 实时子码流，通过rtsp
 	Records         []*Record
 	RecordStartTime string
 	RecordEndTime   string
 	recordStartTime time.Time
 	recordEndTime   time.Time
-	liveInviteLock  *sync.Mutex
-	tcpPortIndex    uint16
 	GpsTime         time.Time //gps时间
 	Longitude       string    //经度
 	Latitude        string    //纬度
@@ -203,18 +231,26 @@ f = v/a/编码格式/码率大小/采样率
 f字段中视、音频参数段之间不需空格分割。
 可使用f字段中的分辨率参数标识同一设备不同分辨率的码流。
 */
+
 func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	if opt.IsLive() {
-		if !channel.liveInviteLock.TryLock() {
+		if !channel.status.CompareAndSwap(0, 1) {
 			return 304, nil
 		}
 		defer func() {
-			if code != OK {
-				channel.liveInviteLock.Unlock()
+			if err != nil {
+				channel.status.Store(0)
+				if conf.InviteMode == 1 {
+					// 5秒后重试
+					time.AfterFunc(time.Second*5, func() {
+						channel.Invite(opt)
+					})
+				}
+			} else {
+				channel.status.Store(2)
 			}
 		}()
 	}
-	channel.Bye(opt.IsLive())
 	d := channel.device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
@@ -223,36 +259,35 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 		s = "Playback"
 		streamPath = fmt.Sprintf("%s/%s/%d-%d", d.ID, channel.DeviceID, opt.Start, opt.End)
 	}
+	if opt.StreamPath != "" {
+		streamPath = opt.StreamPath
+	}
 	if opt.dump == "" {
 		opt.dump = conf.DumpPath
 	}
-	publisher := &GBPublisher{
-		InviteOptions: opt,
-		channel:       channel,
-	}
-	publisher.DisableReorder = !conf.RtpReorder
 	protocol := ""
+	networkType := "udp"
+	resuePort := true
 	if conf.IsMediaNetworkTCP() {
+		networkType = "tcp"
 		protocol = "TCP/"
 		if conf.tcpPorts.Valid {
-			opt.MediaPort, err = publisher.ListenTCP()
-			if err != nil {
-				return ServerInternalError, err
-			}
-		} else if opt.MediaPort == 0 {
-			opt.MediaPort = conf.MediaPort
+			opt.MediaPort, err = conf.tcpPorts.GetPort()
+			opt.recyclePort = conf.tcpPorts.Recycle
+			resuePort = false
 		}
-		publisher.DisableReorder = true
 	} else {
 		if conf.udpPorts.Valid {
-			opt.MediaPort, err = publisher.ListenUDP()
-			if err != nil {
-				code = ServerInternalError
-				return
-			}
-		} else if opt.MediaPort == 0 {
-			opt.MediaPort = conf.MediaPort
+			opt.MediaPort, err = conf.udpPorts.GetPort()
+			opt.recyclePort = conf.udpPorts.Recycle
+			resuePort = false
 		}
+	}
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	if opt.MediaPort == 0 {
+		opt.MediaPort = conf.MediaPort
 	}
 
 	sdpInfo := []string{
@@ -266,7 +301,6 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 		"a=recvonly",
 		"a=rtpmap:96 PS/90000",
 		"y=" + opt.ssrc,
-		"",
 	}
 	if conf.IsMediaNetworkTCP() {
 		sdpInfo = append(sdpInfo, "a=setup:passive", "a=connection:new")
@@ -275,22 +309,22 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	contentType := sip.ContentType("application/sdp")
 	invite.AppendHeader(&contentType)
 
-	invite.SetBody(strings.Join(sdpInfo, "\r\n"), true)
+	invite.SetBody(strings.Join(sdpInfo, "\r\n")+"\r\n", true)
 
 	subject := sip.GenericHeader{
 		HeaderName: "Subject", Contents: fmt.Sprintf("%s:%s,%s:0", channel.DeviceID, opt.ssrc, conf.Serial),
 	}
 	invite.AppendHeader(&subject)
-	publisher.inviteRes, err = d.SipRequestForResponse(invite)
+	inviteRes, err := d.SipRequestForResponse(invite)
 	if err != nil {
 		plugin.Error(fmt.Sprintf("SIP->Invite %s :%s invite error: %s", channel.DeviceID, invite.String(), err.Error()))
 		return http.StatusInternalServerError, err
 	}
-	code = int(publisher.inviteRes.StatusCode())
+	code = int(inviteRes.StatusCode())
 	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, code))
 
 	if code == OK {
-		ds := strings.Split(publisher.inviteRes.Body(), "\r\n")
+		ds := strings.Split(inviteRes.Body(), "\r\n")
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
 				if ls[0] == "y" && len(ls[1]) > 0 {
@@ -303,46 +337,42 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 				}
 			}
 		}
-		// if conf.UdpCacheSize > 0 && !conf.IsMediaNetworkTCP() {
-		// 	publisher.udpCache = utils.NewPqRtp()
-		// }
-		if err = plugin.Publish(streamPath, publisher); err != nil {
-			code = ServerInternalError
-			return
+		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, resuePort)
+		if err == nil {
+			PullStreams.Store(streamPath, &PullStream{
+				opt:       opt,
+				channel:   channel,
+				inviteRes: inviteRes,
+			})
+			err = srv.Send(sip.NewAckRequest("", invite, inviteRes, "", nil))
 		}
-		ack := sip.NewAckRequest("", invite, publisher.inviteRes, "", nil)
-		srv.Send(ack)
-	} else if channel.CanInvite() {
-		time.AfterFunc(time.Second*5, func() {
-			channel.TryAutoInvite()
-		})
 	}
 	return
 }
 
-func (channel *Channel) Bye(live bool) int {
+func (channel *Channel) Bye(streamPath string) int {
 	d := channel.device
-	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
-	if s := Streams.Get(streamPath); s != nil {
-		s.Close()
+	if streamPath == "" {
+		streamPath = fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	}
-	if live && channel.LivePublisher != nil {
-		return channel.LivePublisher.Bye()
+	if s, loaded := PullStreams.LoadAndDelete(streamPath); loaded {
+		s.(*PullStream).Bye()
+		if s := Streams.Get(streamPath); s != nil {
+			s.Close()
+		}
+		return http.StatusOK
 	}
-	if !live && channel.RecordPublisher != nil {
-		return channel.RecordPublisher.Bye()
-	}
-	return 404
+	return http.StatusNotFound
 }
 
-func (channel *Channel) TryAutoInvite() {
-	if conf.AutoInvite && channel.CanInvite() {
-		go channel.Invite(&InviteOptions{})
+func (channel *Channel) TryAutoInvite(opt *InviteOptions) {
+	if conf.InviteMode == 1 && channel.CanInvite() {
+		go channel.Invite(opt)
 	}
 }
 
 func (channel *Channel) CanInvite() bool {
-	if channel.LivePublisher != nil || len(channel.DeviceID) != 20 || channel.Status == "OFF" {
+	if channel.status.Load() != 0 || len(channel.DeviceID) != 20 || channel.Status == "OFF" {
 		return false
 	}
 

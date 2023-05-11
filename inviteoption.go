@@ -8,12 +8,14 @@ import (
 )
 
 type InviteOptions struct {
-	Start     int
-	End       int
-	dump      string
-	ssrc      string
-	SSRC      uint32
-	MediaPort uint16
+	Start       int
+	End         int
+	dump        string
+	ssrc        string
+	SSRC        uint32
+	MediaPort   uint16
+	StreamPath  string
+	recyclePort func(p uint16) (err error)
 }
 
 func (o InviteOptions) IsLive() bool {
