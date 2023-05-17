@@ -18,16 +18,14 @@ _ "m7s.live/plugin/gb28181/v4"
 
 ```yaml
 gb28181:
-  autoinvite:     true #表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流
+  invitemode:     1 #0、手动invite 1、表示自动发起invite，当Server（SIP）接收到设备信息时，立即向设备发送invite命令获取流,2、按需拉流，既等待订阅者触发
   position:
     autosubposition: false #是否自动订阅定位
     expires: 3600s #订阅周期(单位：秒)，默认3600
     interval: 6s #订阅间隔（单位：秒），默认6
   prefetchrecord: false 
   udpcachesize:   0 #表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启
-  sipnetwork:     udp
   sipip:          "" #sip服务器地址 默认 自动适配设备网段
-  sipport:        5060
   serial:         "34020000002000000001"
   realm:          "3402000000"
   username:       ""
@@ -36,10 +34,9 @@ gb28181:
   registervalidity:  60s #注册有效期
   
   mediaip:          "" #媒体服务器地址 默认 自动适配设备网段
-  mediaport:        58200 #媒体服务器端口，用于接收设备的流
-  medianetwork:     tcp
-  mediaportmin:     0 #媒体服务器端口范围最小值，设置后将开启端口范围模式
-  mediaportmax:     0 #媒体服务器端口范围最大值，设置后将开启端口范围模式
+  port:
+    sip: udp:5060 #sip服务器端口
+    media: tcp:58200 #媒体服务器端口，用于接收设备的流,范围端口表示法：udp:50000-60000
 
   removebaninterval: 10m #定时移除注册失败的设备黑名单，单位秒，默认10分钟（600秒）
   loglevel:         info
@@ -106,7 +103,7 @@ type Device struct {
 | startTime | 否   | 开始时间（纯数字Unix时间戳） |
 | endTime   | 否   | 结束时间（纯数字Unix时间戳） |
 
-返回200代表成功
+返回200代表成功, 304代表已经在拉取中，不能重复拉（仅仅针对直播流）
 
 ### 停止从设备拉流
 
@@ -116,6 +113,8 @@ type Device struct {
 | ------- | ---- | -------- |
 | id      | 是   | 设备ID   |
 | channel | 是   | 通道编号 |
+
+http 200 表示成功，404流不存在
 
 ### 发送控制命令
 
