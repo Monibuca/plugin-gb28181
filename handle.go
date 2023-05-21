@@ -6,7 +6,6 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	"github.com/logrusorgru/aurora"
 	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/utils"
 
@@ -32,7 +31,7 @@ func (a *Authorization) Verify(username, passwd, realm, nonce string) bool {
 	r2 := a.getDigest(s2)
 
 	if r1 == "" || r2 == "" {
-		plugin.Error("Authorization algorithm wrong")
+		GB28181Plugin.Error("Authorization algorithm wrong")
 		return false
 	}
 	//3、将密文 1，nonce 和密文 2 依次组合获取 1 个字符串，并对这个字符串使用算法加密，获得密文 r3，即Response
@@ -56,9 +55,9 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
 
 	id := from.Address.User().String()
-	plugin.Sugar().Infof("OnRegister: %s, %s, from: %s", req.Destination(), id, req.Source())
+	GB28181Plugin.Info("OnRegister", zap.String("id", id), zap.String("source", req.Source()), zap.String("destination", req.Destination()))
 	if len(id) != 20 {
-		plugin.Sugar().Infof("Wrong GB-28181 id: %s", id)
+		GB28181Plugin.Info("Wrong GB-28181", zap.String("id", id))
 		return
 	}
 	passAuth := false
@@ -148,7 +147,7 @@ func (d *Device) syncChannels() {
 func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	from, _ := req.From()
 	id := from.Address.User().String()
-	plugin.Sugar().Debugf("SIP<-OnMessage from %s : %s", req.Source(), req.String())
+	GB28181Plugin.Debug("SIP<-OnMessage", zap.String("id", id), zap.String("source", req.Source()), zap.String("req", req.String()))
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
 		switch d.Status {
@@ -177,7 +176,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		if err != nil {
 			err = utils.DecodeGbk(temp, []byte(req.Body()))
 			if err != nil {
-				plugin.Error("decode catelog err", zap.Error(err))
+				GB28181Plugin.Error("decode catelog err", zap.Error(err))
 			}
 		}
 		var body string
@@ -199,7 +198,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 			//在KeepLive 进行位置订阅的处理，如果开启了自动订阅位置，则去订阅位置
 			if c.Position.AutosubPosition && time.Since(d.GpsTime) > c.Position.Interval*2 {
 				d.MobilePositionSubscribe(d.ID, c.Position.Expires, c.Position.Interval)
-				plugin.Sugar().Debugf("位置自动订阅，设备[%s]成功\n", d.ID)
+				GB28181Plugin.Debug("Mobile Position Subscribe", zap.String("deviceID", d.ID))
 			}
 		case "Catalog":
 			d.UpdateChannels(temp.DeviceList)
@@ -214,7 +213,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 			d.Status = "Alarmed"
 			body = BuildAlarmResponseXML(d.ID)
 		default:
-			plugin.Sugar().Warnf("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:\n", req.Body)
+			d.Warn("Not supported CmdType", zap.String("CmdType", temp.CmdType), zap.String("body", req.Body()))
 			response := sip.NewResponseFromRequest("", req, http.StatusBadRequest, "", "")
 			tx.Respond(response)
 			return
@@ -252,7 +251,7 @@ func (c *GB28181Config) OnNotify(req sip.Request, tx sip.ServerTransaction) {
 		if err != nil {
 			err = utils.DecodeGbk(temp, []byte(req.Body()))
 			if err != nil {
-				plugin.Error("decode catelog err", zap.Error(err))
+				GB28181Plugin.Error("decode catelog err", zap.Error(err))
 			}
 		}
 		var body string
@@ -266,7 +265,7 @@ func (c *GB28181Config) OnNotify(req sip.Request, tx sip.ServerTransaction) {
 		// case "Alarm":
 		// 	//报警事件通知 TODO
 		default:
-			plugin.Sugar().Warnf("DeviceID:", aurora.Red(d.ID), " Not supported CmdType : "+temp.CmdType+" body:", req.Body)
+			d.Warn("Not supported CmdType", zap.String("CmdType", temp.CmdType), zap.String("body", req.Body()))
 			response := sip.NewResponseFromRequest("", req, http.StatusBadRequest, "", "")
 			tx.Respond(response)
 			return

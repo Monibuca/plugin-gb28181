@@ -1,13 +1,13 @@
 package gb28181
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	myip "github.com/husanpao/ip"
+	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/util"
 )
@@ -73,7 +73,7 @@ func (c *GB28181Config) initRoutes() {
 			c.routes[k[0:lastdot]] = k
 		}
 	}
-	plugin.Info(fmt.Sprintf("LocalAndInternalIPs detail: %s", c.routes))
+	GB28181Plugin.Info("LocalAndInternalIPs", zap.Any("routes", c.routes))
 }
 
 func (c *GB28181Config) OnEvent(event any) {
@@ -117,5 +117,5 @@ func (c *GB28181Config) IsMediaNetworkTCP() bool {
 
 var conf GB28181Config
 
-var plugin = InstallPlugin(&conf)
+var GB28181Plugin = InstallPlugin(&conf)
 var PullStreams sync.Map //拉流

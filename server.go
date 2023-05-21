@@ -118,7 +118,7 @@ func RequestForResponse(transport string, request sip.Request,
 func (c *GB28181Config) startServer() {
 	addr := c.ListenAddr + ":" + strconv.Itoa(int(c.SipPort))
 
-	logger := utils.NewZapLogger(plugin.Logger, "GB SIP Server", nil)
+	logger := utils.NewZapLogger(GB28181Plugin.Logger, "GB SIP Server", nil)
 	logger.SetLevel(levelMap[c.LogLevel])
 	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 	srvConf := gosip.ServerConfig{}
@@ -132,9 +132,9 @@ func (c *GB28181Config) startServer() {
 	srv.OnRequest(sip.BYE, c.OnBye)
 	err := srv.Listen(strings.ToLower(c.SipNetwork), addr)
 	if err != nil {
-		plugin.Logger.Error("gb28181 server listen", zap.Error(err))
+		GB28181Plugin.Logger.Error("gb28181 server listen", zap.Error(err))
 	} else {
-		plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
+		GB28181Plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
 	}
 
 	if c.MediaNetwork == "tcp" {

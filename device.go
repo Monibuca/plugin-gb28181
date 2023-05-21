@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"m7s.live/engine/v4"
+	"m7s.live/engine/v4/log"
 	"m7s.live/plugin/gb28181/v4/utils"
 
 	// . "github.com/logrusorgru/aurora"
@@ -69,6 +70,7 @@ type Device struct {
 	GpsTime      time.Time //gps时间
 	Longitude    string    //经度
 	Latitude     string    //纬度
+	*log.Logger  `json:"-" yaml:"-"`
 }
 
 func (d *Device) MarshalJSON() ([]byte, error) {
@@ -112,7 +114,7 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 	if c.MediaIP != "" {
 		mediaIp = c.MediaIP
 	}
-	plugin.Info("RecoverDevice", zap.String("id", d.ID), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
+	d.Info("RecoverDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 	d.Status = string(sip.REGISTER)
 	d.sipIP = sipIP
 	d.mediaIP = mediaIp
@@ -132,7 +134,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		d.UpdateTime = time.Now()
 		d.NetAddr = deviceIp
 		d.addr = deviceAddr
-		plugin.Debug("UpdateDevice", zap.String("id", id), zap.String("netaddr", d.NetAddr))
+		d.Debug("UpdateDevice", zap.String("netaddr", d.NetAddr))
 	} else {
 		servIp := req.Recipient().Host()
 		//根据网卡ip获取对应的公网ip
@@ -153,7 +155,6 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 		if c.MediaIP != "" {
 			mediaIp = c.MediaIP
 		}
-		plugin.Info("StoreDevice", zap.String("id", id), zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		d = &Device{
 			ID:           id,
 			RegisterTime: time.Now(),
@@ -163,7 +164,9 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
 			NetAddr:      deviceIp,
+			Logger:       GB28181Plugin.With(zap.String("id", id)),
 		}
+		d.Info("StoreDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
 		Devices.Store(id, d)
 		c.SaveDevices()
 	}
@@ -177,6 +180,7 @@ func (c *GB28181Config) ReadDevices() {
 			for _, item := range items {
 				if time.Since(item.UpdateTime) < conf.RegisterValidity {
 					item.Status = "RECOVER"
+					item.Logger = GB28181Plugin.With(zap.String("id", item.ID))
 					Devices.Store(item.ID, item)
 				}
 			}
@@ -202,6 +206,7 @@ func (d *Device) addOrUpdateChannel(channel *Channel) {
 		channel.ChannelEx = old.(*Channel).ChannelEx
 	}
 	channel.device = d
+	channel.Logger = d.Logger.With(zap.String("channel", channel.DeviceID), zap.String("name", channel.Name))
 	d.channelMap.Store(channel.DeviceID, channel)
 }
 
@@ -375,13 +380,13 @@ func (d *Device) Catalog() int {
 	request.AppendHeader(&expires)
 	request.SetBody(BuildCatalogXML(d.sn, d.ID), true)
 	// 输出Sip请求设备通道信息信令
-	plugin.Sugar().Debugf("SIP->Catalog:%s", request)
+	GB28181Plugin.Sugar().Debugf("SIP->Catalog:%s", request)
 	resp, err := d.SipRequestForResponse(request)
 	if err == nil && resp != nil {
-		plugin.Sugar().Debugf("SIP<-Catalog Response: %s", resp.String())
+		GB28181Plugin.Sugar().Debugf("SIP<-Catalog Response: %s", resp.String())
 		return int(resp.StatusCode())
 	} else if err != nil {
-		plugin.Error("SIP<-Catalog error:", zap.Error(err))
+		GB28181Plugin.Error("SIP<-Catalog error:", zap.Error(err))
 	}
 	return http.StatusRequestTimeout
 }
@@ -403,7 +408,7 @@ func (d *Device) QueryDeviceInfo() {
 			// 	received, _ := via.Params.Get("received")
 			// 	d.SipIP = received.String()
 			// }
-			plugin.Info(fmt.Sprintf("QueryDeviceInfo:%s ipaddr:%s response code:%d", d.ID, d.NetAddr, response.StatusCode()))
+			d.Info("QueryDeviceInfo", zap.Uint16("status code", uint16(response.StatusCode())))
 			if response.StatusCode() == OK {
 				break
 			}
@@ -450,13 +455,13 @@ func (d *Device) UpdateChannelPosition(channelId string, gpsTime string, lng str
 		c.ChannelEx.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		c.ChannelEx.Longitude = lng
 		c.ChannelEx.Latitude = lat
-		plugin.Sugar().Debugf("更新通道[%s]坐标成功\n", c.Name)
+		c.Debug("update channel position success")
 	} else {
 		//如果未找到通道，则更新到设备上
 		d.GpsTime = time.Now() //时间取系统收到的时间，避免设备时间和格式问题
 		d.Longitude = lng
 		d.Latitude = lat
-		plugin.Sugar().Debugf("未找到通道[%s]，更新设备[%s]坐标成功\n", channelId, d.ID)
+		d.Debug("update device position success", zap.String("channelId", channelId))
 	}
 }
 
@@ -465,19 +470,19 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 	for _, v := range deviceList {
 		switch v.Event {
 		case "ON":
-			plugin.Debug("收到通道上线通知")
+			d.Debug("receive channel online notify")
 			d.channelOnline(v.DeviceID)
 		case "OFF":
-			plugin.Debug("收到通道离线通知")
+			d.Debug("receive channel offline notify")
 			d.channelOffline(v.DeviceID)
 		case "VLOST":
-			plugin.Debug("收到通道视频丢失通知")
+			d.Debug("receive channel video lost notify")
 			d.channelOffline(v.DeviceID)
 		case "DEFECT":
-			plugin.Debug("收到通道故障通知")
+			d.Debug("receive channel video defect notify")
 			d.channelOffline(v.DeviceID)
 		case "ADD":
-			plugin.Debug("收到通道新增通知")
+			d.Debug("receive channel add notify")
 			channel := Channel{
 				DeviceID:     v.DeviceID,
 				ParentID:     v.ParentID,
@@ -497,10 +502,10 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 			d.addOrUpdateChannel(&channel)
 		case "DEL":
 			//删除
-			plugin.Debug("收到通道删除通知")
+			d.Debug("receive channel delete notify")
 			d.deleteChannel(v.DeviceID)
 		case "UPDATE":
-			plugin.Debug("收到通道更新通知")
+			d.Debug("receive channel update notify")
 			// 更新通道
 			channel := &Channel{
 				DeviceID:     v.DeviceID,
@@ -528,9 +533,9 @@ func (d *Device) channelOnline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = "ON"
-		plugin.Sugar().Debugf("通道[%s]在线\n", c.Name)
+		c.Debug("online")
 	} else {
-		plugin.Sugar().Debugf("更新通道[%s]状态失败，未找到\n", DeviceID)
+		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
 }
 
@@ -538,8 +543,8 @@ func (d *Device) channelOffline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
 		c.Status = "OFF"
-		plugin.Sugar().Debugf("通道[%s]离线\n", c.Name)
+		c.Debug("offline")
 	} else {
-		plugin.Sugar().Debugf("更新通道[%s]状态失败，未找到\n", DeviceID)
+		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
 }

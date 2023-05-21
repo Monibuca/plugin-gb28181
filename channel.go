@@ -12,6 +12,7 @@ import (
 	"github.com/ghettovoice/gosip/sip"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
+	"m7s.live/engine/v4/log"
 	"m7s.live/plugin/gb28181/v4/utils"
 	"m7s.live/plugin/ps/v4"
 )
@@ -57,6 +58,7 @@ type ChannelEx struct {
 	GpsTime         time.Time //gps时间
 	Longitude       string    //经度
 	Latitude        string    //纬度
+	*log.Logger     `json:"-" yaml:"-"`
 }
 
 // Channel 通道
@@ -239,6 +241,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 		}
 		defer func() {
 			if err != nil {
+				GB28181Plugin.Error("Invite", zap.Error(err))
 				channel.status.Store(0)
 				if conf.InviteMode == 1 {
 					// 5秒后重试
@@ -317,11 +320,11 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	invite.AppendHeader(&subject)
 	inviteRes, err := d.SipRequestForResponse(invite)
 	if err != nil {
-		plugin.Error(fmt.Sprintf("SIP->Invite %s :%s invite error: %s", channel.DeviceID, invite.String(), err.Error()))
+		channel.Error("invite", zap.Error(err), zap.String("msg", invite.String()))
 		return http.StatusInternalServerError, err
 	}
 	code = int(inviteRes.StatusCode())
-	plugin.Info(fmt.Sprintf("Channel :%s invite response status code: %d", channel.DeviceID, code))
+	channel.Info("invite response", zap.Int("status code", code))
 
 	if code == OK {
 		ds := strings.Split(inviteRes.Body(), "\r\n")
@@ -331,7 +334,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 					if _ssrc, err := strconv.ParseInt(ls[1], 10, 0); err == nil {
 						opt.SSRC = uint32(_ssrc)
 					} else {
-						plugin.Error("read invite response y ", zap.Error(err))
+						channel.Error("read invite response y ", zap.Error(err))
 					}
 					break
 				}
