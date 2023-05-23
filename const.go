@@ -1,60 +1,5 @@
 package gb28181
 
-const (
-	Trying                      = 100
-	Ringing                     = 180
-	CallIsBeingForwarded        = 181
-	Queued                      = 182
-	SessionProgress             = 183
-	OK                          = 200
-	Accepted                    = 202
-	MultipleChoices             = 300
-	MovedPermanently            = 301
-	MovedTemporarily            = 302
-	UseProxy                    = 305
-	AlternativeService          = 380
-	BadRequest                  = 400
-	Unauthorized                = 401
-	PaymentRequired             = 402
-	Forbidden                   = 403
-	NotFound                    = 404
-	MethodNotAllowed            = 405
-	NotAcceptable               = 406
-	ProxyAuthenticationRequired = 407
-	RequestTimeout              = 408
-	Gone                        = 410
-	RequestEntityTooLarge       = 413
-	RequestURITooLong           = 414
-	UnsupportedMediaType        = 415
-	UnsupportedURIScheme        = 416
-	BadExtension                = 420
-	ExtensionRequired           = 421
-	IntervalTooBrief            = 423
-	TemporarilyUnavailable      = 480
-	CallTransactionDoesNotExist = 481
-	LoopDetected                = 482
-	TooManyHops                 = 483
-	AddressIncomplete           = 484
-	Ambiguous                   = 485
-	BusyHere                    = 486
-	RequestTerminated           = 487
-	NotAcceptableHere           = 488
-	BadEvent                    = 489
-	RequestPending              = 491
-	Undecipherable              = 493
-	ServerInternalError         = 500
-	NotImplemented              = 501
-	BadGateway                  = 502
-	ServiceUnavailable          = 503
-	ServerTim                   = 504
-	VersionNotSupported         = 505
-	MessageTooLarge             = 513
-	BusyEverywhere              = 600
-	Decline                     = 603
-	DoesNotExistAnywhere        = 604
-	SessionNotAcceptable        = 606
-)
-
 var reasons = map[int]string{
 	100: "Trying",
 	180: "Ringing",
@@ -113,3 +58,9 @@ var reasons = map[int]string{
 func Explain(statusCode int) string {
 	return reasons[statusCode]
 }
+
+const (
+	INVIDE_MODE_MANUAL = iota
+	INVIDE_MODE_AUTO
+	INVIDE_MODE_ONSUBSCRIBE
+)

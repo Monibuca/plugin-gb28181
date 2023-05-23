@@ -41,12 +41,12 @@ func (p *PullStream) Bye() int {
 		p.opt.recyclePort(p.opt.MediaPort)
 	}
 	if err != nil {
-		return ServerInternalError
+		return http.StatusInternalServerError
 	}
 	return int(resp.StatusCode())
 }
 
-type ChannelEx struct {
+type Channel struct {
 	device          *Device      // 所属设备
 	status          atomic.Int32 // 通道状态,0:空闲,1:正在invite,2:正在播放
 	LiveSubSP       string       // 实时子码流，通过rtsp
@@ -59,11 +59,12 @@ type ChannelEx struct {
 	Longitude       string    //经度
 	Latitude        string    //纬度
 	*log.Logger     `json:"-" yaml:"-"`
+	ChannelInfo
 }
 
 // Channel 通道
-type Channel struct {
-	DeviceID     string
+type ChannelInfo struct {
+	DeviceID     string // 通道ID
 	ParentID     string
 	Name         string
 	Manufacturer string
@@ -77,8 +78,6 @@ type Channel struct {
 	RegisterWay  int
 	Secrecy      int
 	Status       string
-	Children     []*Channel `json:"-" yaml:"-"`
-	ChannelEx               //自定义属性
 }
 
 func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
@@ -326,7 +325,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	code = int(inviteRes.StatusCode())
 	channel.Info("invite response", zap.Int("status code", code))
 
-	if code == OK {
+	if code == http.StatusOK {
 		ds := strings.Split(inviteRes.Body(), "\r\n")
 		for _, l := range ds {
 			if ls := strings.Split(l, "="); len(ls) > 1 {
@@ -369,7 +368,7 @@ func (channel *Channel) Bye(streamPath string) int {
 }
 
 func (channel *Channel) TryAutoInvite(opt *InviteOptions) {
-	if conf.InviteMode == 1 && channel.CanInvite() {
+	if channel.CanInvite() {
 		go channel.Invite(opt)
 	}
 }

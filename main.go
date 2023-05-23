@@ -19,7 +19,6 @@ type GB28181PositionConfig struct {
 }
 
 type GB28181Config struct {
-	// AutoInvite     bool `default:"true"`
 	InviteMode     int `default:"1"` //邀请模式，0:手动拉流，1:预拉流，2:按需拉流
 	PreFetchRecord bool
 	InviteIDs      string //按照国标gb28181协议允许邀请的设备类型:132 摄像机 NVR
@@ -99,12 +98,19 @@ func (c *GB28181Config) OnEvent(event any) {
 		go c.initRoutes()
 		c.startServer()
 	case *Stream:
-		if c.InviteMode == 2 {
+		if c.InviteMode == INVIDE_MODE_ONSUBSCRIBE {
 			if channel := FindChannel(e.AppName, e.StreamName); channel != nil {
 				channel.TryAutoInvite(&InviteOptions{})
 			}
 		}
+	case SEpublish:
+		if channel := FindChannel(e.Target.AppName, strings.TrimSuffix(e.Target.StreamName, "/rtsp")); channel != nil {
+			channel.LiveSubSP = e.Target.Path
+		}
 	case SEclose:
+		if channel := FindChannel(e.Target.AppName, strings.TrimSuffix(e.Target.StreamName, "/rtsp")); channel != nil {
+			channel.LiveSubSP = ""
+		}
 		if v, ok := PullStreams.LoadAndDelete(e.Target.Path); ok {
 			go v.(*PullStream).Bye()
 		}
