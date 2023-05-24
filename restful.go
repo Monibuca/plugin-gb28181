@@ -2,26 +2,24 @@ package gb28181
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
-
-	"m7s.live/engine/v4/util"
 )
 
 func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
-	util.ReturnJson(func() (list []*Device) {
-		Devices.Range(func(key, value interface{}) bool {
-			device := value.(*Device)
-			if time.Since(device.UpdateTime) > c.RegisterValidity {
-				Devices.Delete(key)
-			} else {
-				list = append(list, device)
-			}
-			return true
-		})
-		return
-	}, time.Second*5, w, r)
+	list := make([]*Device, 0)
+	Devices.Range(func(key, value interface{}) bool {
+		device := value.(*Device)
+		if time.Since(device.UpdateTime) > c.RegisterValidity {
+			Devices.Delete(key)
+		} else {
+			list = append(list, device)
+		}
+		return true
+	})
+	WriteJSONOk(w, list)
 }
 
 func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
@@ -34,10 +32,10 @@ func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			WriteJSONOk(w, res)
 		} else {
-			WriteJSON(w, err.Error(), http.StatusInternalServerError)
+			WriteJSON(w, err.Error(), 500)
 		}
 	} else {
-		http.NotFound(w, r)
+		WriteJSON(w, fmt.Sprintf("device %q channel %q not found", id, channel), 404)
 	}
 }
 
@@ -46,9 +44,10 @@ func (c *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	ptzcmd := r.URL.Query().Get("ptzcmd")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Control(ptzcmd))
+		code := c.Control(ptzcmd)
+		WriteJSON(w, "", code)
 	} else {
-		http.NotFound(w, r)
+		WriteJSON(w, fmt.Sprintf("device %q channel %q not found", id, channel), 404)
 	}
 }
 
@@ -65,13 +64,13 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	}
 	opt.Validate(query.Get("startTime"), query.Get("endTime"))
 	if c := FindChannel(id, channel); c == nil {
-		http.NotFound(w, r)
+		WriteJSON(w, fmt.Sprintf("device %q channel %q not found", id, channel), 404)
 	} else if opt.IsLive() && c.status.Load() > 0 {
-		w.WriteHeader(304) //直播流已存在
+		WriteJSON(w, "live stream already exists", 304) //直播流已存在
 	} else if code, err := c.Invite(&opt); err == nil {
-		w.WriteHeader(code)
+		WriteJSON(w, "", code)
 	} else {
-		http.Error(w, err.Error(), code)
+		WriteJSON(w, err.Error(), code)
 	}
 }
 
@@ -80,9 +79,10 @@ func (c *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Bye(streamPath))
+		code := c.Bye(streamPath)
+		WriteJSON(w, "", code)
 	} else {
-		http.NotFound(w, r)
+		WriteJSON(w, "stream dose not exists", 404)
 	}
 }
 
@@ -107,9 +107,10 @@ func (c *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) {
 
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
-		w.WriteHeader(d.MobilePositionSubscribe(id, expiresInt, intervalInt))
+		code := d.MobilePositionSubscribe(id, expiresInt, intervalInt)
+		WriteJSON(w, "", code)
 	} else {
-		http.NotFound(w, r)
+		WriteJSON(w, "device does not exist.", 404)
 	}
 }
 
@@ -125,21 +126,20 @@ func (c *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Request)
 	//设备id
 	id := query.Get("id")
 
-	util.ReturnJson(func() (list []*DevicePosition) {
-		if id == "" {
-			Devices.Range(func(key, value interface{}) bool {
-				d := value.(*Device)
-				if time.Since(d.GpsTime) <= c.Position.Interval {
-					list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
-				}
-				return true
-			})
-		} else if v, ok := Devices.Load(id); ok {
-			d := v.(*Device)
-			list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
-		}
-		return
-	}, c.Position.Interval, w, r)
+	var list []*DevicePosition
+	if id == "" {
+		Devices.Range(func(key, value interface{}) bool {
+			d := value.(*Device)
+			if time.Since(d.GpsTime) <= c.Position.Interval {
+				list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
+			}
+			return true
+		})
+	} else if v, ok := Devices.Load(id); ok {
+		d := v.(*Device)
+		list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
+	}
+	WriteJSONOk(w, list)
 }
 
 func WriteJSONOk(w http.ResponseWriter, data interface{}) {
