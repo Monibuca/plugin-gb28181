@@ -23,7 +23,6 @@ gb28181:
     autosubposition: false #是否自动订阅定位
     expires: 3600s #订阅周期(单位：秒)，默认3600
     interval: 6s #订阅间隔（单位：秒），默认6
-  prefetchrecord: false 
   udpcachesize:   0 #表示UDP缓存大小，默认为0，不开启。仅当TCP关闭，切缓存大于0时才开启
   sipip:          "" #sip服务器地址 默认 自动适配设备网段
   serial:         "34020000002000000001"
