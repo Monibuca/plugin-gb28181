@@ -17,6 +17,8 @@ import (
 	"m7s.live/plugin/ps/v4"
 )
 
+var QUERY_RECORD_TIMEOUT = time.Second * 5
+
 type PullStream struct {
 	opt       *InviteOptions
 	channel   *Channel
@@ -47,18 +49,13 @@ func (p *PullStream) Bye() int {
 }
 
 type Channel struct {
-	device          *Device      // 所属设备
-	status          atomic.Int32 // 通道状态,0:空闲,1:正在invite,2:正在播放
-	LiveSubSP       string       // 实时子码流，通过rtsp
-	Records         []*Record
-	RecordStartTime string
-	RecordEndTime   string
-	recordStartTime time.Time
-	recordEndTime   time.Time
-	GpsTime         time.Time //gps时间
-	Longitude       string    //经度
-	Latitude        string    //纬度
-	*log.Logger     `json:"-" yaml:"-"`
+	device      *Device      // 所属设备
+	status      atomic.Int32 // 通道状态,0:空闲,1:正在invite,2:正在播放
+	LiveSubSP   string       // 实时子码流，通过rtsp
+	GpsTime     time.Time    //gps时间
+	Longitude   string       //经度
+	Latitude    string       //纬度
+	*log.Logger `json:"-" yaml:"-"`
 	ChannelInfo
 }
 
@@ -139,13 +136,9 @@ func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request)
 	req.SetDestination(d.NetAddr)
 	return req
 }
-func (channel *Channel) QueryRecord(startTime, endTime string) int {
+
+func (channel *Channel) QueryRecord(startTime, endTime string) ([]*Record, error) {
 	d := channel.device
-	channel.RecordStartTime = startTime
-	channel.RecordEndTime = endTime
-	channel.recordStartTime, _ = time.Parse(TIME_LAYOUT, startTime)
-	channel.recordEndTime, _ = time.Parse(TIME_LAYOUT, endTime)
-	channel.Records = nil
 	request := d.CreateRequest(sip.MESSAGE)
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
@@ -160,12 +153,21 @@ func (channel *Channel) QueryRecord(startTime, endTime string) int {
 		<Type>all</Type>
 		</Query>`, d.sn, channel.DeviceID, startTime, endTime)
 	request.SetBody(body, true)
+
+	resultCh := RecordQueryLink.WaitResult(d.ID, channel.DeviceID, d.sn, QUERY_RECORD_TIMEOUT)
 	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
-		return http.StatusRequestTimeout
+		return nil, fmt.Errorf("query error: %s", err)
 	}
-	return int(resp.StatusCode())
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("query error, status=%d", resp.StatusCode())
+	}
+	// RecordQueryLink 中加了超时机制，该结果一定会返回
+	// 所以此处不用再增加超时等保护机制
+	r := <-resultCh
+	return r.list, r.err
 }
+
 func (channel *Channel) Control(PTZCmd string) int {
 	d := channel.device
 	request := d.CreateRequest(sip.MESSAGE)

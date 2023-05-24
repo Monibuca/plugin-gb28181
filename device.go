@@ -249,15 +249,6 @@ func (d *Device) UpdateChannels(list ...ChannelInfo) {
 		//本设备增加通道
 		channel := d.addOrUpdateChannel(c)
 
-		//预取和邀请
-		if conf.PreFetchRecord {
-			n := time.Now()
-			n = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
-			if len(channel.Records) == 0 || (n.Format(TIME_LAYOUT) == channel.RecordStartTime &&
-				n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT) == channel.RecordEndTime) {
-				go channel.QueryRecord(n.Format(TIME_LAYOUT), n.Add(time.Hour*24-time.Second).Format(TIME_LAYOUT))
-			}
-		}
 		if conf.InviteMode == INVIDE_MODE_AUTO {
 			channel.TryAutoInvite(&InviteOptions{})
 		}
@@ -267,13 +258,6 @@ func (d *Device) UpdateChannels(list ...ChannelInfo) {
 			channel.LiveSubSP = ""
 		}
 	}
-}
-func (d *Device) UpdateRecord(channelId string, list []*Record) {
-	d.channelMap.Range(func(key, value any) bool {
-		c := value.(*Channel)
-		c.Records = append(c.Records, list...)
-		return true
-	})
 }
 
 func (d *Device) CreateRequest(Method sip.RequestMethod) (req sip.Request) {

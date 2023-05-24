@@ -1,6 +1,7 @@
 package gb28181
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -29,7 +30,12 @@ func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
 	startTime := r.URL.Query().Get("startTime")
 	endTime := r.URL.Query().Get("endTime")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.QueryRecord(startTime, endTime))
+		res, err := c.QueryRecord(startTime, endTime)
+		if err == nil {
+			WriteJSONOk(w, res)
+		} else {
+			WriteJSON(w, err.Error(), http.StatusInternalServerError)
+		}
 	} else {
 		http.NotFound(w, r)
 	}
@@ -134,4 +140,14 @@ func (c *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}, c.Position.Interval, w, r)
+}
+
+func WriteJSONOk(w http.ResponseWriter, data interface{}) {
+	WriteJSON(w, data, 200)
+}
+
+func WriteJSON(w http.ResponseWriter, data interface{}, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
 }

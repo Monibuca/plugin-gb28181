@@ -165,13 +165,15 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		temp := &struct {
 			XMLName      xml.Name
 			CmdType      string
+			SN           int // 请求序列号，一般用于对应 request 和 response
 			DeviceID     string
 			DeviceName   string
 			Manufacturer string
 			Model        string
 			Channel      string
 			DeviceList   []ChannelInfo `xml:"DeviceList>Item"`
-			RecordList   []*Record  `xml:"RecordList>Item"`
+			RecordList   []*Record     `xml:"RecordList>Item"`
+			SumNum       int           // 录像结果的总数 SumNum，录像结果会按照多条消息返回，可用于判断是否全部返回
 		}{}
 		decoder := xml.NewDecoder(bytes.NewReader([]byte(req.Body())))
 		decoder.CharsetReader = charset.NewReaderLabel
@@ -205,7 +207,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		case "Catalog":
 			d.UpdateChannels(temp.DeviceList...)
 		case "RecordInfo":
-			d.UpdateRecord(temp.DeviceID, temp.RecordList)
+			RecordQueryLink.Put(d.ID, temp.DeviceID, temp.SN, temp.SumNum, temp.RecordList)
 		case "DeviceInfo":
 			// 主设备信息
 			d.Name = temp.DeviceName
