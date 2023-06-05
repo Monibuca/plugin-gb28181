@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"m7s.live/engine/v4/util"
@@ -12,6 +13,7 @@ import (
 
 func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 	util.ReturnJson(func() (list []*Device) {
+		list = make([]*Device, 0)
 		Devices.Range(func(key, value interface{}) bool {
 			device := value.(*Device)
 			if time.Since(device.UpdateTime) > c.RegisterValidity {
@@ -26,10 +28,16 @@ func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	channel := r.URL.Query().Get("channel")
-	startTime := r.URL.Query().Get("startTime")
-	endTime := r.URL.Query().Get("endTime")
+	query := r.URL.Query()
+	id := query.Get("id")
+	channel := query.Get("channel")
+	startTime := query.Get("startTime")
+	endTime := query.Get("endTime")
+	trange := strings.Split(query.Get("range"), "-")
+	if len(trange) == 2 {
+		startTime = trange[0]
+		endTime = trange[1]
+	}
 	if c := FindChannel(id, channel); c != nil {
 		res, err := c.QueryRecord(startTime, endTime)
 		if err == nil {
@@ -98,11 +106,18 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 		MediaPort:  uint16(port),
 		StreamPath: streamPath,
 	}
-	opt.Validate(query.Get("startTime"), query.Get("endTime"))
+	startTime := query.Get("startTime")
+	endTime := query.Get("endTime")
+	trange := strings.Split(query.Get("range"), "-")
+	if len(trange) == 2 {
+		startTime = trange[0]
+		endTime = trange[1]
+	}
+	opt.Validate(startTime, endTime)
 	if c := FindChannel(id, channel); c == nil {
 		http.NotFound(w, r)
 	} else if opt.IsLive() && c.status.Load() > 0 {
-		w.WriteHeader(304) //直播流已存在
+		http.Error(w, "live stream already exists", http.StatusNotModified)
 	} else if code, err := c.Invite(&opt); err == nil {
 		w.WriteHeader(code)
 	} else {
