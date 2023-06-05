@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,6 +50,40 @@ func (c *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(c.Control(ptzcmd))
 	} else {
 		http.NotFound(w, r)
+	}
+}
+
+func (c *GB28181Config) API_ptz(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	id := q.Get("id")
+	channel := q.Get("channel")
+	cmd := q.Get("cmd")   // 命令名称，见 ptz.go name2code 定义
+	hs := q.Get("hSpeed") // 水平速度
+	vs := q.Get("vSpeed") // 垂直速度
+	zs := q.Get("zSpeed") // 缩放速度
+
+	hsN, err := strconv.ParseUint(hs, 10, 8)
+	if err != nil {
+		WriteJSON(w, "hSpeed parameter is invalid", 400)
+	}
+	vsN, err := strconv.ParseUint(vs, 10, 8)
+	if err != nil {
+		WriteJSON(w, "vSpeed parameter is invalid", 400)
+	}
+	zsN, err := strconv.ParseUint(zs, 10, 8)
+	if err != nil {
+		WriteJSON(w, "zSpeed parameter is invalid", 400)
+	}
+
+	ptzcmd, err := toPtzStrByCmdName(cmd, uint8(hsN), uint8(vsN), uint8(zsN))
+	if err != nil {
+		WriteJSON(w, err.Error(), 400)
+	}
+	if c := FindChannel(id, channel); c != nil {
+		code := c.Control(ptzcmd)
+		WriteJSON(w, "device received", code)
+	} else {
+		WriteJSON(w, fmt.Sprintf("device %q channel %q not found", id, channel), 404)
 	}
 }
 
