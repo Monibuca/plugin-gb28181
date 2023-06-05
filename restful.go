@@ -73,19 +73,23 @@ func (c *GB28181Config) API_ptz(w http.ResponseWriter, r *http.Request) {
 	hsN, err := strconv.ParseUint(hs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "hSpeed parameter is invalid", 400)
+		return
 	}
 	vsN, err := strconv.ParseUint(vs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "vSpeed parameter is invalid", 400)
+		return
 	}
 	zsN, err := strconv.ParseUint(zs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "zSpeed parameter is invalid", 400)
+		return
 	}
 
 	ptzcmd, err := toPtzStrByCmdName(cmd, uint8(hsN), uint8(vsN), uint8(zsN))
 	if err != nil {
 		WriteJSON(w, err.Error(), 400)
+		return
 	}
 	if c := FindChannel(id, channel); c != nil {
 		code := c.Control(ptzcmd)
