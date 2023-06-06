@@ -11,6 +11,10 @@ import (
 	"m7s.live/engine/v4/util"
 )
 
+var (
+	playScaleValues = map[float32]bool{0.25: true, 0.5: true, 1: true, 2: true, 4: true}
+)
+
 func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 	util.ReturnJson(func() (list []*Device) {
 		list = make([]*Device, 0)
@@ -73,19 +77,23 @@ func (c *GB28181Config) API_ptz(w http.ResponseWriter, r *http.Request) {
 	hsN, err := strconv.ParseUint(hs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "hSpeed parameter is invalid", 400)
+		return
 	}
 	vsN, err := strconv.ParseUint(vs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "vSpeed parameter is invalid", 400)
+		return
 	}
 	zsN, err := strconv.ParseUint(zs, 10, 8)
 	if err != nil {
 		WriteJSON(w, "zSpeed parameter is invalid", 400)
+		return
 	}
 
 	ptzcmd, err := toPtzStrByCmdName(cmd, uint8(hsN), uint8(vsN), uint8(zsN))
 	if err != nil {
 		WriteJSON(w, err.Error(), 400)
+		return
 	}
 	if c := FindChannel(id, channel); c != nil {
 		code := c.Control(ptzcmd)
@@ -131,6 +139,63 @@ func (c *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
 		w.WriteHeader(c.Bye(streamPath))
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+func (c *GB28181Config) API_play_pause(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	channel := r.URL.Query().Get("channel")
+	streamPath := r.URL.Query().Get("streamPath")
+	if c := FindChannel(id, channel); c != nil {
+		w.WriteHeader(c.Pause(streamPath))
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+func (c *GB28181Config) API_play_resume(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	channel := r.URL.Query().Get("channel")
+	streamPath := r.URL.Query().Get("streamPath")
+	if c := FindChannel(id, channel); c != nil {
+		w.WriteHeader(c.Resume(streamPath))
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+func (c *GB28181Config) API_play_seek(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	channel := r.URL.Query().Get("channel")
+	streamPath := r.URL.Query().Get("streamPath")
+	secStr := r.URL.Query().Get("second")
+	sec, err := strconv.ParseUint(secStr, 10, 32)
+	if err != nil {
+		WriteJSON(w, "second parameter is invalid: "+err.Error(), 400)
+		return
+	}
+	if c := FindChannel(id, channel); c != nil {
+		w.WriteHeader(c.PlayAt(streamPath, uint(sec)))
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+func (c *GB28181Config) API_play_forward(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	channel := r.URL.Query().Get("channel")
+	streamPath := r.URL.Query().Get("streamPath")
+	speedStr := r.URL.Query().Get("speed")
+	speed, err := strconv.ParseFloat(speedStr, 32)
+	secondErrMsg := "speed parameter is invalid, should be one of 0.25,0.5,1,2,4"
+	if err != nil || !playScaleValues[float32(speed)] {
+		WriteJSON(w, secondErrMsg, 400)
+		return
+	}
+	if c := FindChannel(id, channel); c != nil {
+		w.WriteHeader(c.PlayForward(streamPath, float32(speed)))
 	} else {
 		http.NotFound(w, r)
 	}
