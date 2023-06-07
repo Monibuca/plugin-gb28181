@@ -435,7 +435,7 @@ func (channel *Channel) Pause(streamPath string) int {
 	if s, loaded := PullStreams.Load(streamPath); loaded {
 		r := s.(*PullStream).Pause()
 		if s := Streams.Get(streamPath); s != nil {
-			s.NeverTimeout = true
+			s.Pause()
 		}
 		return r
 	}
@@ -446,7 +446,7 @@ func (channel *Channel) Resume(streamPath string) int {
 	if s, loaded := PullStreams.Load(streamPath); loaded {
 		r := s.(*PullStream).Resume()
 		if s := Streams.Get(streamPath); s != nil {
-			s.NeverTimeout = false
+			s.Resume()
 		}
 		return r
 	}
@@ -457,7 +457,7 @@ func (channel *Channel) PlayAt(streamPath string, second uint) int {
 	if s, loaded := PullStreams.Load(streamPath); loaded {
 		r := s.(*PullStream).PlayAt(second)
 		if s := Streams.Get(streamPath); s != nil {
-			s.NeverTimeout = false
+			s.Resume()
 		}
 		return r
 	}
@@ -469,7 +469,7 @@ func (channel *Channel) PlayForward(streamPath string, speed float32) int {
 		return s.(*PullStream).PlayForward(speed)
 	}
 	if s := Streams.Get(streamPath); s != nil {
-		s.NeverTimeout = false
+		s.Resume()
 	}
 	return http.StatusNotFound
 }
