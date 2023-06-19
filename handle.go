@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/xml"
 	"fmt"
+	"strconv"
 
 	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/utils"
@@ -58,7 +59,39 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 		return
 	}
 	id := from.Address.User().String()
-	GB28181Plugin.Info("OnRegister", zap.String("id", id), zap.String("source", req.Source()), zap.String("destination", req.Destination()))
+
+	GB28181Plugin.Debug("SIP<-OnMessage", zap.String("id", id), zap.String("source", req.Source()), zap.String("req", req.String()))
+
+	isUnregister := false
+	if exps := req.GetHeaders("Expires"); len(exps) > 0 {
+		exp := exps[0]
+		expSec, err := strconv.ParseInt(exp.Value(), 10, 32)
+		if err != nil {
+			GB28181Plugin.Info("OnRegister",
+				zap.String("error", fmt.Sprintf("wrong expire header value %q", exp)),
+				zap.String("id", id),
+				zap.String("source", req.Source()),
+				zap.String("destination", req.Destination()))
+			return
+		}
+		if expSec == 0 {
+			isUnregister = true
+		}
+	} else {
+		GB28181Plugin.Info("OnRegister",
+			zap.String("error", "has no expire header"),
+			zap.String("id", id),
+			zap.String("source", req.Source()),
+			zap.String("destination", req.Destination()))
+		return
+	}
+
+	GB28181Plugin.Info("OnRegister",
+		zap.Bool("isUnregister", isUnregister),
+		zap.String("id", id),
+		zap.String("source", req.Source()),
+		zap.String("destination", req.Destination()))
+
 	if len(id) != 20 {
 		GB28181Plugin.Info("Wrong GB-28181", zap.String("id", id))
 		return
@@ -98,11 +131,21 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	}
 	if passAuth {
 		var d *Device
-		if v, ok := Devices.Load(id); ok {
-			d = v.(*Device)
-			c.RecoverDevice(d, req)
+		if isUnregister {
+			tmpd, ok := Devices.LoadAndDelete(id)
+			if !ok {
+				return
+			} else {
+				GB28181Plugin.Info("Unregister Device", zap.String("id", id))
+				d = tmpd.(*Device)
+			}
 		} else {
-			d = c.StoreDevice(id, req)
+			if v, ok := Devices.Load(id); ok {
+				d = v.(*Device)
+				c.RecoverDevice(d, req)
+			} else {
+				d = c.StoreDevice(id, req)
+			}
 		}
 		DeviceNonce.Delete(id)
 		DeviceRegisterCount.Delete(id)
@@ -117,9 +160,14 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 			Contents:   time.Now().Format(TIME_LAYOUT),
 		})
 		_ = tx.Respond(resp)
-		//订阅设备更新
-		go d.syncChannels()
+
+		if !isUnregister {
+			//订阅设备更新
+			go d.syncChannels()
+		}
 	} else {
+		GB28181Plugin.Info("OnRegister unauthorized", zap.String("id", id), zap.String("source", req.Source()),
+			zap.String("destination", req.Destination()))
 		response := sip.NewResponseFromRequest("", req, http.StatusUnauthorized, "Unauthorized", "")
 		_nonce, _ := DeviceNonce.LoadOrStore(id, utils.RandNumString(32))
 		auth := fmt.Sprintf(
