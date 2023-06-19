@@ -35,7 +35,7 @@ type GB28181Config struct {
 		Media string `default:"tcp:58200"`
 	}
 	// AckTimeout        uint16 //sip 服务应答超时，单位秒
-	RegisterValidity time.Duration `default:"60s"` //注册有效期，单位秒，默认 3600
+	RegisterValidity time.Duration `default:"3600s"` //注册有效期，单位秒，默认 3600
 	// RegisterInterval  int    //注册间隔，单位秒，默认 60
 	HeartbeatInterval time.Duration `default:"60s"` //心跳间隔，单位秒，默认 60
 	// HeartbeatRetry    int    //心跳超时次数，默认 3
