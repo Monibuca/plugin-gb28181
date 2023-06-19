@@ -39,7 +39,6 @@ func NewRecordQueryLink(resultTimeout time.Duration) *recordQueryLink {
 		pendingResult: make(map[string]recordQueryResult),
 		pendingResp:   make(map[string]recordQueryResp),
 	}
-	go c.cleanTimeout()
 	return c
 }
 
@@ -50,22 +49,18 @@ func recordQueryKey(deviceId, channelId string, sn int) string {
 
 // 定期清理过期的查询结果和请求
 func (c *recordQueryLink) cleanTimeout() {
-	tick := time.NewTicker(time.Millisecond * 100)
-	for {
-		<-tick.C
-		for k, s := range c.pendingResp {
-			if time.Since(s.startTime) > s.timeout {
-				if r, ok := c.pendingResult[k]; ok {
-					c.notify(k, r)
-				} else {
-					c.notify(k, recordQueryResult{err: fmt.Errorf("query time out")})
-				}
+	for k, s := range c.pendingResp {
+		if time.Since(s.startTime) > s.timeout {
+			if r, ok := c.pendingResult[k]; ok {
+				c.notify(k, r)
+			} else {
+				c.notify(k, recordQueryResult{err: fmt.Errorf("query time out")})
 			}
 		}
-		for k, r := range c.pendingResult {
-			if time.Since(r.time) > c.timeout {
-				delete(c.pendingResult, k)
-			}
+	}
+	for k, r := range c.pendingResult {
+		if time.Since(r.time) > c.timeout {
+			delete(c.pendingResult, k)
 		}
 	}
 }
