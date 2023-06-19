@@ -134,8 +134,15 @@ type ChannelInfo struct {
 	SafetyWay    int
 	RegisterWay  int
 	Secrecy      int
-	Status       string
+	Status       ChannelStatus
 }
+
+type ChannelStatus string
+
+const (
+	ChannelOnStatus  = "ON"
+	ChannelOffStatus = "OFF"
+)
 
 func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 	d := channel.device
@@ -481,7 +488,7 @@ func (channel *Channel) TryAutoInvite(opt *InviteOptions) {
 }
 
 func (channel *Channel) CanInvite() bool {
-	if channel.status.Load() != 0 || len(channel.DeviceID) != 20 || channel.Status == "OFF" {
+	if channel.status.Load() != 0 || len(channel.DeviceID) != 20 || channel.Status == ChannelOffStatus {
 		return false
 	}
 

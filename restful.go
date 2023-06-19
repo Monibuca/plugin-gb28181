@@ -19,12 +19,7 @@ func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
 	util.ReturnJson(func() (list []*Device) {
 		list = make([]*Device, 0)
 		Devices.Range(func(key, value interface{}) bool {
-			device := value.(*Device)
-			if time.Since(device.UpdateTime) > c.RegisterValidity {
-				Devices.Delete(key)
-			} else {
-				list = append(list, device)
-			}
+			list = append(list, value.(*Device))
 			return true
 		})
 		return
