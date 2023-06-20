@@ -133,11 +133,11 @@ func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 		var d *Device
 		if isUnregister {
 			tmpd, ok := Devices.LoadAndDelete(id)
-			if !ok {
-				return
-			} else {
+			if ok {
 				GB28181Plugin.Info("Unregister Device", zap.String("id", id))
 				d = tmpd.(*Device)
+			} else {
+				return
 			}
 		} else {
 			if v, ok := Devices.Load(id); ok {
@@ -202,12 +202,11 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
 		switch d.Status {
-		case "RECOVER":
+		case DeviceOfflineStatus, DeviceRecoverStatus:
 			c.RecoverDevice(d, req)
 			go d.syncChannels()
-			//return
-		case string(sip.REGISTER):
-			d.Status = "ONLINE"
+		case DeviceRegisterStatus:
+			d.Status = DeviceOnlineStatus
 		}
 		d.UpdateTime = time.Now()
 		temp := &struct {
@@ -262,7 +261,7 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 			d.Manufacturer = temp.Manufacturer
 			d.Model = temp.Model
 		case "Alarm":
-			d.Status = "Alarmed"
+			d.Status = DeviceAlarmedStatus
 			body = BuildAlarmResponseXML(d.ID)
 		default:
 			d.Warn("Not supported CmdType", zap.String("CmdType", temp.CmdType), zap.String("body", req.Body()))
@@ -272,6 +271,8 @@ func (c *GB28181Config) OnMessage(req sip.Request, tx sip.ServerTransaction) {
 		}
 
 		tx.Respond(sip.NewResponseFromRequest("", req, http.StatusOK, "OK", body))
+	} else {
+		GB28181Plugin.Debug("Unauthorized message, device not found", zap.String("id", id))
 	}
 }
 func (c *GB28181Config) OnBye(req sip.Request, tx sip.ServerTransaction) {

@@ -44,6 +44,16 @@ var (
 	DeviceRegisterCount sync.Map //设备注册次数
 )
 
+type DeviceStatus string
+
+const (
+	DeviceRegisterStatus = "REGISTER"
+	DeviceRecoverStatus  = "RECOVER"
+	DeviceOnlineStatus   = "ONLINE"
+	DeviceOfflineStatus  = "OFFLINE"
+	DeviceAlarmedStatus  = "ALARMED"
+)
+
 type Device struct {
 	//*transaction.Core `json:"-" yaml:"-"`
 	ID              string
@@ -54,7 +64,7 @@ type Device struct {
 	RegisterTime    time.Time
 	UpdateTime      time.Time
 	LastKeepaliveAt time.Time
-	Status          string
+	Status          DeviceStatus
 	sn              int
 	addr            sip.Address
 	sipIP           string //设备对应网卡的服务器ip
@@ -114,7 +124,7 @@ func (c *GB28181Config) RecoverDevice(d *Device, req sip.Request) {
 		mediaIp = c.MediaIP
 	}
 	d.Info("RecoverDevice", zap.String("deviceIp", deviceIp), zap.String("servIp", servIp), zap.String("sipIP", sipIP), zap.String("mediaIp", mediaIp))
-	d.Status = string(sip.REGISTER)
+	d.Status = DeviceRegisterStatus
 	d.sipIP = sipIP
 	d.mediaIP = mediaIp
 	d.NetAddr = deviceIp
@@ -158,7 +168,7 @@ func (c *GB28181Config) StoreDevice(id string, req sip.Request) (d *Device) {
 			ID:           id,
 			RegisterTime: time.Now(),
 			UpdateTime:   time.Now(),
-			Status:       string(sip.REGISTER),
+			Status:       DeviceRegisterStatus,
 			addr:         deviceAddr,
 			sipIP:        sipIP,
 			mediaIP:      mediaIp,
@@ -481,7 +491,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				SafetyWay:    v.SafetyWay,
 				RegisterWay:  v.RegisterWay,
 				Secrecy:      v.Secrecy,
-				Status:       v.Status,
+				Status:       ChannelStatus(v.Status),
 			}
 			d.addOrUpdateChannel(channel)
 		case "DEL":
@@ -505,7 +515,7 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 				SafetyWay:    v.SafetyWay,
 				RegisterWay:  v.RegisterWay,
 				Secrecy:      v.Secrecy,
-				Status:       v.Status,
+				Status:       ChannelStatus(v.Status),
 			}
 			d.UpdateChannels(channel)
 		}
@@ -515,8 +525,8 @@ func (d *Device) UpdateChannelStatus(deviceList []*notifyMessage) {
 func (d *Device) channelOnline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
-		c.Status = "ON"
-		c.Debug("online")
+		c.Status = ChannelOnStatus
+		c.Debug("channel online", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
@@ -525,8 +535,8 @@ func (d *Device) channelOnline(DeviceID string) {
 func (d *Device) channelOffline(DeviceID string) {
 	if v, ok := d.channelMap.Load(DeviceID); ok {
 		c := v.(*Channel)
-		c.Status = "OFF"
-		c.Debug("offline")
+		c.Status = ChannelOffStatus
+		c.Debug("channel offline", zap.String("channelId", DeviceID))
 	} else {
 		d.Debug("update channel status failed, not found", zap.String("channelId", DeviceID))
 	}
