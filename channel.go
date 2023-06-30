@@ -406,7 +406,17 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 					} else {
 						channel.Error("read invite response y ", zap.Error(err))
 					}
-					break
+				//	break
+				}
+				if ls[0] == "m" && len(ls[1]) > 0 {
+					netinfo := strings.Split(ls[1], " ")
+					if strings.ToUpper(netinfo[2]) == "TCP/RTP/AVP" {
+						channel.Debug("Device support tcp")
+					} else {
+						channel.Debug("Device not support tcp")
+						networkType = "udp"
+						resuePort = false
+					}
 				}
 			}
 		}
