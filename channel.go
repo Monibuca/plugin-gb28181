@@ -343,20 +343,20 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	}
 	protocol := ""
 	networkType := "udp"
-	resuePort := true
+	reusePort := true
 	if conf.IsMediaNetworkTCP() {
 		networkType = "tcp"
 		protocol = "TCP/"
 		if conf.tcpPorts.Valid {
 			opt.MediaPort, err = conf.tcpPorts.GetPort()
 			opt.recyclePort = conf.tcpPorts.Recycle
-			resuePort = false
+			reusePort = false
 		}
 	} else {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = conf.udpPorts.GetPort()
 			opt.recyclePort = conf.udpPorts.Recycle
-			resuePort = false
+			reusePort = false
 		}
 	}
 	if err != nil {
@@ -418,12 +418,11 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 					} else {
 						channel.Debug("Device not support tcp")
 						networkType = "udp"
-						resuePort = false
 					}
 				}
 			}
 		}
-		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, resuePort)
+		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, reusePort)
 		if err == nil {
 			PullStreams.Store(streamPath, &PullStream{
 				opt:       opt,
