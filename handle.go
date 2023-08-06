@@ -54,7 +54,7 @@ func (a *Authorization) getDigest(raw string) string {
 
 func (c *GB28181Config) OnRegister(req sip.Request, tx sip.ServerTransaction) {
 	from, ok := req.From()
-	if !ok {
+	if !ok || from.Address == nil {
 		GB28181Plugin.Error("OnRegister", zap.String("error", "no from"))
 		return
 	}
