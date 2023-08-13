@@ -1,7 +1,6 @@
 package gb28181
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -16,14 +15,18 @@ var (
 )
 
 func (c *GB28181Config) API_list(w http.ResponseWriter, r *http.Request) {
-	util.ReturnJson(func() (list []*Device) {
+	query := r.URL.Query()
+	if query.Get("interval") == "" {
+		query.Set("interval", "5s")
+	}
+	util.ReturnFetchValue(func() (list []*Device) {
 		list = make([]*Device, 0)
 		Devices.Range(func(key, value interface{}) bool {
 			list = append(list, value.(*Device))
 			return true
 		})
 		return
-	}, time.Second*5, w, r)
+	}, w, r)
 }
 
 func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
@@ -40,12 +43,12 @@ func (c *GB28181Config) API_records(w http.ResponseWriter, r *http.Request) {
 	if c := FindChannel(id, channel); c != nil {
 		res, err := c.QueryRecord(startTime, endTime)
 		if err == nil {
-			WriteJSONOk(w, res)
+			util.ReturnValue(res, w, r)
 		} else {
-			WriteJSON(w, err.Error(), http.StatusInternalServerError)
+			util.ReturnError(util.APIErrorInternal, err.Error(), w, r)
 		}
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -54,9 +57,9 @@ func (c *GB28181Config) API_control(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	ptzcmd := r.URL.Query().Get("ptzcmd")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Control(ptzcmd))
+		util.ReturnError(0, fmt.Sprintf("control code:%d", c.Control(ptzcmd)), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -71,30 +74,30 @@ func (c *GB28181Config) API_ptz(w http.ResponseWriter, r *http.Request) {
 
 	hsN, err := strconv.ParseUint(hs, 10, 8)
 	if err != nil {
-		WriteJSON(w, "hSpeed parameter is invalid", 400)
+		util.ReturnError(util.APIErrorQueryParse, "hSpeed parameter is invalid", w, r)
 		return
 	}
 	vsN, err := strconv.ParseUint(vs, 10, 8)
 	if err != nil {
-		WriteJSON(w, "vSpeed parameter is invalid", 400)
+		util.ReturnError(util.APIErrorQueryParse, "vSpeed parameter is invalid", w, r)
 		return
 	}
 	zsN, err := strconv.ParseUint(zs, 10, 8)
 	if err != nil {
-		WriteJSON(w, "zSpeed parameter is invalid", 400)
+		util.ReturnError(util.APIErrorQueryParse, "zSpeed parameter is invalid", w, r)
 		return
 	}
 
 	ptzcmd, err := toPtzStrByCmdName(cmd, uint8(hsN), uint8(vsN), uint8(zsN))
 	if err != nil {
-		WriteJSON(w, err.Error(), 400)
+		util.ReturnError(util.APIErrorQueryParse, err.Error(), w, r)
 		return
 	}
 	if c := FindChannel(id, channel); c != nil {
 		code := c.Control(ptzcmd)
-		WriteJSON(w, "device received", code)
+		util.ReturnError(code, "device received", w, r)
 	} else {
-		WriteJSON(w, fmt.Sprintf("device %q channel %q not found", id, channel), 404)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -118,13 +121,17 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	}
 	opt.Validate(startTime, endTime)
 	if c := FindChannel(id, channel); c == nil {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	} else if opt.IsLive() && c.status.Load() > 0 {
-		http.Error(w, "live stream already exists", http.StatusNotModified)
+		util.ReturnError(util.APIErrorQueryParse, "live stream already exists", w, r)
 	} else if code, err := c.Invite(&opt); err == nil {
-		w.WriteHeader(code)
+		if code == 200 {
+			util.ReturnOK(w, r)
+		} else {
+			util.ReturnError(util.APIErrorInternal, fmt.Sprintf("invite return code %d", code), w, r)
+		}
 	} else {
-		http.Error(w, err.Error(), code)
+		util.ReturnError(util.APIErrorInternal, err.Error(), w, r)
 	}
 }
 
@@ -133,9 +140,9 @@ func (c *GB28181Config) API_bye(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Bye(streamPath))
+		util.ReturnError(0, fmt.Sprintf("bye code:%d", c.Bye(streamPath)), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -144,9 +151,9 @@ func (c *GB28181Config) API_play_pause(w http.ResponseWriter, r *http.Request) {
 	channel := r.URL.Query().Get("channel")
 	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Pause(streamPath))
+		util.ReturnError(0, fmt.Sprintf("pause code:%d", c.Pause(streamPath)), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -155,9 +162,9 @@ func (c *GB28181Config) API_play_resume(w http.ResponseWriter, r *http.Request) 
 	channel := r.URL.Query().Get("channel")
 	streamPath := r.URL.Query().Get("streamPath")
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.Resume(streamPath))
+		util.ReturnError(0, fmt.Sprintf("resume code:%d", c.Resume(streamPath)), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -168,13 +175,13 @@ func (c *GB28181Config) API_play_seek(w http.ResponseWriter, r *http.Request) {
 	secStr := r.URL.Query().Get("second")
 	sec, err := strconv.ParseUint(secStr, 10, 32)
 	if err != nil {
-		WriteJSON(w, "second parameter is invalid: "+err.Error(), 400)
+		util.ReturnError(util.APIErrorQueryParse, "second parameter is invalid: "+err.Error(), w, r)
 		return
 	}
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.PlayAt(streamPath, uint(sec)))
+		util.ReturnError(0, fmt.Sprintf("play code:%d", c.PlayAt(streamPath, uint(sec))), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -186,13 +193,13 @@ func (c *GB28181Config) API_play_forward(w http.ResponseWriter, r *http.Request)
 	speed, err := strconv.ParseFloat(speedStr, 32)
 	secondErrMsg := "speed parameter is invalid, should be one of 0.25,0.5,1,2,4"
 	if err != nil || !playScaleValues[float32(speed)] {
-		WriteJSON(w, secondErrMsg, 400)
+		util.ReturnError(util.APIErrorQueryParse, secondErrMsg, w, r)
 		return
 	}
 	if c := FindChannel(id, channel); c != nil {
-		w.WriteHeader(c.PlayForward(streamPath, float32(speed)))
+		util.ReturnError(0, fmt.Sprintf("playforward code:%d", c.PlayForward(streamPath, float32(speed))), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
 	}
 }
 
@@ -217,9 +224,9 @@ func (c *GB28181Config) API_position(w http.ResponseWriter, r *http.Request) {
 
 	if v, ok := Devices.Load(id); ok {
 		d := v.(*Device)
-		w.WriteHeader(d.MobilePositionSubscribe(id, expiresInt, intervalInt))
+		util.ReturnError(0, fmt.Sprintf("mobileposition code:%d", d.MobilePositionSubscribe(id, expiresInt, intervalInt)), w, r)
 	} else {
-		http.NotFound(w, r)
+		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q  not found", id), w, r)
 	}
 }
 
@@ -234,8 +241,10 @@ func (c *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Request)
 	query := r.URL.Query()
 	//设备id
 	id := query.Get("id")
-
-	util.ReturnJson(func() (list []*DevicePosition) {
+	if query.Get("interval") == "" {
+		query.Set("interval", fmt.Sprintf("%ds", c.Position.Interval.Seconds()))
+	}
+	util.ReturnFetchValue(func() (list []*DevicePosition) {
 		if id == "" {
 			Devices.Range(func(key, value interface{}) bool {
 				d := value.(*Device)
@@ -249,15 +258,5 @@ func (c *GB28181Config) API_get_position(w http.ResponseWriter, r *http.Request)
 			list = append(list, &DevicePosition{ID: d.ID, GpsTime: d.GpsTime, Longitude: d.Longitude, Latitude: d.Latitude})
 		}
 		return
-	}, c.Position.Interval, w, r)
-}
-
-func WriteJSONOk(w http.ResponseWriter, data interface{}) {
-	WriteJSON(w, data, 200)
-}
-
-func WriteJSON(w http.ResponseWriter, data interface{}, status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	}, w, r)
 }

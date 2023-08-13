@@ -98,13 +98,13 @@ func (c *GB28181Config) OnEvent(event any) {
 		c.ReadDevices()
 		go c.initRoutes()
 		c.startServer()
-	case *Stream:
+	case InvitePublish:
 		if c.InviteMode == INVIDE_MODE_ONSUBSCRIBE {
 			//流可能是回放流，stream path是device/channel/start-end形式
-			streamNames := strings.Split(e.StreamName, "/")
-			if channel := FindChannel(e.AppName, streamNames[0]); channel != nil {
+			streamNames := strings.Split(e.Target, "/")
+			if channel := FindChannel(streamNames[0], streamNames[1]); channel != nil {
 				opt := InviteOptions{}
-				if len(streamNames) > 1 {
+				if len(streamNames) > 2 {
 					last := len(streamNames) - 1
 					timestr := streamNames[last]
 					trange := strings.Split(timestr, "-")
