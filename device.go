@@ -85,14 +85,13 @@ type Device struct {
 func (d *Device) MarshalJSON() ([]byte, error) {
 	type Alias Device
 	data := &struct {
-		Channels []*ChannelInfo
+		Channels []*Channel
 		*Alias
 	}{
 		Alias: (*Alias)(d),
 	}
 	d.channelMap.Range(func(key, value interface{}) bool {
-		c := value.(*Channel)
-		data.Channels = append(data.Channels, &c.ChannelInfo)
+		data.Channels = append(data.Channels, value.(*Channel))
 		return true
 	})
 	return json.Marshal(data)
