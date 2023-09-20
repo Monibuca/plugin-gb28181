@@ -15,7 +15,6 @@ import (
 	"m7s.live/engine/v4/log"
 	"m7s.live/plugin/gb28181/v4/utils"
 
-	// . "github.com/logrusorgru/aurora"
 	"github.com/ghettovoice/gosip/sip"
 	myip "github.com/husanpao/ip"
 )

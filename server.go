@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/logrusorgru/aurora"
+	"github.com/logrusorgru/aurora/v4"
 	"go.uber.org/zap"
 	"m7s.live/plugin/gb28181/v4/utils"
 
@@ -119,7 +119,7 @@ func (c *GB28181Config) startServer() {
 	addr := c.ListenAddr + ":" + strconv.Itoa(int(c.SipPort))
 
 	logger := utils.NewZapLogger(GB28181Plugin.Logger, "GB SIP Server", nil)
-	logger.SetLevel(levelMap[c.LogLevel])
+	logger.SetLevel(uint32(levelMap[c.LogLevel]))
 	// logger := log.NewDefaultLogrusLogger().WithPrefix("GB SIP Server")
 	srvConf := gosip.ServerConfig{}
 	if c.SipIP != "" {

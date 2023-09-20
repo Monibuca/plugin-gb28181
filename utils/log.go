@@ -131,7 +131,7 @@ func (l *ZapLogger) Prefix() string {
 	return l.prefix
 }
 
-func (l *ZapLogger) WithFields(fields log.Fields) log.Logger {
+func (l *ZapLogger) WithFields(fields map[string]interface{}) log.Logger {
 	return NewZapLogger(l.log, l.Prefix(), l.Fields().WithFields(fields))
 }
 
@@ -154,6 +154,6 @@ func (l *ZapLogger) prepareEntry() *zap.SugaredLogger {
 	return newlog.Sugar()
 }
 
-func (l *ZapLogger) SetLevel(level log.Level) {
-	l.level = level
+func (l *ZapLogger) SetLevel(level uint32) {
+	l.level = log.Level(level)
 }
