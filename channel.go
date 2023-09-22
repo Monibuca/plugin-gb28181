@@ -520,7 +520,9 @@ func (channel *Channel) PlayForward(streamPath string, speed float32) int {
 }
 
 func (channel *Channel) TryAutoInvite(opt *InviteOptions) {
-	if channel.CanInvite() {
+	condition := !opt.IsLive() || channel.CanInvite()
+	channel.Debug("TryAutoInvite", zap.Any("opt", opt), zap.Bool("condition", condition))
+	if condition {
 		go channel.Invite(opt)
 	}
 }
