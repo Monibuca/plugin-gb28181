@@ -448,8 +448,18 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 				}
 			}
 		}
-		err = ps.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, reusePort)
+		var psPuber ps.PSPublisher
+		err = psPuber.Receive(streamPath, opt.dump, fmt.Sprintf("%s:%d", networkType, opt.MediaPort), opt.SSRC, reusePort)
 		if err == nil {
+			if !opt.IsLive() {
+				// 10秒无数据关闭
+				if psPuber.Stream.DelayCloseTimeout == 0 {
+					psPuber.Stream.DelayCloseTimeout = time.Second * 10
+				}
+				if psPuber.Stream.IdleTimeout == 0 {
+					psPuber.Stream.IdleTimeout = time.Second * 10
+				}
+			}
 			PullStreams.Store(streamPath, &PullStream{
 				opt:       opt,
 				channel:   channel,

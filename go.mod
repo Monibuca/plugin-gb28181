@@ -12,7 +12,7 @@ require (
 	golang.org/x/net v0.15.0
 	golang.org/x/text v0.13.0
 	m7s.live/engine/v4 v4.13.12
-	m7s.live/plugin/ps/v4 v4.1.2
+	m7s.live/plugin/ps/v4 v4.1.3
 )
 
 require (

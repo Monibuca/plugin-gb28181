@@ -345,5 +345,5 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 m7s.live/engine/v4 v4.13.12 h1:GYdIPlvwkS57DbZGvQxgMJIKL+hyYZpOv/8qNjGbY6E=
 m7s.live/engine/v4 v4.13.12/go.mod h1:cRR/WOZbPSAQfYxIHuCkj1YMg+C54CYlFpOJ88q+OG4=
-m7s.live/plugin/ps/v4 v4.1.2 h1:hprgVzAkiFDadV95bpd+FdFnPukdshkGlw6ge99JdxU=
-m7s.live/plugin/ps/v4 v4.1.2/go.mod h1:v59bPt1T+IxuRLRchQ+PwKkLxTRuEY4tbo13lNX6JPc=
+m7s.live/plugin/ps/v4 v4.1.3 h1:Lbvu3ZlX/s3w9lcOwF0SCOCvxtxongPexCIn6x4yukw=
+m7s.live/plugin/ps/v4 v4.1.3/go.mod h1:RAb507iNmPG43I5kUA6ewF1fTRHDRsKbIVkIdLdKeeI=
