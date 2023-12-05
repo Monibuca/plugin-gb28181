@@ -234,7 +234,7 @@ func (d *Device) deleteChannel(DeviceID string) {
 
 func (d *Device) UpdateChannels(list ...ChannelInfo) {
 	for _, c := range list {
-		if _, ok := conf.Ignores[c.DeviceID]; ok {
+		if _, ok := conf.ignores[c.DeviceID]; ok {
 			continue
 		}
 		//当父设备非空且存在时、父设备节点增加通道
