@@ -73,7 +73,7 @@ func (p *PullStream) Pause() int {
 	body := fmt.Sprintf(`PAUSE RTSP/1.0
 CSeq: %d
 PauseTime: now
-`, p.channel.device.sn)
+`, p.channel.device.SN)
 	return p.info(body)
 }
 
@@ -83,7 +83,7 @@ func (p *PullStream) Resume() int {
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Range: npt=now-
-`, d.sn)
+`, d.SN)
 	return p.info(body)
 }
 
@@ -94,7 +94,7 @@ func (p *PullStream) PlayAt(second uint) int {
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Range: npt=%d-
-`, d.sn, second)
+`, d.SN, second)
 	return p.info(body)
 }
 
@@ -105,7 +105,7 @@ func (p *PullStream) PlayForward(speed float32) int {
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Scale: %0.6f
-`, d.sn, speed)
+`, d.SN, speed)
 	return p.info(body)
 }
 
@@ -172,13 +172,13 @@ const (
 
 func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
 	d := channel.device
-	d.sn++
+	d.SN++
 
 	callId := sip.CallID(utils.RandNumString(10))
 	userAgent := sip.UserAgentHeader("Monibuca")
 	maxForwards := sip.MaxForwards(70) //增加max-forwards为默认值 70
 	cseq := sip.CSeq{
-		SeqNo:      uint32(d.sn),
+		SeqNo:      uint32(d.SN),
 		MethodName: Method,
 	}
 	port := sip.Port(conf.SipPort)
@@ -186,7 +186,7 @@ func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request)
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
 		Uri: &sip.SipUri{
 			FUser: sip.String{Str: conf.Serial},
-			FHost: d.sipIP,
+			FHost: d.SipIP,
 			FPort: &port,
 		},
 		Params: sip.NewParams().Add("tag", sip.String{Str: utils.RandNumString(9)}),
@@ -247,10 +247,10 @@ func (channel *Channel) QueryRecord(startTime, endTime string) ([]*Record, error
 	// 	</Query>`, d.sn, channel.DeviceID, startTime, endTime)
 	start, _ := strconv.ParseInt(startTime, 10, 0)
 	end, _ := strconv.ParseInt(endTime, 10, 0)
-	body := BuildRecordInfoXML(d.sn, channel.DeviceID, start, end)
+	body := BuildRecordInfoXML(d.SN, channel.DeviceID, start, end)
 	request.SetBody(body, true)
 
-	resultCh := RecordQueryLink.WaitResult(d.ID, channel.DeviceID, d.sn, QUERY_RECORD_TIMEOUT)
+	resultCh := RecordQueryLink.WaitResult(d.ID, channel.DeviceID, d.SN, QUERY_RECORD_TIMEOUT)
 	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %s", err)
@@ -275,7 +275,7 @@ func (channel *Channel) Control(PTZCmd string) int {
 		<SN>%d</SN>
 		<DeviceID>%s</DeviceID>
 		<PTZCmd>%s</PTZCmd>
-		</Control>`, d.sn, channel.DeviceID, PTZCmd)
+		</Control>`, d.SN, channel.DeviceID, PTZCmd)
 	request.SetBody(body, true)
 	resp, err := d.SipRequestForResponse(request)
 	if err != nil {
@@ -394,10 +394,10 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 
 	sdpInfo := []string{
 		"v=0",
-		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.mediaIP),
+		fmt.Sprintf("o=%s 0 0 IN IP4 %s", channel.DeviceID, d.MediaIP),
 		"s=" + s,
 		"u=" + channel.DeviceID + ":0",
-		"c=IN IP4 " + d.mediaIP,
+		"c=IN IP4 " + d.MediaIP,
 		opt.String(),
 		fmt.Sprintf("m=video %d %sRTP/AVP 96", opt.MediaPort, protocol),
 		"a=recvonly",
