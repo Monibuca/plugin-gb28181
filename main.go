@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ghettovoice/gosip/sip"
 	myip "github.com/husanpao/ip"
 	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
@@ -19,13 +20,13 @@ type GB28181PositionConfig struct {
 }
 
 type GB28181Config struct {
-	InviteMode int    `default:"1" desc:"拉流模式" enum:"0:手动拉流,1:预拉流,2:按需拉流"` //邀请模式，0:手动拉流，1:预拉流，2:按需拉流
-	InviteIDs  string `desc:"允许邀请的设备类型（ 11～13位是设备类型编码）,逗号分割"`              //按照国标gb28181协议允许邀请的设备类型:132 摄像机 NVR
-	ListenAddr string `default:"0.0.0.0" desc:"监听IP地址"`                    //监听地址
+	InviteMode int    `default:"1" desc:"拉流模式" enum:"0:手动拉流,1:预拉流,2:按需拉流"`      //邀请模式，0:手动拉流，1:预拉流，2:按需拉流
+	InviteIDs  string `default:"131,132" desc:"允许邀请的设备类型（ 11～13位是设备类型编码）,逗号分割"` //按照国标gb28181协议允许邀请的设备类型:132 摄像机 NVR
+	ListenAddr string `default:"0.0.0.0" desc:"监听IP地址"`                         //监听地址
 	//sip服务器的配置
 	SipNetwork string   `default:"udp"  desc:"废弃，请使用 Port"`               //传输协议，默认UDP，可选TCP
 	SipIP      string   `desc:"sip 服务IP地址"`                               //sip 服务器公网IP
-	SipPort    uint16   `default:"5060" desc:"废弃，请使用 Port"`               //sip 服务器端口，默认 5060
+	SipPort    sip.Port `default:"5060" desc:"废弃，请使用 Port"`               //sip 服务器端口，默认 5060
 	Serial     string   `default:"34020000002000000001" desc:"sip 服务 id"` //sip 服务器 id, 默认 34020000002000000001
 	Realm      string   `default:"3402000000" desc:"sip 服务域"`             //sip 服务器域，默认 3402000000
 	Username   string   `desc:"sip 服务账号"`                                 //sip 服务器账号
@@ -56,6 +57,8 @@ type GB28181Config struct {
 
 }
 
+var SipUri *sip.SipUri
+
 func (c *GB28181Config) initRoutes() {
 	c.routes = make(map[string]string)
 	tempIps := myip.LocalAndInternalIPs()
@@ -74,7 +77,7 @@ func (c *GB28181Config) OnEvent(event any) {
 		if c.Port.Sip != "udp:5060" {
 			protocol, ports := util.Conf2Listener(c.Port.Sip)
 			c.SipNetwork = protocol
-			c.SipPort = ports[0]
+			c.SipPort = sip.Port(ports[0])
 		}
 		if c.Port.Media != "tcp:58200-59200" {
 			protocol, ports := util.Conf2Listener(c.Port.Media)
@@ -96,6 +99,11 @@ func (c *GB28181Config) OnEvent(event any) {
 		}
 		os.MkdirAll(c.DumpPath, 0766)
 		c.ReadDevices()
+		SipUri = &sip.SipUri{
+			FUser: sip.String{Str: c.Serial},
+			FHost: c.SipIP,
+			FPort: &conf.SipPort,
+		}
 		go c.initRoutes()
 		c.startServer()
 	case InvitePublish:
