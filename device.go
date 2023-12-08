@@ -213,11 +213,11 @@ func (d *Device) addOrUpdateChannel(info ChannelInfo) (c *Channel) {
 		c.ChannelInfo = info
 	} else {
 		c = &Channel{
-			device:      d,
+			Device:      d,
 			ChannelInfo: info,
 			Logger:      d.Logger.With(zap.String("channel", info.DeviceID)),
 		}
-		if s := engine.Streams.Get(fmt.Sprintf("%s/%s/rtsp", c.device.ID, c.DeviceID)); s != nil {
+		if s := engine.Streams.Get(fmt.Sprintf("%s/%s/rtsp", c.Device.ID, c.DeviceID)); s != nil {
 			c.LiveSubSP = s.Path
 		} else {
 			c.LiveSubSP = ""

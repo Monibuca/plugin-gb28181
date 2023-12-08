@@ -122,7 +122,7 @@ func (c *GB28181Config) API_invite(w http.ResponseWriter, r *http.Request) {
 	opt.Validate(startTime, endTime)
 	if c := FindChannel(id, channel); c == nil {
 		util.ReturnError(util.APIErrorNotFound, fmt.Sprintf("device %q channel %q not found", id, channel), w, r)
-	} else if opt.IsLive() && c.status.Load() > 0 {
+	} else if opt.IsLive() && c.State.Load() > 0 {
 		util.ReturnError(util.APIErrorQueryParse, "live stream already exists", w, r)
 	} else if code, err := c.Invite(&opt); err == nil {
 		if code == 200 {

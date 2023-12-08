@@ -40,9 +40,9 @@ func (p *PullStream) CreateRequest(method sip.RequestMethod) (req sip.Request) {
 
 func (p *PullStream) Bye() int {
 	req := p.CreateRequest(sip.BYE)
-	resp, err := p.channel.device.SipRequestForResponse(req)
+	resp, err := p.channel.Device.SipRequestForResponse(req)
 	if p.opt.IsLive() {
-		p.channel.status.Store(0)
+		p.channel.State.Store(0)
 	}
 	if p.opt.recyclePort != nil {
 		p.opt.recyclePort(p.opt.MediaPort)
@@ -54,7 +54,7 @@ func (p *PullStream) Bye() int {
 }
 
 func (p *PullStream) info(body string) int {
-	d := p.channel.device
+	d := p.channel.Device
 	req := p.CreateRequest(sip.INFO)
 	contentType := sip.ContentType("Application/MANSRTSP")
 	req.AppendHeader(&contentType)
@@ -73,13 +73,13 @@ func (p *PullStream) Pause() int {
 	body := fmt.Sprintf(`PAUSE RTSP/1.0
 CSeq: %d
 PauseTime: now
-`, p.channel.device.SN)
+`, p.channel.Device.SN)
 	return p.info(body)
 }
 
 // 恢复播放
 func (p *PullStream) Resume() int {
-	d := p.channel.device
+	d := p.channel.Device
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Range: npt=now-
@@ -90,7 +90,7 @@ Range: npt=now-
 // 跳转到播放时间
 // second: 相对于起始点调整到第 sec 秒播放
 func (p *PullStream) PlayAt(second uint) int {
-	d := p.channel.device
+	d := p.channel.Device
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Range: npt=%d-
@@ -101,7 +101,7 @@ Range: npt=%d-
 // 快进/快退播放
 // speed 取值： 0.25 0.5 1 2 4 或者其对应的负数表示倒放
 func (p *PullStream) PlayForward(speed float32) int {
-	d := p.channel.device
+	d := p.channel.Device
 	body := fmt.Sprintf(`PLAY RTSP/1.0
 CSeq: %d
 Scale: %0.6f
@@ -110,8 +110,8 @@ Scale: %0.6f
 }
 
 type Channel struct {
-	device      *Device      // 所属设备
-	status      atomic.Int32 // 通道状态,0:空闲,1:正在invite,2:正在播放
+	Device      *Device      `json:"-" yaml:"-"` // 所属设备
+	State       atomic.Int32 `json:"-" yaml:"-"` // 通道状态,0:空闲,1:正在invite,2:正在播放/对讲
 	LiveSubSP   string       // 实时子码流，通过rtsp
 	GpsTime     time.Time    // gps时间
 	Longitude   string       // 经度
@@ -140,7 +140,7 @@ func (c *Channel) MarshalJSON() ([]byte, error) {
 		"Latitude":     c.Latitude,
 		"GpsTime":      c.GpsTime,
 		"LiveSubSP":    c.LiveSubSP,
-		"LiveStatus":   c.status.Load(),
+		"LiveStatus":   c.State.Load(),
 	}
 	return json.Marshal(m)
 }
@@ -171,7 +171,7 @@ const (
 )
 
 func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request) {
-	d := channel.device
+	d := channel.Device
 	d.SN++
 
 	callId := sip.CallID(utils.RandNumString(10))
@@ -231,7 +231,7 @@ func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request)
 }
 
 func (channel *Channel) QueryRecord(startTime, endTime string) ([]*Record, error) {
-	d := channel.device
+	d := channel.Device
 	request := d.CreateRequest(sip.MESSAGE)
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
@@ -265,7 +265,7 @@ func (channel *Channel) QueryRecord(startTime, endTime string) ([]*Record, error
 }
 
 func (channel *Channel) Control(PTZCmd string) int {
-	d := channel.device
+	d := channel.Device
 	request := d.CreateRequest(sip.MESSAGE)
 	contentType := sip.ContentType("Application/MANSCDP+xml")
 	request.AppendHeader(&contentType)
@@ -333,13 +333,13 @@ f字段中视、音频参数段之间不需空格分割。
 
 func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	if opt.IsLive() {
-		if !channel.status.CompareAndSwap(0, 1) {
+		if !channel.State.CompareAndSwap(0, 1) {
 			return 304, nil
 		}
 		defer func() {
 			if err != nil {
 				GB28181Plugin.Error("Invite", zap.Error(err))
-				channel.status.Store(0)
+				channel.State.Store(0)
 				if conf.InviteMode == 1 {
 					// 5秒后重试
 					time.AfterFunc(time.Second*5, func() {
@@ -347,11 +347,11 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 					})
 				}
 			} else {
-				channel.status.Store(2)
+				channel.State.Store(2)
 			}
 		}()
 	}
-	d := channel.device
+	d := channel.Device
 	streamPath := fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	s := "Play"
 	opt.CreateSSRC()
@@ -472,7 +472,7 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 }
 
 func (channel *Channel) Bye(streamPath string) int {
-	d := channel.device
+	d := channel.Device
 	if streamPath == "" {
 		streamPath = fmt.Sprintf("%s/%s", d.ID, channel.DeviceID)
 	}
@@ -538,7 +538,7 @@ func (channel *Channel) TryAutoInvite(opt *InviteOptions) {
 }
 
 func (channel *Channel) CanInvite() bool {
-	if channel.status.Load() != 0 || len(channel.DeviceID) != 20 || channel.Status == ChannelOffStatus {
+	if channel.State.Load() != 0 || len(channel.DeviceID) != 20 || channel.Status == ChannelOffStatus {
 		return false
 	}
 
