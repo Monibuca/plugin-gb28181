@@ -361,6 +361,8 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	}
 	if opt.StreamPath != "" {
 		streamPath = opt.StreamPath
+	} else if channel.DeviceID == "" {
+		streamPath = "gb28181/" + d.ID
 	} else {
 		opt.StreamPath = streamPath
 	}
