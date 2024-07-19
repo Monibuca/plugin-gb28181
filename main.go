@@ -32,8 +32,9 @@ type GB28181Config struct {
 	Username   string   `desc:"sip 服务账号"`                                 //sip 服务器账号
 	Password   string   `desc:"sip 服务密码"`                                 //sip 服务器密码
 	Port       struct { // 新配置方式
-		Sip   string `default:"udp:5060" desc:"sip服务端口号"`
-		Media string `default:"tcp:58200-59200" desc:"媒体服务端口号"`
+		Sip       string `default:"udp:5060" desc:"sip服务端口号"`
+		Media     string `default:"tcp:58200-59200" desc:"媒体服务端口号"`
+		ReusePort bool   `default:"false" desc:"是否端口复用"`
 	}
 	RegisterValidity  time.Duration `default:"3600s" desc:"注册有效期"` //注册有效期，单位秒，默认 3600
 	HeartbeatInterval time.Duration `default:"60s" desc:"心跳间隔"`    //心跳间隔，单位秒，默认 60

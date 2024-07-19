@@ -371,26 +371,27 @@ func (channel *Channel) Invite(opt *InviteOptions) (code int, err error) {
 	}
 	protocol := ""
 	networkType := "udp"
-	reusePort := true
+	// 端口多用复用 配置项内
+	reusePort := conf.Port.ReusePort
 	if conf.IsMediaNetworkTCP() {
 		networkType = "tcp"
 		protocol = "TCP/"
 		if conf.tcpPorts.Valid {
 			opt.MediaPort, err = conf.tcpPorts.GetPort()
 			opt.recyclePort = conf.tcpPorts.Recycle
-			reusePort = false
 		}
 	} else {
 		if conf.udpPorts.Valid {
 			opt.MediaPort, err = conf.udpPorts.GetPort()
 			opt.recyclePort = conf.udpPorts.Recycle
-			reusePort = false
 		}
 	}
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 	if opt.MediaPort == 0 {
+		// 单端口 只能多路复用
+		reusePort = true
 		opt.MediaPort = conf.MediaPort
 	}
 

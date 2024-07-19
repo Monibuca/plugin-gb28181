@@ -3,15 +3,19 @@ package gb28181
 import (
 	"errors"
 )
+
 var ErrNoAvailablePorts = errors.New("no available ports")
+
 type PortManager struct {
 	recycle chan uint16
+	start   uint16
 	max     uint16
 	pos     uint16
 	Valid   bool
 }
 
 func (pm *PortManager) Init(start, end uint16) {
+	pm.start = start
 	pm.pos = start - 1
 	pm.max = end
 	if pm.pos > 0 && pm.max > pm.pos {
@@ -43,7 +47,12 @@ func (pm *PortManager) GetPort() (p uint16, err error) {
 			p = pm.pos
 			return
 		} else {
-			return 0, ErrNoAvailablePorts
+			if conf.Port.ReusePort == false {
+				return 0, ErrNoAvailablePorts
+			}
+			pm.pos = pm.start - 1
+			p = pm.pos
+			return
 		}
 	}
 }
