@@ -27,6 +27,8 @@ type GB28181Config struct {
 	SipNetwork string   `default:"udp"  desc:"废弃，请使用 Port"`               //传输协议，默认UDP，可选TCP
 	SipIP      string   `desc:"sip 服务IP地址"`                               //sip 服务器公网IP
 	SipPort    sip.Port `default:"5060" desc:"废弃，请使用 Port"`               //sip 服务器端口，默认 5060
+	SipPortMin uint16   `default:"5060" desc:"废弃，请使用 SipPortMin"`         //sip 服务器端口，默认 5060
+	SipPortMax uint16   `default:"5070" desc:"废弃，请使用 SipPortMan"`         //sip 服务器端口，默认 5070
 	Serial     string   `default:"34020000002000000001" desc:"sip 服务 id"` //sip 服务器 id, 默认 34020000002000000001
 	Realm      string   `default:"3402000000" desc:"sip 服务域"`             //sip 服务器域，默认 3402000000
 	Username   string   `desc:"sip 服务账号"`                                 //sip 服务器账号
@@ -53,12 +55,11 @@ type GB28181Config struct {
 	ignores           map[string]struct{}
 	tcpPorts          PortManager
 	udpPorts          PortManager
+	SipPorts          PortManager
 
 	Position GB28181PositionConfig //关于定位的配置参数
 
 }
-
-var SipUri *sip.SipUri
 
 func (c *GB28181Config) initRoutes() {
 	c.routes = make(map[string]string)
@@ -78,7 +79,16 @@ func (c *GB28181Config) OnEvent(event any) {
 		if c.Port.Sip != "udp:5060" {
 			protocol, ports := util.Conf2Listener(c.Port.Sip)
 			c.SipNetwork = protocol
-			c.SipPort = sip.Port(ports[0])
+			if len(ports) > 1 {
+				c.SipPortMin = ports[0]
+				c.SipPortMax = ports[1]
+				c.SipPort = 0
+			} else {
+				c.MediaPortMin = 0
+				c.MediaPortMax = 0
+				c.SipPort = sip.Port(ports[0])
+			}
+
 		}
 		if c.Port.Media != "tcp:58200-59200" {
 			protocol, ports := util.Conf2Listener(c.Port.Media)
@@ -86,6 +96,7 @@ func (c *GB28181Config) OnEvent(event any) {
 			if len(ports) > 1 {
 				c.MediaPortMin = ports[0]
 				c.MediaPortMax = ports[1]
+				c.MediaPort = 0
 			} else {
 				c.MediaPortMin = 0
 				c.MediaPortMax = 0
@@ -100,11 +111,7 @@ func (c *GB28181Config) OnEvent(event any) {
 		}
 		os.MkdirAll(c.DumpPath, 0766)
 		c.ReadDevices()
-		SipUri = &sip.SipUri{
-			FUser: sip.String{Str: c.Serial},
-			FHost: c.SipIP,
-			FPort: &conf.SipPort,
-		}
+
 		go c.initRoutes()
 		c.startServer()
 	case InvitePublish:

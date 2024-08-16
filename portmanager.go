@@ -56,3 +56,32 @@ func (pm *PortManager) GetPort() (p uint16, err error) {
 		}
 	}
 }
+
+// 专门用于获取SipPort 完全复用端口
+func (pm *PortManager) GetSipPort() (p uint16) {
+	select {
+	case p = <-pm.recycle:
+		return
+	default:
+		if pm.Range() > 0 {
+			pm.pos++
+			p = pm.pos
+			return
+		} else {
+			pm.pos = pm.start - 1
+			p = pm.pos
+			return
+		}
+	}
+}
+
+// 获取全部端口
+func (pm *PortManager) GetAllPort() (ports []uint16) {
+
+	for i := 0; i < int(pm.max-pm.start)+1; i++ {
+
+		ports = append(ports, pm.start+uint16(i))
+	}
+
+	return
+}

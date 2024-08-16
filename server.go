@@ -56,7 +56,14 @@ func CreateRequest(exposedId string, Method sip.RequestMethod, recipient *sip.Ad
 		SeqNo:      uint32(sn),
 		MethodName: Method,
 	}
-	port := sip.Port(conf.SipPort)
+
+	var port sip.Port
+	if conf.SipPort == 0 {
+		port = sip.Port(conf.SipPorts.GetSipPort())
+	} else {
+		port = conf.SipPort
+	}
+
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.config.Serial},
 		Uri: &sip.SipUri{
@@ -116,7 +123,6 @@ func RequestForResponse(transport string, request sip.Request,
 }
 
 func (c *GB28181Config) startServer() {
-	addr := c.ListenAddr + ":" + strconv.Itoa(int(c.SipPort))
 
 	logger := utils.NewZapLogger(GB28181Plugin.Logger, "GB SIP Server", nil)
 	logger.SetLevel(uint32(levelMap[EngineConfig.LogLevel]))
@@ -130,11 +136,35 @@ func (c *GB28181Config) startServer() {
 	srv.OnRequest(sip.MESSAGE, c.OnMessage)
 	srv.OnRequest(sip.NOTIFY, c.OnNotify)
 	srv.OnRequest(sip.BYE, c.OnBye)
-	err := srv.Listen(strings.ToLower(c.SipNetwork), addr)
-	if err != nil {
-		GB28181Plugin.Logger.Error("gb28181 server listen", zap.Error(err))
+
+	// 判断是否开启多个端口 接收SIP
+	if c.SipPort == 0 {
+		// 初始化 SipPorts 端口
+		c.SipPorts.Init(c.SipPortMin, c.SipPortMax)
+
+		sipAllPorts := c.SipPorts.GetAllPort()
+
+		// 开启所有sip监听端口
+		for _, port := range sipAllPorts {
+			addr := c.ListenAddr + ":" + strconv.Itoa(int(port))
+			err := srv.Listen(strings.ToLower(c.SipNetwork), addr)
+			if err != nil {
+				GB28181Plugin.Logger.Error("gb28181 server listen", zap.Error(err))
+			} else {
+				GB28181Plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
+			}
+		}
+
 	} else {
-		GB28181Plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
+
+		// 监听单个sip端口
+		addr := c.ListenAddr + ":" + strconv.Itoa(int(c.SipPort))
+		err := srv.Listen(strings.ToLower(c.SipNetwork), addr)
+		if err != nil {
+			GB28181Plugin.Logger.Error("gb28181 server listen", zap.Error(err))
+		} else {
+			GB28181Plugin.Info(fmt.Sprint(aurora.Green("Server gb28181 start at"), aurora.BrightBlue(addr)))
+		}
 	}
 
 	if c.MediaNetwork == "tcp" {

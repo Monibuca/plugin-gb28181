@@ -181,7 +181,14 @@ func (channel *Channel) CreateRequst(Method sip.RequestMethod) (req sip.Request)
 		SeqNo:      uint32(d.SN),
 		MethodName: Method,
 	}
-	port := sip.Port(conf.SipPort)
+
+	var port sip.Port
+	if conf.SipPort == 0 {
+		port = sip.Port(conf.SipPorts.GetSipPort())
+	} else {
+		port = conf.SipPort
+	}
+
 	serverAddr := sip.Address{
 		//DisplayName: sip.String{Str: d.serverConfig.Serial},
 		Uri: &sip.SipUri{
