@@ -1,11 +1,11 @@
 module github.com/Monibuca/plugin-gb28181/v3
 
-go 1.13
+go 1.16
 
 require (
 	github.com/Monibuca/engine/v3 v3.5.0
 	github.com/Monibuca/utils/v3 v3.0.5
-	github.com/agiledragon/gomonkey/v2 v2.2.0
+	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/pion/rtp v1.7.4

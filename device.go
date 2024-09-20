@@ -2,6 +2,7 @@ package gb28181
 
 import (
 	"fmt"
+	"github.com/Monibuca/engine/v3"
 	"log"
 	"net"
 	"net/http"
@@ -241,7 +242,7 @@ func (d *Device) Catalog() int {
 func (d *Device) QueryDeviceInfo(req *sip.Request) {
 	for i := time.Duration(5); i < 100; i++ {
 
-		Printf("device.QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr)
+		fmt.Printf("device.QueryDeviceInfo:%s ipaddr:%s", d.ID, d.Addr)
 		time.Sleep(time.Second * i)
 		requestMsg := d.CreateMessage(sip.MESSAGE)
 		requestMsg.ContentType = "Application/MANSCDP+xml"
@@ -256,7 +257,7 @@ func (d *Device) QueryDeviceInfo(req *sip.Request) {
 				d.SipIP = response.Via.Params["received"]
 			}
 			if response.GetStatusCode() != 200 {
-				Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
+				fmt.Printf("device %s send Catalog : %d\n", d.ID, response.GetStatusCode())
 			} else {
 				d.Subscribe()
 				break
